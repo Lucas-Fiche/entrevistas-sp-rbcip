@@ -26,6 +26,22 @@ Os dois formulários são quase idênticos: compartilham os blocos de avaliaçã
 (Blocos 1 a 4 + observação final) e diferem apenas na seção de **Elegibilidade**.
 Por isso, a parte comum é definida uma única vez em `forms-schema.js`.
 
+## Funcionalidades
+
+- **Pontuação automática do candidato** (para ranquear no dashboard). O bloco de
+  *Elegibilidade* não pontua. Somam pontos:
+  - Bloco 1 (STAR): 6 notas de 1 a 5 → até **30 pontos**;
+  - "Adequado/Inadequado" (Blocos 2 e 3): 1 ponto para cada "Adequado" → até **5**;
+  - "Sim/Não" do Conflito de Interesses: 1 ponto para "Sim" → até **1**;
+  - **Total máximo: 36 pontos**, exibido ao vivo enquanto se preenche.
+- **Rascunho automático:** o formulário é salvo no navegador a cada alteração e
+  recuperado se a página for fechada/recarregada, evitando perda de dados.
+- **Marcadores de saída rápida:** ao marcar *"candidato faltante"* ou *"não cumpre
+  requisitos"*, as seções não aplicáveis são ocultadas e a validação se ajusta.
+- **Entrevistador por lista** (Christiane Borges, Fabiola Seabra, Luiz Rocha),
+  mantendo o dado padronizado. Edite a lista `ENTREVISTADORES` em `forms-schema.js`.
+- **Data da entrevista** já vem preenchida com a data atual.
+
 ## Como configurar o Supabase
 
 1. Crie um projeto em <https://app.supabase.com>.
@@ -73,6 +89,8 @@ Cada envio grava uma linha na tabela `entrevistas`:
 | `nao_compareceu`        | Marcado como candidato faltante                        |
 | `nao_cumpre_requisitos` | Marcado como reprovado por requisitos                  |
 | `recomendacao`          | Recomendação final                                     |
+| `pontuacao_total`       | Pontuação obtida (para ranking)                        |
+| `pontuacao_maxima`      | Pontuação máxima possível (36)                         |
 | `respostas`             | JSON com **todas** as respostas do formulário          |
 
 Manter os campos principais em colunas próprias (além do JSON) facilita o

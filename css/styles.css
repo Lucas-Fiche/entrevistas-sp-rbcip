@@ -252,7 +252,8 @@ a {
 /* ---------- Campos ---------- */
 input[type="text"],
 input[type="date"],
-textarea {
+textarea,
+.campo-select {
   width: 100%;
   font-family: inherit;
   font-size: 15px;
@@ -263,9 +264,15 @@ textarea {
   background: var(--cor-branco);
 }
 
+.campo-select {
+  cursor: pointer;
+  max-width: 320px;
+}
+
 input[type="text"]:focus,
 input[type="date"]:focus,
-textarea:focus {
+textarea:focus,
+.campo-select:focus {
   outline: none;
   border-color: var(--cor-primaria);
   box-shadow: 0 0 0 2px var(--cor-primaria-clara);
@@ -374,9 +381,39 @@ textarea {
   cursor: pointer;
 }
 
+/* ---------- Pontuação ---------- */
+.score-box {
+  margin-top: 20px;
+  background: var(--cor-primaria-clara);
+  border: 1px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  padding: 14px 18px;
+  font-size: 16px;
+  color: var(--cor-primaria-escura);
+}
+
+.score-box__valor {
+  font-size: 20px;
+}
+
+.score-box__max {
+  color: var(--cor-texto-suave);
+}
+
+/* Botão de descartar rascunho (dentro do banner) */
+.link-descartar {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--cor-primaria);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* ---------- Rodapé / envio ---------- */
 .form-rodape {
-  margin-top: 24px;
+  margin-top: 16px;
   display: flex;
   align-items: center;
   gap: 16px;

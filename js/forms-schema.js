@@ -24,7 +24,12 @@ const LEGENDA_STAR =
   "3 ou 4 = Resposta aceitável/Parcial; 5 = Resposta excelente/Exemplar.";
 
 const OPCOES_SIM_NAO = ["Sim", "Não"];
-const OPCOES_APTO = ["Apto", "Não Apto"];
+// Avaliação das competências éticas/comportamentais.
+// A primeira opção ("Adequado") vale 1 ponto; a segunda vale 0.
+const OPCOES_APTO = ["Adequado", "Inadequado"];
+
+// Entrevistadores responsáveis pelas entrevistas.
+const ENTREVISTADORES = ["Christiane Borges", "Fabiola Seabra", "Luiz Rocha"];
 const OPCOES_RECOMENDACAO = [
   "Aprovado - Forte Recomendação",
   "Aprovado - Recomendação",
@@ -36,6 +41,7 @@ const OPCOES_RECOMENDACAO = [
 function secaoIdentificacao() {
   return {
     titulo: "Identificação",
+    chave: "identificacao",
     perguntas: [
       { id: "nome_candidato", tipo: "texto", label: "Nome do Candidato", obrigatorio: true },
       {
@@ -44,7 +50,13 @@ function secaoIdentificacao() {
         label: "Data da Entrevista",
         obrigatorio: true,
       },
-      { id: "nome_entrevistador", tipo: "texto", label: "Nome do Entrevistador", obrigatorio: true },
+      {
+        id: "nome_entrevistador",
+        tipo: "select",
+        label: "Nome do Entrevistador",
+        opcoes: ENTREVISTADORES,
+        obrigatorio: true,
+      },
       {
         id: "nao_compareceu",
         tipo: "flag",
@@ -62,6 +74,7 @@ function secaoIdentificacao() {
 function secaoAvaliador() {
   return {
     titulo: "Perfil Avaliador (Entrevistador)",
+    chave: "avaliador",
     perguntas: [
       // ---------- Bloco 1 ----------
       {
@@ -220,6 +233,7 @@ function secaoAvaliador() {
 function secaoEnvio() {
   return {
     titulo: "Enviar Formulário",
+    chave: "envio",
     perguntas: [
       {
         id: "observacao_adicional",
@@ -253,6 +267,7 @@ const FORM_CAPITAL = {
     secaoIdentificacao(),
     {
       titulo: "Elegibilidade e Disponibilidade",
+      chave: "elegibilidade",
       descricao: "Confirmar os requisitos básicos e logísticos, conforme o Formulário de Inscrição.",
       perguntas: [
         {
@@ -310,6 +325,7 @@ const FORM_INTERIOR = {
     secaoIdentificacao(),
     {
       titulo: "Elegibilidade e Disponibilidade",
+      chave: "elegibilidade",
       descricao: "Confirmar os requisitos básicos e logísticos, conforme o Formulário de Inscrição.",
       perguntas: [
         {

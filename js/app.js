@@ -1,5 +1,5 @@
 /**
- * Renderizador dos formulários + validação + envio ao Supabase.
+ * Renderizador dos formulários + validação + pontuação + autosave + envio.
  * Depende de: config.js, forms-schema.js e (opcional) do SDK do Supabase.
  */
 (function () {
@@ -24,9 +24,22 @@
     });
     return node;
   }
-
   function getParam(nome) {
     return new URLSearchParams(window.location.search).get(nome);
+  }
+  function hojeISO() {
+    var d = new Date();
+    return (
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0")
+    );
+  }
+  function escaparSeletor(valor) {
+    if (window.CSS && CSS.escape) return CSS.escape(valor);
+    return String(valor).replace(/["\\]/g, "\\$&");
   }
 
   // ---------- Estado do Supabase ----------
@@ -39,7 +52,6 @@
 
   // ---------- Renderização de perguntas ----------
   function renderCampo(p) {
-    // Campo dentro de um wrapper .pergunta, exceto títulos de bloco.
     if (p.tipo === "titulo-bloco") {
       var bloco = el("div", { class: "pergunta" });
       bloco.appendChild(el("h3", { class: "pergunta__label", text: p.label }));
@@ -68,9 +80,11 @@
       case "texto":
         return el("input", { type: "text", id: "campo_" + p.id, name: p.id });
       case "data":
-        return el("input", { type: "date", id: "campo_" + p.id, name: p.id });
+        return el("input", { type: "date", id: "campo_" + p.id, name: p.id, max: hojeISO() });
       case "textarea":
         return el("textarea", { id: "campo_" + p.id, name: p.id, rows: "4" });
+      case "select":
+        return renderSelect(p);
       case "radio":
         return renderRadio(p);
       case "escala":
@@ -80,6 +94,15 @@
       default:
         return el("div");
     }
+  }
+
+  function renderSelect(p) {
+    var sel = el("select", { class: "campo-select", id: "campo_" + p.id, name: p.id });
+    sel.appendChild(el("option", { value: "", text: "Selecione..." }));
+    p.opcoes.forEach(function (opt) {
+      sel.appendChild(el("option", { value: opt, text: opt }));
+    });
+    return sel;
   }
 
   function renderRadio(p) {
@@ -101,10 +124,7 @@
     var pontos = el("div", { class: "escala__pontos" });
     for (var n = 1; n <= 5; n++) {
       var input = el("input", { type: "radio", name: p.id, value: String(n), id: p.id + "_" + n });
-      var ponto = el("label", { class: "escala__ponto" }, [
-        el("span", { text: String(n) }),
-        input,
-      ]);
+      var ponto = el("label", { class: "escala__ponto" }, [el("span", { text: String(n) }), input]);
       pontos.appendChild(ponto);
     }
     linha.appendChild(pontos);
@@ -119,7 +139,7 @@
   }
 
   function renderSecao(secao) {
-    var frag = el("section", { class: "secao" });
+    var frag = el("section", { class: "secao", "data-chave": secao.chave || "" });
     var cab = el("div", { class: "secao__cabecalho" });
     cab.appendChild(el("h2", { class: "secao__titulo", text: secao.titulo }));
     if (secao.descricao) cab.appendChild(el("p", { class: "secao__descricao", text: secao.descricao }));
@@ -143,6 +163,21 @@
     return campo ? campo.value.trim() : "";
   }
 
+  function aplicarValor(form, p, val) {
+    if (p.tipo === "flag") {
+      var chk = form.querySelector('[name="' + p.id + '"]');
+      if (chk) chk.checked = Boolean(val);
+    } else if (p.tipo === "radio" || p.tipo === "escala") {
+      if (val !== "" && val !== null && val !== undefined) {
+        var input = form.querySelector('[name="' + p.id + '"][value="' + escaparSeletor(val) + '"]');
+        if (input) input.checked = true;
+      }
+    } else {
+      var campo = form.querySelector('[name="' + p.id + '"]');
+      if (campo) campo.value = val;
+    }
+  }
+
   function todasPerguntas(schema) {
     var lista = [];
     schema.secoes.forEach(function (s) {
@@ -153,28 +188,111 @@
     return lista;
   }
 
+  // ---------- Pontuação ----------
+  // Regras (o bloco de Elegibilidade NÃO pontua):
+  //  - escala (STAR): soma o valor de 1 a 5;
+  //  - radio de 2 opções (Adequado/Inadequado, Sim/Não): 1 ponto se marcar a 1ª opção.
+  //  - radio de 4 opções (Recomendação Final) não pontua.
+  function calcularPontuacao(schema, form) {
+    var total = 0;
+    var maximo = 0;
+    schema.secoes.forEach(function (s) {
+      if (s.chave === "elegibilidade") return;
+      s.perguntas.forEach(function (p) {
+        if (p.tipo === "escala") {
+          maximo += 5;
+          var v = lerValor(form, p);
+          if (v) total += Number(v);
+        } else if (p.tipo === "radio" && p.opcoes && p.opcoes.length === 2) {
+          maximo += 1;
+          var r = lerValor(form, p);
+          if (r && r === p.opcoes[0]) total += 1;
+        }
+      });
+    });
+    return { total: total, maximo: maximo };
+  }
+
+  // ---------- Colapso conforme marcadores ----------
+  function estaFaltante(form) {
+    return form.querySelector('[name="nao_compareceu"]').checked;
+  }
+  function estaReprovado(form) {
+    var c = form.querySelector('[name="nao_cumpre_requisitos"]');
+    return c ? c.checked : false;
+  }
+  function toggleSecao(form, chave, mostrar) {
+    var s = form.querySelector('.secao[data-chave="' + chave + '"]');
+    if (s) s.classList.toggle("oculto", !mostrar);
+  }
+  function aplicarColapso(form) {
+    var faltante = estaFaltante(form);
+    var reprovado = estaReprovado(form);
+    toggleSecao(form, "elegibilidade", !faltante);
+    toggleSecao(form, "avaliador", !(faltante || reprovado));
+    var box = $("#score-box");
+    if (box) box.classList.toggle("oculto", faltante || reprovado);
+  }
+
+  // ---------- Autosave (rascunho) ----------
+  function chaveRascunho(schema) {
+    return "rascunho_" + schema.id;
+  }
+  function salvarRascunho(form, schema) {
+    var dados = {};
+    todasPerguntas(schema).forEach(function (p) {
+      dados[p.id] = lerValor(form, p);
+    });
+    try {
+      localStorage.setItem(chaveRascunho(schema), JSON.stringify({ dados: dados, ts: Date.now() }));
+    } catch (e) {
+      /* ignora limite de armazenamento */
+    }
+  }
+  function limparRascunho(schema) {
+    try {
+      localStorage.removeItem(chaveRascunho(schema));
+    } catch (e) {}
+  }
+  function restaurarRascunho(form, schema) {
+    var raw;
+    try {
+      raw = localStorage.getItem(chaveRascunho(schema));
+    } catch (e) {
+      return false;
+    }
+    if (!raw) return false;
+    var obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch (e) {
+      return false;
+    }
+    var dados = obj.dados || {};
+    var temAlgo = false;
+    todasPerguntas(schema).forEach(function (p) {
+      if (!(p.id in dados)) return;
+      if (dados[p.id] !== "" && dados[p.id] !== false) temAlgo = true;
+      aplicarValor(form, p, dados[p.id]);
+    });
+    return temAlgo;
+  }
+
   // ---------- Validação ----------
-  // Regras de saída antecipada:
-  //  - "não compareceu": exige apenas identificação básica.
-  //  - "não cumpre requisitos": exige identificação + elegibilidade (não os blocos de avaliação).
   function validar(form, schema) {
-    var faltante = form.querySelector('[name="nao_compareceu"]').checked;
-    var reprovado = form.querySelector('[name="nao_cumpre_requisitos"]').checked;
+    var faltante = estaFaltante(form);
+    var reprovado = estaReprovado(form);
 
     limparErros(form);
     var invalidos = [];
 
     todasPerguntas(schema).forEach(function (p) {
       if (!p.obrigatorio) return;
-
-      // Aplica as regras de saída antecipada.
       if (faltante && !ehIdentificacao(p)) return;
       if (reprovado && ehAvaliacao(p, schema)) return;
 
       var valor = lerValor(form, p);
-      if (valor === "" || valor === null) {
-        invalidos.push(p);
-      }
+      if (valor === "" || valor === null) invalidos.push(p);
     });
 
     invalidos.forEach(function (p) {
@@ -188,16 +306,12 @@
   function ehIdentificacao(p) {
     return ["nome_candidato", "data_entrevista", "nome_entrevistador"].indexOf(p.id) !== -1;
   }
-
-  // Perguntas que pertencem à seção "Perfil Avaliador" (blocos de avaliação).
   function ehAvaliacao(p, schema) {
     var secaoAval = schema.secoes.filter(function (s) {
-      return s.titulo === "Perfil Avaliador (Entrevistador)";
+      return s.chave === "avaliador";
     })[0];
-    if (!secaoAval) return false;
-    return secaoAval.perguntas.indexOf(p) !== -1;
+    return secaoAval ? secaoAval.perguntas.indexOf(p) !== -1 : false;
   }
-
   function limparErros(form) {
     Array.prototype.forEach.call(form.querySelectorAll(".pergunta--erro"), function (n) {
       n.classList.remove("pergunta--erro");
@@ -210,6 +324,9 @@
     todasPerguntas(schema).forEach(function (p) {
       respostas[p.id] = lerValor(form, p);
     });
+    // Candidato faltante ou reprovado não é pontuado (fora do ranking).
+    var avaliado = !respostas.nao_compareceu && !respostas.nao_cumpre_requisitos;
+    var pont = calcularPontuacao(schema, form);
 
     return {
       tipo: schema.id,
@@ -220,6 +337,8 @@
       nao_compareceu: Boolean(respostas.nao_compareceu),
       nao_cumpre_requisitos: Boolean(respostas.nao_cumpre_requisitos),
       recomendacao: respostas.recomendacao_final || null,
+      pontuacao_total: avaliado ? pont.total : null,
+      pontuacao_maxima: avaliado ? pont.maximo : null,
       respostas: respostas,
     };
   }
@@ -235,7 +354,6 @@
           return { modo: "supabase" };
         });
     }
-    // Modo de teste: guarda no navegador.
     return new Promise(function (resolve) {
       var chave = "entrevistas_teste";
       var atual = JSON.parse(localStorage.getItem(chave) || "[]");
@@ -248,7 +366,7 @@
   }
 
   // ---------- Tela de sucesso ----------
-  function mostrarSucesso(container, schema, modo) {
+  function mostrarSucesso(container, modo) {
     var acoes = el("div", { class: "sucesso__acoes" });
     var novo = el("button", { class: "btn", type: "button", text: "Registrar outra entrevista" });
     novo.addEventListener("click", function () {
@@ -299,6 +417,10 @@
     header.appendChild(el("p", { class: "form-header__obrigatorio", text: "* Indica uma pergunta obrigatória" }));
     container.appendChild(header);
 
+    // Banner de rascunho (preenchido depois, se houver)
+    var bannerRascunho = el("div", { class: "banner banner--aviso oculto", id: "banner-rascunho" });
+    container.appendChild(bannerRascunho);
+
     // Aviso de modo de teste
     if (!supabaseConfigurado) {
       container.appendChild(
@@ -317,21 +439,68 @@
       form.appendChild(renderSecao(s));
     });
 
-    // Rodapé com botão
+    // Rodapé: pontuação + botão + erro geral
+    var scoreBox = el("div", { class: "score-box", id: "score-box" }, [
+      el("span", { class: "score-box__rotulo", text: "Pontuação do candidato: " }),
+      el("strong", { class: "score-box__valor", id: "score-valor", text: "0" }),
+      el("span", { class: "score-box__max", id: "score-max", text: " / 0" }),
+    ]);
     var msgErro = el("div", { class: "banner banner--erro oculto", id: "erro-geral" });
     var botao = el("button", { class: "btn", type: "submit", text: "Enviar" });
     var rodape = el("div", { class: "form-rodape" }, [botao]);
+
+    form.appendChild(scoreBox);
     form.appendChild(msgErro);
     form.appendChild(rodape);
     container.appendChild(form);
 
+    // ----- Valores iniciais -----
+    // 1) data pré-preenchida com hoje
+    var campoData = form.querySelector('[name="data_entrevista"]');
+    if (campoData && !campoData.value) campoData.value = hojeISO();
+
+    // 2) restaura rascunho, se houver
+    var temRascunho = restaurarRascunho(form, schema);
+    if (temRascunho) {
+      bannerRascunho.textContent = "Rascunho recuperado automaticamente. ";
+      var descartar = el("button", { type: "button", class: "link-descartar", text: "Descartar rascunho" });
+      descartar.addEventListener("click", function () {
+        limparRascunho(schema);
+        window.location.reload();
+      });
+      bannerRascunho.appendChild(descartar);
+      bannerRascunho.classList.remove("oculto");
+    }
+
+    // ----- Estado dinâmico -----
+    function atualizarScore() {
+      var r = calcularPontuacao(schema, form);
+      var v = $("#score-valor");
+      var m = $("#score-max");
+      if (v) v.textContent = String(r.total);
+      if (m) m.textContent = " / " + r.maximo;
+    }
+
+    function aoAlterar() {
+      aplicarColapso(form);
+      atualizarScore();
+      salvarRascunho(form, schema);
+    }
+    form.addEventListener("input", aoAlterar);
+    form.addEventListener("change", aoAlterar);
+
+    aplicarColapso(form);
+    atualizarScore();
+
+    // ----- Envio -----
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var invalidos = validar(form, schema);
       var erroGeral = $("#erro-geral");
 
       if (invalidos.length > 0) {
-        erroGeral.textContent = "Existem " + invalidos.length + " campo(s) obrigatório(s) não preenchido(s). Verifique os itens destacados.";
+        erroGeral.textContent =
+          "Existem " + invalidos.length + " campo(s) obrigatório(s) não preenchido(s). Verifique os itens destacados.";
         erroGeral.classList.remove("oculto");
         var primeiro = form.querySelector(".pergunta--erro");
         if (primeiro) primeiro.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -344,13 +513,15 @@
 
       enviar(montarRegistro(form, schema))
         .then(function (resultado) {
-          mostrarSucesso(container, schema, resultado.modo);
+          limparRascunho(schema);
+          mostrarSucesso(container, resultado.modo);
         })
         .catch(function (err) {
           console.error(err);
           botao.disabled = false;
           botao.textContent = "Enviar";
-          erroGeral.textContent = "Não foi possível enviar o formulário: " + (err.message || err) + ". Tente novamente.";
+          erroGeral.textContent =
+            "Não foi possível enviar o formulário: " + (err.message || err) + ". Tente novamente.";
           erroGeral.classList.remove("oculto");
           erroGeral.scrollIntoView({ behavior: "smooth", block: "center" });
         });

@@ -14,13 +14,22 @@ create table if not exists public.entrevistas (
   nao_compareceu        boolean not null default false,
   nao_cumpre_requisitos boolean not null default false,
   recomendacao          text,
+  -- Pontuação do candidato (bloco de Elegibilidade não pontua).
+  pontuacao_total       integer,
+  pontuacao_maxima      integer,
   -- Todas as respostas do formulário (inclui os campos promovidos acima).
   respostas             jsonb not null default '{}'::jsonb
 );
 
--- Índices úteis para o dashboard (filtros por tipo e ordenação por data).
+-- Caso a tabela já exista de uma versão anterior, garante as colunas novas.
+alter table public.entrevistas add column if not exists perfil text;
+alter table public.entrevistas add column if not exists pontuacao_total integer;
+alter table public.entrevistas add column if not exists pontuacao_maxima integer;
+
+-- Índices úteis para o dashboard (filtros por tipo, ordenação por data e ranking).
 create index if not exists entrevistas_tipo_idx on public.entrevistas (tipo);
 create index if not exists entrevistas_created_at_idx on public.entrevistas (created_at desc);
+create index if not exists entrevistas_pontuacao_idx on public.entrevistas (pontuacao_total desc);
 
 -- ------------------------------------------------------------
 --  Row Level Security (RLS)
