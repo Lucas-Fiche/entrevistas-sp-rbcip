@@ -252,6 +252,30 @@ function secaoAvaliador() {
   };
 }
 
+/**
+ * Box informativo (recolhível) exibido antes do bloco Perfil Avaliador.
+ * Comum aos dois formulários.
+ */
+function secaoInformativa() {
+  return {
+    chave: "informativo",
+    perguntas: [
+      {
+        tipo: "info",
+        titulo: "Informações sobre Remuneração",
+        paragrafos: [
+          "A bolsa fixa tem o valor de R$ 2.740,00 e corresponde aos 30 dias do mês. Já o auxílio financeiro pode chegar a R$ 1.260,00, considerando o limite de 21 dias úteis, no valor de R$ 60,00 por dia trabalhado em campo.",
+          { sub: "Mas como funciona?" },
+          "Se a pessoa permaneceu vinculada durante todo o mês, ela recebe o valor integral da bolsa fixa, ou seja, R$ 2.740,00. Além disso, recebe também o valor variável referente às atividades realizadas em campo.",
+          "Por exemplo: se, no mês, a pessoa realizou 10 visitas em campo, receberá 10 x R$ 60,00 = R$ 600,00 de auxílio financeiro.",
+          "Assim, nesse exemplo, o valor mensal total será:",
+          { destaque: "R$ 2.740,00 + R$ 600,00 = R$ 3.340,00" },
+        ],
+      },
+    ],
+  };
+}
+
 /** Seção final comum (observação adicional, opcional). */
 function secaoEnvio() {
   return {
@@ -331,6 +355,7 @@ const FORM_CAPITAL = {
         flagNaoCumpreRequisitos(),
       ],
     },
+    secaoInformativa(),
     secaoAvaliador(),
     secaoEnvio(),
   ],
@@ -386,6 +411,7 @@ const FORM_INTERIOR = {
         flagNaoCumpreRequisitos(),
       ],
     },
+    secaoInformativa(),
     secaoAvaliador(),
     secaoEnvio(),
   ],

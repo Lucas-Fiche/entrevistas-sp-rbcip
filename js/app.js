@@ -60,6 +60,8 @@
       return bloco;
     }
 
+    if (p.tipo === "info") return renderInfo(p);
+
     var wrap = el("div", { class: "pergunta", "data-id": p.id });
 
     var label = el("label", { class: "pergunta__label", for: "campo_" + p.id });
@@ -116,6 +118,27 @@
     return grupo;
   }
 
+  function renderInfo(p) {
+    var det = el("details", { class: "infobox" });
+    var sum = el("summary", { class: "infobox__titulo" });
+    sum.appendChild(el("span", { class: "infobox__icone", text: "i" }));
+    sum.appendChild(el("span", { class: "infobox__rotulo", text: p.titulo }));
+    det.appendChild(sum);
+
+    var corpo = el("div", { class: "infobox__corpo" });
+    (p.paragrafos || []).forEach(function (item) {
+      if (typeof item === "string") {
+        corpo.appendChild(el("p", { class: "infobox__p", text: item }));
+      } else if (item.sub) {
+        corpo.appendChild(el("p", { class: "infobox__sub", text: item.sub }));
+      } else if (item.destaque) {
+        corpo.appendChild(el("div", { class: "infobox__total", text: item.destaque }));
+      }
+    });
+    det.appendChild(corpo);
+    return det;
+  }
+
   function renderRubrica(itens) {
     var ul = el("ul", { class: "rubrica" });
     itens.forEach(function (it) {
@@ -154,10 +177,12 @@
 
   function renderSecao(secao) {
     var frag = el("section", { class: "secao", "data-chave": secao.chave || "" });
-    var cab = el("div", { class: "secao__cabecalho" });
-    cab.appendChild(el("h2", { class: "secao__titulo", text: secao.titulo }));
-    if (secao.descricao) cab.appendChild(el("p", { class: "secao__descricao", text: secao.descricao }));
-    frag.appendChild(cab);
+    if (secao.titulo) {
+      var cab = el("div", { class: "secao__cabecalho" });
+      cab.appendChild(el("h2", { class: "secao__titulo", text: secao.titulo }));
+      if (secao.descricao) cab.appendChild(el("p", { class: "secao__descricao", text: secao.descricao }));
+      frag.appendChild(cab);
+    }
     secao.perguntas.forEach(function (p) {
       frag.appendChild(renderCampo(p));
     });
@@ -243,6 +268,7 @@
     var faltante = estaFaltante(form);
     var reprovado = estaReprovado(form);
     toggleSecao(form, "elegibilidade", !faltante);
+    toggleSecao(form, "informativo", !(faltante || reprovado));
     toggleSecao(form, "avaliador", !(faltante || reprovado));
     var box = $("#score-box");
     if (box) box.classList.toggle("oculto", faltante || reprovado);

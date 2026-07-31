@@ -410,6 +410,88 @@ textarea {
   cursor: pointer;
 }
 
+/* ---------- Box informativo (recolhível) ---------- */
+.infobox {
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+
+.infobox__titulo {
+  cursor: pointer;
+  padding: 16px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cor-primaria-escura);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  user-select: none;
+}
+
+.infobox__titulo::-webkit-details-marker {
+  display: none;
+}
+
+.infobox__titulo::after {
+  content: "▸";
+  margin-left: auto;
+  color: var(--cor-texto-suave);
+  transition: transform 0.15s ease;
+}
+
+.infobox[open] .infobox__titulo::after {
+  transform: rotate(90deg);
+}
+
+.infobox__icone {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cor-primaria-clara);
+  color: var(--cor-primaria);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-style: italic;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+}
+
+.infobox__corpo {
+  padding: 4px 20px 20px;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.infobox__p {
+  margin: 12px 0 0;
+  font-size: 15px;
+  color: var(--cor-texto);
+}
+
+.infobox__sub {
+  margin: 16px 0 0;
+  font-weight: 700;
+  color: var(--cor-primaria-escura);
+}
+
+.infobox__total {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  background: var(--cor-primaria-clara);
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--cor-primaria-escura);
+  text-align: center;
+}
+
 /* ---------- Pontuação ---------- */
 .score-box {
   margin-top: 20px;
