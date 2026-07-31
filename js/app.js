@@ -56,6 +56,7 @@
       var bloco = el("div", { class: "pergunta" });
       bloco.appendChild(el("h3", { class: "pergunta__label", text: p.label }));
       if (p.ajuda) bloco.appendChild(el("p", { class: "pergunta__ajuda", text: p.ajuda }));
+      if (p.rubrica) bloco.appendChild(renderRubrica(p.rubrica));
       return bloco;
     }
 
@@ -115,20 +116,33 @@
     return grupo;
   }
 
+  function renderRubrica(itens) {
+    var ul = el("ul", { class: "rubrica" });
+    itens.forEach(function (it) {
+      ul.appendChild(
+        el("li", { class: "rubrica__item" }, [
+          el("span", { class: "rubrica__nota", text: it.nota }),
+          el("span", { class: "rubrica__desc", text: it.desc }),
+        ])
+      );
+    });
+    return ul;
+  }
+
   function renderEscala(p) {
     var box = el("div", { class: "escala", id: "campo_" + p.id });
-    box.appendChild(el("p", { class: "escala__legenda", text: LEGENDA_STAR }));
     var linha = el("div", { class: "escala__linha" });
-    linha.appendChild(el("span", { class: "escala__extremo", text: "Não" }));
+    linha.appendChild(el("span", { class: "escala__extremo", text: "Não se aplica" }));
 
     var pontos = el("div", { class: "escala__pontos" });
     for (var n = 1; n <= 5; n++) {
-      var input = el("input", { type: "radio", name: p.id, value: String(n), id: p.id + "_" + n });
-      var ponto = el("label", { class: "escala__ponto" }, [el("span", { text: String(n) }), input]);
+      var desc = typeof DESC_NOTA !== "undefined" ? DESC_NOTA[n] || "" : "";
+      var input = el("input", { type: "radio", name: p.id, value: String(n), id: p.id + "_" + n, title: desc });
+      var ponto = el("label", { class: "escala__ponto", title: desc }, [el("span", { text: String(n) }), input]);
       pontos.appendChild(ponto);
     }
     linha.appendChild(pontos);
-    linha.appendChild(el("span", { class: "escala__extremo escala__extremo--dir", text: "Excelente/Exemplar" }));
+    linha.appendChild(el("span", { class: "escala__extremo escala__extremo--dir", text: "Excelente" }));
     box.appendChild(linha);
     return box;
   }

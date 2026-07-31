@@ -19,9 +19,22 @@
  *   - "titulo-bloco": apenas um subtítulo dentro da seção (não é resposta)
  */
 
-const LEGENDA_STAR =
-  "Pontuação: 1 = Não se aplica/Não respondeu; 2 = Resposta fraca/Superficial; " +
-  "3 ou 4 = Resposta aceitável/Parcial; 5 = Resposta excelente/Exemplar.";
+// Régua de pontuação STAR (exibida uma única vez, no cabeçalho do Bloco 1).
+const RUBRICA_STAR = [
+  { nota: "1", desc: "Não se aplica / Não respondeu" },
+  { nota: "2", desc: "Resposta fraca / Superficial" },
+  { nota: "3–4", desc: "Resposta aceitável / Parcial" },
+  { nota: "5", desc: "Resposta excelente / Exemplar" },
+];
+
+// Descrição de cada nota (usada como dica/tooltip no seletor 1 a 5).
+const DESC_NOTA = {
+  1: "Não se aplica / Não respondeu",
+  2: "Resposta fraca / Superficial",
+  3: "Resposta aceitável / Parcial",
+  4: "Resposta aceitável / Parcial",
+  5: "Resposta excelente / Exemplar",
+};
 
 const OPCOES_SIM_NAO = ["Sim", "Não"];
 // Avaliação das competências éticas/comportamentais.
@@ -81,8 +94,8 @@ function secaoAvaliador() {
         tipo: "titulo-bloco",
         label: "Bloco 1: Competências Técnicas e Comportamentais - STAR",
         ajuda:
-          "Avaliar a experiência e as competências essenciais para a função de Avaliador (Entrevistador). " +
-          LEGENDA_STAR,
+          "Avaliar a experiência e as competências essenciais para a função de Avaliador (Entrevistador). Pontue de 1 a 5 em cada item:",
+        rubrica: RUBRICA_STAR,
       },
       {
         id: "exp_entrevistas",

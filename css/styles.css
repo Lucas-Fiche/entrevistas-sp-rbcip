@@ -312,10 +312,39 @@ textarea {
   padding: 14px;
 }
 
-.escala__legenda {
+/* Rubrica de pontuação (exibida uma vez, no cabeçalho do Bloco 1) */
+.rubrica {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  background: var(--cor-primaria-clara);
+  border-radius: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px 16px;
+}
+
+.rubrica__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--cor-texto);
+}
+
+.rubrica__nota {
+  flex: none;
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: var(--cor-primaria);
+  color: var(--cor-branco);
+  font-weight: 700;
   font-size: 12px;
-  color: var(--cor-texto-suave);
-  margin: 0 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .escala__linha {
