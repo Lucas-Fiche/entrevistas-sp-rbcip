@@ -7,7 +7,11 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div class="faixa-topo"></div>
+  <header class="brand-bar">
+    <img class="brand-bar__logo" src="assets/logo-rbcip.png" alt="RBCIP — pesquisa e inovação"
+         onerror="this.style.display='none';this.parentNode.querySelector('.brand-bar__texto').style.display='inline-flex';" />
+    <span class="brand-bar__texto">RBCIP <small>pesquisa e inovação</small></span>
+  </header>
   <main class="container" id="app"></main>
 
   <!-- SDK do Supabase (carregado do CDN). Se não configurado, o formulário

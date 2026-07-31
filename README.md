@@ -45,6 +45,22 @@ Por isso, a parte comum é definida uma única vez em `forms-schema.js`.
   mantendo o dado padronizado. Edite a lista `ENTREVISTADORES` em `forms-schema.js`.
 - **Data da entrevista** já vem preenchida com a data atual.
 
+## Identidade visual
+
+As cores ficam centralizadas em variáveis CSS no topo de `css/styles.css`
+(`--cor-primaria`, `--cor-secundaria`, `--cor-roxo` etc.) — mudar a paleta é
+editar esses valores. Paleta atual da RBCIP:
+
+| Cor | Uso |
+|-----|-----|
+| `#004e6b` | Primária (cabeçalhos, botões, destaques) |
+| `#2f166e` | Roxo (degradê da marca, Interior) |
+| `#308ead` | Azul secundário |
+| `#ffffff` | Branco |
+
+A **logo** entra em `assets/logo-rbcip.png` (veja `assets/README.md`). Enquanto
+o arquivo não existir, um texto "RBCIP — pesquisa e inovação" aparece no lugar.
+
 ## Como configurar o Supabase
 
 1. Crie um projeto em <https://app.supabase.com>.

@@ -1,11 +1,13 @@
 :root {
-  --cor-primaria: #8a1f2b;      /* vinho RBCIP */
-  --cor-primaria-escura: #6f1822;
-  --cor-primaria-clara: #f6e9ea;
-  --cor-texto: #202124;
-  --cor-texto-suave: #5f6368;
-  --cor-borda: #dadce0;
-  --cor-fundo: #f0ebf0;
+  --cor-primaria: #004e6b;      /* azul-petróleo RBCIP */
+  --cor-primaria-escura: #003a50;
+  --cor-primaria-clara: #e6eff3;
+  --cor-secundaria: #308ead;    /* azul claro */
+  --cor-roxo: #2f166e;          /* roxo */
+  --cor-texto: #1c2530;
+  --cor-texto-suave: #5c6b78;
+  --cor-borda: #d5dee3;
+  --cor-fundo: #eef2f5;
   --cor-branco: #ffffff;
   --cor-erro: #d93025;
   --cor-sucesso: #188038;
@@ -43,7 +45,44 @@ a {
 /* ---------- Barra de topo com faixa colorida ---------- */
 .faixa-topo {
   height: 10px;
-  background: var(--cor-primaria);
+  background: linear-gradient(90deg, var(--cor-primaria), var(--cor-roxo));
+}
+
+/* ---------- Barra de marca (logo) ---------- */
+.brand-bar {
+  background: linear-gradient(90deg, var(--cor-primaria) 0%, var(--cor-roxo) 100%);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  min-height: 60px;
+}
+
+.brand-bar--centro {
+  justify-content: center;
+}
+
+.brand-bar__logo {
+  height: 40px;
+  width: auto;
+  display: block;
+}
+
+.brand-bar__texto {
+  display: none; /* mostrado só se a logo não carregar */
+  align-items: baseline;
+  gap: 8px;
+  color: var(--cor-branco);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.brand-bar__texto small {
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 1px;
+  opacity: 0.85;
+  text-transform: lowercase;
 }
 
 /* ---------- Página inicial ---------- */
@@ -116,6 +155,15 @@ a {
   font-size: 24px;
   font-weight: 700;
   margin: 0 auto 16px;
+}
+
+.card__icone--roxo {
+  background: #ece7f5;
+  color: var(--cor-roxo);
+}
+
+.card--roxo:hover {
+  border-color: var(--cor-roxo);
 }
 
 .card__titulo {

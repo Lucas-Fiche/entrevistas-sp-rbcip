@@ -7,7 +7,11 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <div class="faixa-topo"></div>
+  <header class="brand-bar brand-bar--centro">
+    <img class="brand-bar__logo" src="assets/logo-rbcip.png" alt="RBCIP — pesquisa e inovação"
+         onerror="this.style.display='none';this.parentNode.querySelector('.brand-bar__texto').style.display='inline-flex';" />
+    <span class="brand-bar__texto">RBCIP <small>pesquisa e inovação</small></span>
+  </header>
   <main class="home">
     <p class="home__marca">Processo Seletivo RBCIP</p>
     <h1 class="home__titulo">Formulário de Entrevista Estruturada</h1>
@@ -23,8 +27,8 @@
         <p class="card__desc">Entrevista para candidatos da região central de São Paulo.</p>
       </a>
 
-      <a class="card" href="formulario.html?tipo=interior">
-        <div class="card__icone">I</div>
+      <a class="card card--roxo" href="formulario.html?tipo=interior">
+        <div class="card__icone card__icone--roxo">I</div>
         <p class="card__titulo">Interior</p>
         <p class="card__desc">Entrevista para candidatos do interior do estado.</p>
       </a>

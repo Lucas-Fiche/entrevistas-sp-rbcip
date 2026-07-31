@@ -190,7 +190,7 @@
 .tabela__th {
   text-align: left;
   padding: 12px 14px;
-  background: #faf7f8;
+  background: #f2f6f8;
   color: var(--cor-texto);
   font-weight: 600;
   white-space: nowrap;
@@ -202,7 +202,7 @@
 .tabela__th:hover { background: var(--cor-primaria-clara); }
 .tabela__th--num, .tabela__td--num { text-align: center; }
 
-.tabela__tr:nth-child(even) { background: #fcfbfb; }
+.tabela__tr:nth-child(even) { background: #f7fafb; }
 .tabela__tr:hover { background: var(--cor-primaria-clara); }
 
 .tabela__td {
@@ -312,7 +312,7 @@
 }
 .barra__trilho {
   flex: 1;
-  background: #f0ecec;
+  background: #e6eef1;
   border-radius: 6px;
   height: 20px;
   overflow: hidden;
