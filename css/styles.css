@@ -144,17 +144,20 @@ a {
 }
 
 .card__icone {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: var(--cor-primaria-clara);
   color: var(--cor-primaria);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  font-weight: 700;
   margin: 0 auto 16px;
+}
+
+.card__icone svg {
+  width: 32px;
+  height: 32px;
 }
 
 .card__icone--roxo {
