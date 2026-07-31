@@ -60,6 +60,19 @@
   margin-top: 22px;
 }
 
+.login__voltar {
+  display: block;
+  text-align: center;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--cor-primaria);
+  text-decoration: none;
+}
+
+.login__voltar:hover {
+  text-decoration: underline;
+}
+
 /* ---------- Estrutura do dashboard ---------- */
 .dash {
   max-width: 1100px;
