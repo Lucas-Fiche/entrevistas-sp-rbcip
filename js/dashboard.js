@@ -65,6 +65,47 @@
     { chave: "registro", titulo: "Registrado em", valor: function (r) { return formatarDataHora(r.created_at); }, ord: function (r) { return r.created_at || ""; } },
   ];
 
+  // ---------- Geografia (mapa de regiões) ----------
+  // Coordenadas (lon, lat) da cidade-polo de cada região. As chaves precisam
+  // ser idênticas aos valores do droplist "Região" do formulário do Interior.
+  var REGIOES = {
+    "Itapeva (região)": { lon: -48.87, lat: -23.98 },
+    "Marília (região)": { lon: -49.95, lat: -22.21 },
+    "Campinas (região)": { lon: -47.06, lat: -22.90 },
+    "Sorocaba (região)": { lon: -47.46, lat: -23.50 },
+    "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17 },
+    "Piracicaba (região)": { lon: -47.65, lat: -22.72 },
+    "São José dos Campos / Vale do Paraíba": { lon: -45.88, lat: -23.18 },
+    "Franca (região)": { lon: -47.40, lat: -20.54 },
+    "Bauru (região)": { lon: -49.06, lat: -22.31 },
+    "Americana (região)": { lon: -47.33, lat: -22.74 },
+    "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96 },
+    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13 },
+    "Araçatuba (região)": { lon: -50.43, lat: -21.21 },
+    "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82 },
+  };
+
+  // Contorno aproximado do estado de São Paulo (lon, lat), só para dar contexto.
+  var CONTORNO_SP = [
+    [-51.0, -20.0], [-49.0, -20.2], [-47.2, -20.3], [-46.3, -21.2], [-45.0, -22.0],
+    [-44.2, -22.4], [-44.9, -23.0], [-45.9, -23.8], [-46.4, -24.0], [-47.9, -24.7],
+    [-48.5, -25.2], [-49.4, -24.4], [-50.4, -24.0], [-51.8, -22.9], [-52.9, -22.5],
+    [-53.1, -21.5], [-52.0, -20.6],
+  ];
+
+  var MAPA = { W: 760, H: 444, m: 18, lonMin: -53.1, lonMax: -44.2, latMin: -25.2, latMax: -20.0 };
+  function projetar(lon, lat) {
+    return {
+      x: MAPA.m + ((lon - MAPA.lonMin) / (MAPA.lonMax - MAPA.lonMin)) * (MAPA.W - 2 * MAPA.m),
+      y: MAPA.m + ((MAPA.latMax - lat) / (MAPA.latMax - MAPA.latMin)) * (MAPA.H - 2 * MAPA.m),
+    };
+  }
+  function svgEl(tag, attrs) {
+    var n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+    return n;
+  }
+
   // ---------- Autenticação ----------
   function iniciarCliente() {
     if (!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY)) return false;
@@ -336,6 +377,48 @@
     return card;
   }
 
+  function renderMapa(contagem) {
+    var card = el("div", { class: "grafico mapa" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: "Inscritos por região (mapa)" }));
+
+    var maxN = 0;
+    Object.keys(REGIOES).forEach(function (nome) { maxN = Math.max(maxN, contagem[nome] || 0); });
+
+    var svg = svgEl("svg", { viewBox: "0 0 " + MAPA.W + " " + MAPA.H, class: "mapa__svg" });
+
+    var pts = CONTORNO_SP.map(function (c) { var p = projetar(c[0], c[1]); return p.x + "," + p.y; }).join(" ");
+    svg.appendChild(svgEl("polygon", { points: pts, class: "mapa__uf" }));
+
+    Object.keys(REGIOES).forEach(function (nome) {
+      var c = REGIOES[nome];
+      var p = projetar(c.lon, c.lat);
+      var n = contagem[nome] || 0;
+      var r = n > 0 ? 8 + (n / (maxN || 1)) * 18 : 4;
+      var g = svgEl("g", {});
+      var circ = svgEl("circle", { cx: p.x, cy: p.y, r: r, class: n > 0 ? "mapa__bola" : "mapa__bola--vazia" });
+      var titulo = svgEl("title", {});
+      titulo.textContent = nome + " — " + n + " inscrito" + (n === 1 ? "" : "s");
+      circ.appendChild(titulo);
+      g.appendChild(circ);
+      if (n > 0) {
+        var t = svgEl("text", { x: p.x, y: p.y, class: "mapa__num", "text-anchor": "middle", "dominant-baseline": "central" });
+        t.textContent = String(n);
+        g.appendChild(t);
+      }
+      svg.appendChild(g);
+    });
+
+    card.appendChild(svg);
+    var totalRegioes = Object.keys(contagem).reduce(function (s, k) { return s + contagem[k]; }, 0);
+    card.appendChild(el("p", {
+      class: "mapa__legenda",
+      text: totalRegioes === 0
+        ? "Nenhum inscrito com região informada ainda."
+        : "Passe o mouse sobre cada ponto para ver a região. O tamanho da bolha indica o número de inscritos.",
+    }));
+    return card;
+  }
+
   function contarPor(lista, fn) {
     var mapa = {};
     lista.forEach(function (r) {
@@ -381,7 +464,20 @@
     ]);
     painel.appendChild(stats);
 
+    // Contagem por região (formulário do Interior) + mapa
+    var contRegiao = contarPor(lista, function (r) { return r.respostas && r.respostas.regiao_atuacao; });
+    painel.appendChild(renderMapa(contRegiao));
+
     var grid = el("div", { class: "graficos" });
+
+    // Inscritos por região (barras) — ordenado do maior para o menor
+    var regioesOrdenadas = Object.keys(REGIOES)
+      .map(function (nome) { return { label: nome.replace(/ \(região\)$/, ""), valor: contRegiao[nome] || 0 }; })
+      .filter(function (d) { return d.valor > 0; })
+      .sort(function (a, b) { return b.valor - a.valor; });
+    if (regioesOrdenadas.length) {
+      grid.appendChild(graficoBarras("Inscritos por região", regioesOrdenadas));
+    }
 
     // Recomendações
     var ordemRec = ["Aprovado - Forte Recomendação", "Aprovado - Recomendação", "Aprovado - Recomendação com Ressalvas", "Reprovado"];

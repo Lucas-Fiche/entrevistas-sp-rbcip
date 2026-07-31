@@ -332,6 +332,46 @@
   color: var(--cor-primaria-escura);
 }
 
+/* ---------- Mapa de regiões ---------- */
+.mapa {
+  margin-bottom: 18px;
+}
+.mapa__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.mapa__uf {
+  fill: var(--cor-primaria-clara);
+  stroke: var(--cor-primaria);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+.mapa__bola {
+  fill: var(--cor-primaria);
+  fill-opacity: 0.8;
+  stroke: #fff;
+  stroke-width: 2;
+  cursor: pointer;
+}
+.mapa__bola:hover { fill-opacity: 1; }
+.mapa__bola--vazia {
+  fill: var(--cor-texto-suave);
+  fill-opacity: 0.35;
+  cursor: pointer;
+}
+.mapa__num {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.mapa__legenda {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
 /* ---------- Modal ---------- */
 .modal {
   position: fixed;

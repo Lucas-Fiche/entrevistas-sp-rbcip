@@ -109,6 +109,11 @@ O acesso é **restrito por login** (Supabase Auth): só usuários autenticados
 conseguem ler os dados. O público continua podendo apenas **inserir** pelo
 formulário.
 
+A aba **Visualização de dados** inclui, além dos indicadores e gráficos, um
+**mapa de São Paulo** com uma bolha por região de atuação (formulário do
+Interior), dimensionada pelo número de inscritos. As coordenadas das regiões
+ficam em `REGIOES` dentro de `js/dashboard.js`.
+
 ### Liberar a leitura para autenticados
 O `sql/schema.sql` já inclui a política de `select` para o papel `authenticated`.
 Se você rodou uma versão anterior do script, rode este trecho no SQL Editor:

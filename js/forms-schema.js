@@ -43,6 +43,24 @@ const OPCOES_APTO = ["Adequado", "Inadequado"];
 
 // Entrevistadores responsáveis pelas entrevistas.
 const ENTREVISTADORES = ["Christiane Borges", "Fabiola Seabra", "Luiz Rocha"];
+
+// Regiões de atuação (formulário do Interior).
+const REGIOES_INTERIOR = [
+  "Itapeva (região)",
+  "Marília (região)",
+  "Campinas (região)",
+  "Sorocaba (região)",
+  "Ribeirão Preto (região)",
+  "Piracicaba (região)",
+  "São José dos Campos / Vale do Paraíba",
+  "Franca (região)",
+  "Bauru (região)",
+  "Americana (região)",
+  "Baixada Santista (Santos / Praia Grande / Guarujá)",
+  "Presidente Prudente (região)",
+  "Araçatuba (região)",
+  "São José do Rio Preto (região)",
+];
 const OPCOES_RECOMENDACAO = [
   "Aprovado - Forte Recomendação",
   "Aprovado - Recomendação",
@@ -381,6 +399,14 @@ const FORM_INTERIOR = {
           tipo: "texto",
           label: "Residência",
           ajuda: "Em qual cidade o candidato reside?",
+          obrigatorio: true,
+        },
+        {
+          id: "regiao_atuacao",
+          tipo: "select",
+          label: "Região",
+          ajuda: "Em qual região o candidato irá atuar?",
+          opcoes: REGIOES_INTERIOR,
           obrigatorio: true,
         },
         {
