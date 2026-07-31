@@ -1,0 +1,402 @@
+/* ============================================================
+ *  Dashboard — estilos específicos (usa as variáveis de styles.css)
+ * ============================================================ */
+
+/* ---------- Login ---------- */
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.login__card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-top: 8px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 32px 28px;
+}
+
+.login__titulo {
+  font-size: 24px;
+  margin: 4px 0 4px;
+}
+
+.login__sub {
+  color: var(--cor-texto-suave);
+  margin: 0 0 24px;
+  font-size: 14px;
+}
+
+.login__label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}
+
+.login__input {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+}
+
+.login__input:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+
+.login__btn {
+  width: 100%;
+  margin-top: 22px;
+}
+
+/* ---------- Estrutura do dashboard ---------- */
+.dash {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 80px;
+}
+
+.dash__topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.dash__titulo {
+  margin: 0;
+  font-size: 26px;
+}
+
+.dash__sub {
+  margin: 2px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 14px;
+}
+
+.dash__usuario {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--cor-texto-suave);
+}
+
+.btn--pequeno {
+  padding: 7px 14px;
+  font-size: 13px;
+}
+
+.dash__carregando {
+  color: var(--cor-texto-suave);
+  padding: 24px 0;
+}
+
+/* ---------- Abas ---------- */
+.abas {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--cor-borda);
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.aba {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 15px;
+  padding: 12px 18px;
+  cursor: pointer;
+  color: var(--cor-texto-suave);
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aba:hover { color: var(--cor-texto); }
+
+.aba--ativa {
+  color: var(--cor-primaria);
+  font-weight: 600;
+  border-bottom-color: var(--cor-primaria);
+}
+
+.aba__contagem {
+  background: var(--cor-primaria-clara);
+  color: var(--cor-primaria);
+  border-radius: 10px;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* ---------- Barra de busca/filtro ---------- */
+.painel__barra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.painel__busca {
+  flex: 1;
+  min-width: 220px;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+}
+
+.painel__busca:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+
+/* ---------- Tabela ---------- */
+.tabela-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-branco);
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 720px;
+}
+
+.tabela__th {
+  text-align: left;
+  padding: 12px 14px;
+  background: #faf7f8;
+  color: var(--cor-texto);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 2px solid var(--cor-borda);
+}
+
+.tabela__th:hover { background: var(--cor-primaria-clara); }
+.tabela__th--num, .tabela__td--num { text-align: center; }
+
+.tabela__tr:nth-child(even) { background: #fcfbfb; }
+.tabela__tr:hover { background: var(--cor-primaria-clara); }
+
+.tabela__td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--cor-borda);
+  vertical-align: middle;
+}
+
+.vazio {
+  color: var(--cor-texto-suave);
+  padding: 24px;
+  text-align: center;
+}
+
+/* ---------- Tags de status ---------- */
+.tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tag--verde { background: #e6f4ea; color: var(--cor-sucesso); }
+.tag--vermelho { background: #fce8e6; color: var(--cor-erro); }
+.tag--cinza { background: #eef0f2; color: var(--cor-texto-suave); }
+
+/* ---------- Visualização de dados ---------- */
+.viz-filtro__rotulo { font-size: 14px; color: var(--cor-texto-suave); }
+
+.viz-filtro {
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  font: inherit;
+  font-size: 14px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: var(--cor-texto);
+}
+.viz-filtro--ativo {
+  background: var(--cor-primaria);
+  color: var(--cor-branco);
+  border-color: var(--cor-primaria);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.stat {
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  padding: 18px;
+  box-shadow: var(--sombra);
+}
+.stat__valor {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--cor-primaria-escura);
+  line-height: 1.1;
+}
+.stat__rotulo {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+}
+
+.graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.grafico {
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  padding: 20px;
+  box-shadow: var(--sombra);
+}
+.grafico__titulo {
+  margin: 0 0 16px;
+  font-size: 16px;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.barra__rotulo {
+  flex: none;
+  width: 130px;
+  font-size: 13px;
+  color: var(--cor-texto);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.barra__trilho {
+  flex: 1;
+  background: #f0ecec;
+  border-radius: 6px;
+  height: 20px;
+  overflow: hidden;
+}
+.barra__preench {
+  height: 100%;
+  min-width: 2px;
+  background: var(--cor-primaria);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+.barra__valor {
+  flex: none;
+  width: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cor-primaria-escura);
+}
+
+/* ---------- Modal ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal__fundo {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.modal__caixa {
+  position: relative;
+  background: var(--cor-branco);
+  border-radius: var(--raio);
+  max-width: 640px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 28px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+.modal__fechar {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--cor-texto-suave);
+}
+.modal__fechar:hover { color: var(--cor-texto); }
+.modal__titulo { margin: 0 0 4px; font-size: 22px; }
+.modal__meta { margin: 0 0 10px; color: var(--cor-texto-suave); font-size: 14px; }
+.modal__status { margin-bottom: 8px; }
+
+.detalhe { margin: 18px 0 0; }
+.detalhe__secao {
+  margin: 20px 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cor-primaria);
+  border-bottom: 1px solid var(--cor-borda);
+  padding-bottom: 4px;
+}
+.detalhe__pergunta {
+  margin: 12px 0 2px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.detalhe__resposta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--cor-texto);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 480px) {
+  .barra__rotulo { width: 90px; }
+}

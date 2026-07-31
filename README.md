@@ -12,12 +12,15 @@ sem framework, sem build, fácil de manter.
 .
 ├── index.html          # Página inicial: escolha entre Capital e Interior
 ├── formulario.html     # Página do formulário (?tipo=capital | ?tipo=interior)
+├── dashboard.html      # Dashboard (login + abas Capital/Interior/Dados)
 ├── css/
-│   └── styles.css      # Estilos
+│   ├── styles.css      # Estilos dos formulários e base
+│   └── dashboard.css   # Estilos do dashboard
 ├── js/
 │   ├── config.js       # Credenciais do Supabase (preencher)
 │   ├── forms-schema.js # Estrutura das perguntas dos dois formulários
-│   └── app.js          # Renderiza o formulário, valida e envia ao Supabase
+│   ├── app.js          # Renderiza o formulário, valida e envia ao Supabase
+│   └── dashboard.js    # Login, tabelas e gráficos do dashboard
 └── sql/
     └── schema.sql      # Criação da tabela + políticas de segurança (RLS)
 ```
@@ -96,7 +99,40 @@ Cada envio grava uma linha na tabela `entrevistas`:
 Manter os campos principais em colunas próprias (além do JSON) facilita o
 **dashboard** que será feito na próxima etapa.
 
+## Dashboard
+
+`dashboard.html` mostra as entrevistas em três abas: **Capital**, **Interior**
+(tabelas com busca, ordenação por coluna e detalhe de cada entrevista) e
+**Visualização de dados** (indicadores e gráficos).
+
+O acesso é **restrito por login** (Supabase Auth): só usuários autenticados
+conseguem ler os dados. O público continua podendo apenas **inserir** pelo
+formulário.
+
+### Liberar a leitura para autenticados
+O `sql/schema.sql` já inclui a política de `select` para o papel `authenticated`.
+Se você rodou uma versão anterior do script, rode este trecho no SQL Editor:
+
+```sql
+grant select on public.entrevistas to authenticated;
+
+drop policy if exists "entrevistas_select_auth" on public.entrevistas;
+create policy "entrevistas_select_auth"
+  on public.entrevistas for select to authenticated using (true);
+```
+
+### Criar o(s) usuário(s) de acesso
+No painel do Supabase:
+
+1. Menu **Authentication → Users → Add user** (*Create new user*).
+2. Informe **e-mail** e **senha** e marque **Auto Confirm User**.
+3. Repita para cada pessoa que terá acesso (ou crie um único login compartilhado).
+
+Recomendado: em **Authentication → Providers/Sign In → Email**, **desative
+"Allow new users to sign up"**, já que os usuários são criados manualmente.
+
+Pronto — acesse `dashboard.html`, faça login e os dados aparecem.
+
 ## Próximos passos
 
-- [ ] Página de **dashboard** para acompanhar as entrevistas/candidatos
-      (a tabela já guarda os campos necessários para isso).
+- [ ] (Opcional) Exportar entrevistas para CSV/Excel a partir do dashboard.

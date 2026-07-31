@@ -50,13 +50,14 @@ create policy "entrevistas_insert_anon"
   to anon
   with check (true);
 
--- Leitura (para o futuro dashboard): por segurança, NÃO liberamos leitura
--- para o papel anon. Use a chave "service_role" no back-end do dashboard,
--- ou crie usuários autenticados e uma política de select como abaixo:
---
--- drop policy if exists "entrevistas_select_auth" on public.entrevistas;
--- create policy "entrevistas_select_auth"
---   on public.entrevistas
---   for select
---   to authenticated
---   using (true);
+-- Leitura (para o dashboard): liberada APENAS para usuários autenticados
+-- (que fazem login via Supabase Auth). O público (anon) continua SEM acesso
+-- de leitura — só consegue inserir.
+grant select on public.entrevistas to authenticated;
+
+drop policy if exists "entrevistas_select_auth" on public.entrevistas;
+create policy "entrevistas_select_auth"
+  on public.entrevistas
+  for select
+  to authenticated
+  using (true);

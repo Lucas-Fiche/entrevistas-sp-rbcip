@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Entrevistas RBCIP</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+  <div class="faixa-topo"></div>
+
+  <!-- ---------- Tela de login ---------- -->
+  <main class="login oculto" id="login">
+    <form class="login__card" id="login-form">
+      <p class="home__marca">Processo Seletivo RBCIP</p>
+      <h1 class="login__titulo">Dashboard de Entrevistas</h1>
+      <p class="login__sub">Acesso restrito. Entre com suas credenciais.</p>
+
+      <label class="login__label" for="email">E-mail</label>
+      <input class="login__input" type="email" id="email" autocomplete="username" required />
+
+      <label class="login__label" for="senha">Senha</label>
+      <input class="login__input" type="password" id="senha" autocomplete="current-password" required />
+
+      <div class="banner banner--erro oculto" id="login-erro"></div>
+
+      <button class="btn login__btn" type="submit" id="login-btn">Entrar</button>
+    </form>
+  </main>
+
+  <!-- ---------- Dashboard ---------- -->
+  <main class="dash oculto" id="dashboard">
+    <header class="dash__topo">
+      <div>
+        <h1 class="dash__titulo">Dashboard de Entrevistas</h1>
+        <p class="dash__sub">Processo Seletivo RBCIP</p>
+      </div>
+      <div class="dash__usuario">
+        <span id="usuario-email"></span>
+        <button class="btn btn--secundario btn--pequeno" id="btn-atualizar" type="button">Atualizar</button>
+        <button class="btn btn--secundario btn--pequeno" id="btn-sair" type="button">Sair</button>
+      </div>
+    </header>
+
+    <nav class="abas" id="abas">
+      <button class="aba aba--ativa" data-aba="capital" type="button">Capital <span class="aba__contagem" id="cont-capital">0</span></button>
+      <button class="aba" data-aba="interior" type="button">Interior <span class="aba__contagem" id="cont-interior">0</span></button>
+      <button class="aba" data-aba="dados" type="button">Visualização de dados</button>
+    </nav>
+
+    <div class="banner banner--erro oculto" id="dash-erro"></div>
+    <div class="dash__carregando" id="carregando">Carregando entrevistas…</div>
+
+    <section class="painel" id="painel-capital"></section>
+    <section class="painel oculto" id="painel-interior"></section>
+    <section class="painel oculto" id="painel-dados"></section>
+  </main>
+
+  <!-- ---------- Modal de detalhes ---------- -->
+  <div class="modal oculto" id="modal">
+    <div class="modal__fundo" id="modal-fundo"></div>
+    <div class="modal__caixa" role="dialog" aria-modal="true">
+      <button class="modal__fechar" id="modal-fechar" type="button" aria-label="Fechar">×</button>
+      <div id="modal-conteudo"></div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/forms-schema.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>
