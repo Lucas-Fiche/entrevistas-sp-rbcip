@@ -348,6 +348,35 @@
 /* ---------- Mapa de regiões ---------- */
 .mapa {
   margin-bottom: 18px;
+  position: relative;
+}
+.mapa__bandeira {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 54px;
+  height: 36px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: var(--sombra);
+}
+.mapa__bandeira-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.mapa__label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--cor-primaria-escura);
+  pointer-events: none;
+}
+.mapa__label--vazio {
+  font-size: 10px;
+  font-weight: 400;
+  fill: var(--cor-texto-suave);
+  pointer-events: none;
 }
 .mapa__svg {
   width: 100%;

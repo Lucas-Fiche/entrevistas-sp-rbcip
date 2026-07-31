@@ -68,21 +68,22 @@
   // ---------- Geografia (mapa de regiões) ----------
   // Coordenadas (lon, lat) da cidade-polo de cada região. As chaves precisam
   // ser idênticas aos valores do droplist "Região" do formulário do Interior.
+  // curto = nome exibido ao lado da bolha; pos = lado do rótulo (evita sobreposição).
   var REGIOES = {
-    "Itapeva (região)": { lon: -48.87, lat: -23.98 },
-    "Marília (região)": { lon: -49.95, lat: -22.21 },
-    "Campinas (região)": { lon: -47.06, lat: -22.90 },
-    "Sorocaba (região)": { lon: -47.46, lat: -23.50 },
-    "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17 },
-    "Piracicaba (região)": { lon: -47.65, lat: -22.72 },
-    "São José dos Campos / Vale do Paraíba": { lon: -45.88, lat: -23.18 },
-    "Franca (região)": { lon: -47.40, lat: -20.54 },
-    "Bauru (região)": { lon: -49.06, lat: -22.31 },
-    "Americana (região)": { lon: -47.33, lat: -22.74 },
-    "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96 },
-    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13 },
-    "Araçatuba (região)": { lon: -50.43, lat: -21.21 },
-    "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82 },
+    "Itapeva (região)": { lon: -48.87, lat: -23.98, curto: "Itapeva", pos: "right" },
+    "Marília (região)": { lon: -49.95, lat: -22.21, curto: "Marília", pos: "left" },
+    "Campinas (região)": { lon: -47.06, lat: -22.90, curto: "Campinas", pos: "right" },
+    "Sorocaba (região)": { lon: -47.46, lat: -23.50, curto: "Sorocaba", pos: "bottom" },
+    "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17, curto: "Ribeirão Preto", pos: "right" },
+    "Piracicaba (região)": { lon: -47.65, lat: -22.72, curto: "Piracicaba", pos: "left" },
+    "São José dos Campos / Vale do Paraíba": { lon: -45.88, lat: -23.18, curto: "S.J. Campos / Vale", pos: "right" },
+    "Franca (região)": { lon: -47.40, lat: -20.54, curto: "Franca", pos: "right" },
+    "Bauru (região)": { lon: -49.06, lat: -22.31, curto: "Bauru", pos: "right" },
+    "Americana (região)": { lon: -47.33, lat: -22.74, curto: "Americana", pos: "top" },
+    "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96, curto: "Baixada Santista", pos: "right" },
+    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13, curto: "Pres. Prudente", pos: "right" },
+    "Araçatuba (região)": { lon: -50.43, lat: -21.21, curto: "Araçatuba", pos: "right" },
+    "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82, curto: "S.J. Rio Preto", pos: "right" },
   };
 
   // Contorno aproximado do estado de São Paulo (lon, lat), só para dar contexto.
@@ -377,9 +378,36 @@
     return card;
   }
 
+  function posRotulo(px, py, r, pos) {
+    switch (pos) {
+      case "left": return { x: px - r - 6, y: py, anchor: "end", baseline: "central" };
+      case "top": return { x: px, y: py - r - 6, anchor: "middle", baseline: "auto" };
+      case "bottom": return { x: px, y: py + r + 6, anchor: "middle", baseline: "hanging" };
+      default: return { x: px + r + 6, y: py, anchor: "start", baseline: "central" };
+    }
+  }
+
+  function bandeiraSP() {
+    var wrap = el("div", { class: "mapa__bandeira", title: "Estado de São Paulo" });
+    var f = svgEl("svg", { viewBox: "0 0 60 40", class: "mapa__bandeira-svg" });
+    var h = 40 / 13;
+    for (var i = 0; i < 13; i++) {
+      f.appendChild(svgEl("rect", { x: 0, y: (i * h).toFixed(3), width: 60, height: (h + 0.4).toFixed(3), fill: i % 2 === 0 ? "#ffffff" : "#000000" }));
+    }
+    f.appendChild(svgEl("rect", { x: 0, y: 0, width: 24, height: 15, fill: "#0039a6" }));
+    f.appendChild(svgEl("circle", { cx: 12, cy: 7.5, r: 5.2, fill: "#ffffff" }));
+    f.appendChild(svgEl("polygon", {
+      points: "12.2,4.6 13.4,5.2 13.8,6.5 13.3,7.7 13.7,8.7 13.0,9.9 12.1,10.6 11.3,9.7 10.8,8.4 11.0,7.0 10.6,5.8 11.4,5.0",
+      fill: "#c1121f",
+    }));
+    wrap.appendChild(f);
+    return wrap;
+  }
+
   function renderMapa(contagem) {
     var card = el("div", { class: "grafico mapa" });
     card.appendChild(el("h3", { class: "grafico__titulo", text: "Inscritos por região (mapa)" }));
+    card.appendChild(bandeiraSP());
 
     var maxN = 0;
     Object.keys(REGIOES).forEach(function (nome) { maxN = Math.max(maxN, contagem[nome] || 0); });
@@ -400,6 +428,18 @@
       titulo.textContent = nome + " — " + n + " inscrito" + (n === 1 ? "" : "s");
       circ.appendChild(titulo);
       g.appendChild(circ);
+
+      // Rótulo com o nome da região
+      var rot = posRotulo(p.x, p.y, r, c.pos);
+      var lab = svgEl("text", {
+        x: rot.x, y: rot.y,
+        class: n > 0 ? "mapa__label" : "mapa__label--vazio",
+        "text-anchor": rot.anchor,
+        "dominant-baseline": rot.baseline,
+      });
+      lab.textContent = c.curto;
+      g.appendChild(lab);
+
       if (n > 0) {
         var t = svgEl("text", { x: p.x, y: p.y, class: "mapa__num", "text-anchor": "middle", "dominant-baseline": "central" });
         t.textContent = String(n);
