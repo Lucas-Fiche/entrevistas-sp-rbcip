@@ -15,8 +15,8 @@
  * validar a experiência antes de conectar o banco.
  */
 window.SUPABASE_CONFIG = {
-  SUPABASE_URL: "",
-  SUPABASE_ANON_KEY: "",
+  SUPABASE_URL: "https://gnqzcmzyupetpvlhsfsu.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",
   // Nome da tabela onde as entrevistas serão gravadas.
   TABELA: "entrevistas",
 };
