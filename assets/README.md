@@ -14,3 +14,14 @@ logo-rbcip.png
 
 Enquanto o arquivo não estiver presente, aparece automaticamente um texto
 "RBCIP — pesquisa e inovação" no lugar da imagem.
+
+## Bandeira de São Paulo (dashboard)
+
+Coloque também, se quiser, a bandeira do estado no canto do mapa do dashboard:
+
+```
+bandeira-sp.png
+```
+
+Enquanto o arquivo não existir, o dashboard desenha uma versão simplificada da
+bandeira automaticamente (fallback em SVG).

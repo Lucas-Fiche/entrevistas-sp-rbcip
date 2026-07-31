@@ -361,10 +361,17 @@
   overflow: hidden;
   box-shadow: var(--sombra);
 }
-.mapa__bandeira-svg {
+.mapa__bandeira-svg,
+.mapa__bandeira-img {
   display: block;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+.mapa__guia {
+  stroke: var(--cor-texto-suave);
+  stroke-width: 0.8;
+  opacity: 0.5;
 }
 .mapa__label {
   font-size: 11px;

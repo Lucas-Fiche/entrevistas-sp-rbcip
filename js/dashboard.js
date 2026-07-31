@@ -68,22 +68,23 @@
   // ---------- Geografia (mapa de regiões) ----------
   // Coordenadas (lon, lat) da cidade-polo de cada região. As chaves precisam
   // ser idênticas aos valores do droplist "Região" do formulário do Interior.
-  // curto = nome exibido ao lado da bolha; pos = lado do rótulo (evita sobreposição).
+  // curto = nome exibido ao lado da bolha; dir = direção do rótulo [dx, dy];
+  // gap = distância extra além do raio da bolha (afasta o texto; gap grande usa linha-guia).
   var REGIOES = {
-    "Itapeva (região)": { lon: -48.87, lat: -23.98, curto: "Itapeva", pos: "right" },
-    "Marília (região)": { lon: -49.95, lat: -22.21, curto: "Marília", pos: "left" },
-    "Campinas (região)": { lon: -47.06, lat: -22.90, curto: "Campinas", pos: "right" },
-    "Sorocaba (região)": { lon: -47.46, lat: -23.50, curto: "Sorocaba", pos: "bottom" },
-    "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17, curto: "Ribeirão Preto", pos: "right" },
-    "Piracicaba (região)": { lon: -47.65, lat: -22.72, curto: "Piracicaba", pos: "left" },
-    "São José dos Campos / Vale do Paraíba": { lon: -45.88, lat: -23.18, curto: "S.J. Campos / Vale", pos: "right" },
-    "Franca (região)": { lon: -47.40, lat: -20.54, curto: "Franca", pos: "right" },
-    "Bauru (região)": { lon: -49.06, lat: -22.31, curto: "Bauru", pos: "right" },
-    "Americana (região)": { lon: -47.33, lat: -22.74, curto: "Americana", pos: "top" },
-    "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96, curto: "Baixada Santista", pos: "right" },
-    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13, curto: "Pres. Prudente", pos: "right" },
-    "Araçatuba (região)": { lon: -50.43, lat: -21.21, curto: "Araçatuba", pos: "right" },
-    "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82, curto: "S.J. Rio Preto", pos: "right" },
+    "Itapeva (região)": { lon: -48.87, lat: -23.98, curto: "Itapeva", dir: [1, 0], gap: 6 },
+    "Marília (região)": { lon: -49.95, lat: -22.21, curto: "Marília", dir: [-1, 0], gap: 6 },
+    "Campinas (região)": { lon: -47.06, lat: -22.90, curto: "Campinas", dir: [1, 0], gap: 10 },
+    "Sorocaba (região)": { lon: -47.46, lat: -23.50, curto: "Sorocaba", dir: [0, 1], gap: 22 },
+    "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17, curto: "Ribeirão Preto", dir: [1, 0], gap: 6 },
+    "Piracicaba (região)": { lon: -47.65, lat: -22.72, curto: "Piracicaba", dir: [-1, -0.15], gap: 40 },
+    "São José dos Campos / Vale do Paraíba": { lon: -45.88, lat: -23.18, curto: "S.J. Campos / Vale", dir: [1, 0], gap: 8 },
+    "Franca (região)": { lon: -47.40, lat: -20.54, curto: "Franca", dir: [1, 0], gap: 6 },
+    "Bauru (região)": { lon: -49.06, lat: -22.31, curto: "Bauru", dir: [0, -1], gap: 16 },
+    "Americana (região)": { lon: -47.33, lat: -22.74, curto: "Americana", dir: [0, -1], gap: 40 },
+    "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96, curto: "Baixada Santista", dir: [1, 0], gap: 8 },
+    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13, curto: "Pres. Prudente", dir: [1, 0], gap: 6 },
+    "Araçatuba (região)": { lon: -50.43, lat: -21.21, curto: "Araçatuba", dir: [1, 0], gap: 6 },
+    "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82, curto: "S.J. Rio Preto", dir: [1, 0], gap: 6 },
   };
 
   // Contorno aproximado do estado de São Paulo (lon, lat), só para dar contexto.
@@ -378,17 +379,24 @@
     return card;
   }
 
-  function posRotulo(px, py, r, pos) {
-    switch (pos) {
-      case "left": return { x: px - r - 6, y: py, anchor: "end", baseline: "central" };
-      case "top": return { x: px, y: py - r - 6, anchor: "middle", baseline: "auto" };
-      case "bottom": return { x: px, y: py + r + 6, anchor: "middle", baseline: "hanging" };
-      default: return { x: px + r + 6, y: py, anchor: "start", baseline: "central" };
-    }
+  // Calcula a posição do rótulo a partir da direção (dir) e da distância (raio + gap).
+  function posRotulo(px, py, r, dir, gap) {
+    var ux = dir[0], uy = dir[1];
+    var mag = Math.hypot(ux, uy) || 1;
+    ux /= mag; uy /= mag;
+    var d = r + (gap || 6);
+    var lx = px + ux * d, ly = py + uy * d;
+    var anchor = ux > 0.35 ? "start" : ux < -0.35 ? "end" : "middle";
+    var baseline = uy > 0.35 ? "hanging" : uy < -0.35 ? "auto" : "central";
+    return {
+      x: lx, y: ly, anchor: anchor, baseline: baseline,
+      guia: (gap || 6) >= 16,
+      // origem/destino da linha-guia (da borda da bolha até junto do texto)
+      x1: px + ux * r, y1: py + uy * r, x2: px + ux * (d - 3), y2: py + uy * (d - 3),
+    };
   }
 
-  function bandeiraSP() {
-    var wrap = el("div", { class: "mapa__bandeira", title: "Estado de São Paulo" });
+  function svgBandeiraSP() {
     var f = svgEl("svg", { viewBox: "0 0 60 40", class: "mapa__bandeira-svg" });
     var h = 40 / 13;
     for (var i = 0; i < 13; i++) {
@@ -400,7 +408,18 @@
       points: "12.2,4.6 13.4,5.2 13.8,6.5 13.3,7.7 13.7,8.7 13.0,9.9 12.1,10.6 11.3,9.7 10.8,8.4 11.0,7.0 10.6,5.8 11.4,5.0",
       fill: "#c1121f",
     }));
-    wrap.appendChild(f);
+    return f;
+  }
+
+  // Usa a imagem assets/bandeira-sp.png; se não existir, cai para o desenho SVG.
+  function bandeiraSP() {
+    var wrap = el("div", { class: "mapa__bandeira", title: "Estado de São Paulo" });
+    var img = el("img", { class: "mapa__bandeira-img", src: "assets/bandeira-sp.png", alt: "Bandeira do Estado de São Paulo" });
+    img.addEventListener("error", function () {
+      wrap.innerHTML = "";
+      wrap.appendChild(svgBandeiraSP());
+    });
+    wrap.appendChild(img);
     return wrap;
   }
 
@@ -429,8 +448,11 @@
       circ.appendChild(titulo);
       g.appendChild(circ);
 
-      // Rótulo com o nome da região
-      var rot = posRotulo(p.x, p.y, r, c.pos);
+      // Rótulo com o nome da região (com linha-guia quando afastado)
+      var rot = posRotulo(p.x, p.y, r, c.dir, c.gap);
+      if (rot.guia) {
+        g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
+      }
       var lab = svgEl("text", {
         x: rot.x, y: rot.y,
         class: n > 0 ? "mapa__label" : "mapa__label--vazio",
