@@ -65,6 +65,59 @@
     { chave: "registro", titulo: "Registrado em", valor: function (r) { return formatarDataHora(r.created_at); }, ord: function (r) { return r.created_at || ""; } },
   ];
 
+  // ---------- Exportação (CSV / XLSX) ----------
+  // IDs já cobertos por colunas fixas ou pelo Status (evita duplicar).
+  var SKIP_EXPORT = ["nome_candidato", "data_entrevista", "nome_entrevistador", "nao_compareceu", "nao_cumpre_requisitos", "recomendacao_final"];
+
+  function colunasExport(tipo) {
+    var cols = [
+      { h: "Candidato", g: function (r) { return r.candidato || ""; } },
+      { h: "Data da entrevista", g: function (r) { return formatarData(r.data_entrevista); } },
+      { h: "Entrevistador", g: function (r) { return r.entrevistador || ""; } },
+      { h: "Pontuação", g: function (r) { return r.pontuacao_total == null ? "" : r.pontuacao_total; } },
+      { h: "Pontuação máxima", g: function (r) { return r.pontuacao_maxima == null ? "" : r.pontuacao_maxima; } },
+      { h: "Recomendação", g: function (r) { return r.recomendacao || ""; } },
+      { h: "Status", g: function (r) { return statusTexto(r); } },
+      { h: "Registrado em", g: function (r) { return formatarDataHora(r.created_at); } },
+    ];
+    var schema = window.FORMULARIOS && window.FORMULARIOS[tipo];
+    if (schema) {
+      schema.secoes.forEach(function (s) {
+        s.perguntas.forEach(function (p) {
+          if (!p.id || SKIP_EXPORT.indexOf(p.id) !== -1) return;
+          cols.push({
+            h: p.label,
+            g: function (r) {
+              var v = r.respostas ? r.respostas[p.id] : "";
+              if (v === true) return "Sim";
+              if (v === false) return "Não";
+              return v == null ? "" : v;
+            },
+          });
+        });
+      });
+    }
+    return cols;
+  }
+
+  function montarAOA(tipo) {
+    var cols = colunasExport(tipo);
+    var lista = linhas.filter(function (r) { return r.tipo === tipo; }).sort(function (a, b) {
+      var pa = a.pontuacao_total == null ? -1 : a.pontuacao_total;
+      var pb = b.pontuacao_total == null ? -1 : b.pontuacao_total;
+      return pb - pa;
+    });
+    var aoa = [cols.map(function (c) { return c.h; })];
+    lista.forEach(function (r) { aoa.push(cols.map(function (c) { return c.g(r); })); });
+    return aoa;
+  }
+
+  function nomeArquivo(tipo, ext) {
+    var d = new Date();
+    var iso = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    return "entrevistas-" + tipo + "-" + iso + "." + ext;
+  }
+
   // ---------- Geografia (mapa de regiões) ----------
   // Coordenadas (lon, lat) da cidade-polo de cada região. As chaves precisam
   // ser idênticas aos valores do droplist "Região" do formulário do Interior.
@@ -218,6 +271,19 @@
     inputBusca.value = busca[tipo];
     inputBusca.addEventListener("input", function () { busca[tipo] = inputBusca.value; renderTabela(tipo); });
     barra.appendChild(inputBusca);
+
+    var acoes = el("div", { class: "painel__acoes" });
+    var bCsv = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Baixar CSV" });
+    bCsv.addEventListener("click", function () {
+      window.Exportador.csv(nomeArquivo(tipo, "csv"), montarAOA(tipo));
+    });
+    var bXlsx = el("button", { class: "btn btn--pequeno", type: "button", text: "Baixar Excel" });
+    bXlsx.addEventListener("click", function () {
+      window.Exportador.xlsx(nomeArquivo(tipo, "xlsx"), tipo === "capital" ? "Capital" : "Interior", montarAOA(tipo));
+    });
+    acoes.appendChild(bCsv);
+    acoes.appendChild(bXlsx);
+    barra.appendChild(acoes);
     painel.appendChild(barra);
 
     painel.appendChild(el("div", { class: "tabela-wrap", id: "tabela-" + tipo }));

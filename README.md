@@ -125,6 +125,10 @@ O acesso é **restrito por login** (Supabase Auth): só usuários autenticados
 conseguem ler os dados. O público continua podendo apenas **inserir** pelo
 formulário.
 
+Cada aba (Capital/Interior) tem os botões **Baixar CSV** e **Baixar Excel**, que
+exportam todas as entrevistas daquela região — incluindo as respostas completas —
+geradas no próprio navegador (sem biblioteca externa; ver `js/export.js`).
+
 A aba **Visualização de dados** inclui, além dos indicadores e gráficos, um
 **mapa de São Paulo** com uma bolha por região de atuação (formulário do
 Interior), dimensionada pelo número de inscritos. As coordenadas das regiões

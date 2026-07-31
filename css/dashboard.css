@@ -185,6 +185,12 @@
   box-shadow: 0 0 0 2px var(--cor-primaria-clara);
 }
 
+.painel__acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 /* ---------- Tabela ---------- */
 .tabela-wrap {
   overflow-x: auto;
