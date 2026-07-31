@@ -157,6 +157,16 @@ function secaoAvaliador() {
       },
       { id: "tolerancia_rotina_nota", tipo: "escala", label: "Tolerância à Rotina Operacional: Avaliação do Candidato", obrigatorio: true },
 
+      {
+        id: "postura_neutralidade",
+        tipo: "textarea",
+        label: "Postura Profissional e Neutralidade em Campo",
+        ajuda:
+          "Em situações de coleta de dados, é essencial manter postura neutra e imparcial, mesmo diante de opiniões divergentes. Como você garantiria essa neutralidade ao interagir com diferentes perfis de entrevistados?",
+        obrigatorio: true,
+      },
+      { id: "postura_neutralidade_nota", tipo: "escala", label: "Postura Profissional e Neutralidade em Campo: Avaliação do Candidato", obrigatorio: true },
+
       // ---------- Bloco 2 ----------
       {
         tipo: "titulo-bloco",
