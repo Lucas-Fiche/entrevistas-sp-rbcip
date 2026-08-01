@@ -144,18 +144,44 @@
   var CAPITAL = { lon: -46.63, lat: -23.55, curto: "Capital", dir: [0, -1], gap: 10 };
 
   // Contorno aproximado do estado de São Paulo (lon, lat), só para dar contexto.
+  // Contorno real do Estado de São Paulo (lon, lat), simplificado (fonte: IBGE via
+  // geodata-br-states). Projetado junto com os pontos para alinhamento perfeito.
   var CONTORNO_SP = [
-    [-51.0, -20.0], [-49.0, -20.2], [-47.2, -20.3], [-46.3, -21.2], [-45.0, -22.0],
-    [-44.2, -22.4], [-44.9, -23.0], [-45.9, -23.8], [-46.4, -24.0], [-47.9, -24.7],
-    [-48.5, -25.2], [-49.4, -24.4], [-50.4, -24.0], [-51.8, -22.9], [-52.9, -22.5],
-    [-53.1, -21.5], [-52.0, -20.6],
+    [-50.470, -19.780], [-50.346, -19.868], [-50.016, -19.927], [-49.261, -19.964], [-49.309, -20.104], [-49.246, -20.283],
+    [-49.173, -20.313], [-49.067, -20.155], [-49.001, -20.161], [-48.971, -20.390], [-48.899, -20.442], [-48.826, -20.162],
+    [-48.255, -20.144], [-48.238, -20.029], [-48.106, -20.147], [-47.976, -20.036], [-47.896, -20.126], [-47.854, -19.990],
+    [-47.709, -19.979], [-47.635, -20.050], [-47.469, -19.962], [-47.257, -20.167], [-47.293, -20.448], [-47.153, -20.521],
+    [-47.097, -20.645], [-47.240, -20.886], [-47.148, -20.973], [-47.012, -21.423], [-46.666, -21.362], [-46.510, -21.470],
+    [-46.519, -21.613], [-46.691, -21.837], [-46.613, -22.007], [-46.724, -22.077], [-46.599, -22.137], [-46.724, -22.307],
+    [-46.662, -22.419], [-46.407, -22.540], [-46.394, -22.663], [-46.479, -22.699], [-46.335, -22.761], [-46.357, -22.901],
+    [-46.145, -22.858], [-46.140, -22.923], [-45.912, -22.817], [-45.889, -22.876], [-45.790, -22.859], [-45.714, -22.757],
+    [-45.818, -22.711], [-45.694, -22.652], [-45.717, -22.578], [-45.661, -22.579], [-45.667, -22.652], [-45.474, -22.589],
+    [-45.398, -22.654], [-44.808, -22.405], [-44.641, -22.609], [-44.509, -22.641], [-44.384, -22.574], [-44.162, -22.679],
+    [-44.273, -22.832], [-44.495, -22.846], [-44.792, -22.982], [-44.890, -23.227], [-44.726, -23.371], [-44.909, -23.335],
+    [-45.060, -23.423], [-45.015, -23.464], [-45.081, -23.524], [-45.167, -23.495], [-45.210, -23.584], [-45.409, -23.625],
+    [-45.424, -23.830], [-45.923, -23.771], [-46.123, -23.839], [-46.183, -23.992], [-46.283, -24.044], [-46.379, -23.970],
+    [-46.400, -24.034], [-46.824, -24.206], [-46.995, -24.325], [-47.009, -24.414], [-47.794, -24.932], [-47.910, -25.054],
+    [-47.909, -25.168], [-48.098, -25.310], [-48.027, -25.221], [-48.186, -25.207], [-48.156, -25.144], [-48.250, -24.978],
+    [-48.324, -25.054], [-48.411, -24.980], [-48.513, -25.091], [-48.583, -25.052], [-48.500, -24.739], [-48.583, -24.671],
+    [-49.306, -24.674], [-49.316, -24.556], [-49.202, -24.343], [-49.611, -23.852], [-49.550, -23.705], [-49.630, -23.512],
+    [-49.567, -23.427], [-49.679, -23.166], [-49.912, -23.052], [-49.987, -22.898], [-50.238, -22.955], [-50.662, -22.896],
+    [-50.737, -22.964], [-50.889, -22.797], [-51.150, -22.756], [-51.266, -22.668], [-51.719, -22.670], [-52.110, -22.517],
+    [-52.223, -22.676], [-52.251, -22.616], [-52.503, -22.635], [-52.585, -22.566], [-52.702, -22.628], [-52.925, -22.566],
+    [-53.106, -22.622], [-52.377, -22.107], [-52.054, -21.673], [-52.096, -21.542], [-51.968, -21.502], [-51.866, -21.349],
+    [-51.876, -21.136], [-51.624, -20.944], [-51.594, -20.644], [-51.351, -20.363], [-51.118, -20.287], [-50.966, -20.034],
+    [-50.470, -19.780],
   ];
 
-  var MAPA = { W: 760, H: 444, m: 18, lonMin: -53.1, lonMax: -44.2, latMin: -25.2, latMax: -20.0 };
+  // Projeção equirretangular com correção de longitude por cos(lat) — mantém as
+  // proporções reais do estado (nem achatado, nem esticado).
+  var MAPA = { W: 820, m: 16, lonMin: -53.106, lonMax: -44.162, latMin: -25.31, latMax: -19.78 };
+  MAPA.cosLat = Math.cos(((MAPA.latMin + MAPA.latMax) / 2) * Math.PI / 180);
+  MAPA.scale = (MAPA.W - 2 * MAPA.m) / ((MAPA.lonMax - MAPA.lonMin) * MAPA.cosLat);
+  MAPA.H = 2 * MAPA.m + (MAPA.latMax - MAPA.latMin) * MAPA.scale;
   function projetar(lon, lat) {
     return {
-      x: MAPA.m + ((lon - MAPA.lonMin) / (MAPA.lonMax - MAPA.lonMin)) * (MAPA.W - 2 * MAPA.m),
-      y: MAPA.m + ((MAPA.latMax - lat) / (MAPA.latMax - MAPA.latMin)) * (MAPA.H - 2 * MAPA.m),
+      x: MAPA.m + (lon - MAPA.lonMin) * MAPA.cosLat * MAPA.scale,
+      y: MAPA.m + (MAPA.latMax - lat) * MAPA.scale,
     };
   }
   function svgEl(tag, attrs) {
@@ -505,24 +531,24 @@
     circ.appendChild(titulo);
     g.appendChild(circ);
 
-    var rot = posRotulo(px, py, r, dir, gap);
-    if (rot.guia) {
-      g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
-    }
-    // Rótulo: nome + número de inscritos ao lado (quando houver).
-    var lab = svgEl("text", {
-      x: rot.x, y: rot.y,
-      class: n > 0 ? "mapa__label" : "mapa__label--vazio",
-      "text-anchor": rot.anchor,
-      "dominant-baseline": rot.baseline,
-    });
-    lab.textContent = curto;
+    // Rótulo só para pontos COM inscritos (limpa o mapa). Vazios: só o ponto + hover.
     if (n > 0) {
+      var rot = posRotulo(px, py, r, dir, gap);
+      if (rot.guia) {
+        g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
+      }
+      var lab = svgEl("text", {
+        x: rot.x, y: rot.y,
+        class: "mapa__label",
+        "text-anchor": rot.anchor,
+        "dominant-baseline": rot.baseline,
+      });
+      lab.textContent = curto;
       var num = svgEl("tspan", { class: "mapa__labelnum", dx: "5" });
       num.textContent = String(n);
       lab.appendChild(num);
+      g.appendChild(lab);
     }
-    g.appendChild(lab);
     svg.appendChild(g);
   }
 
@@ -616,15 +642,6 @@
 
     var grid = el("div", { class: "graficos" });
 
-    // Inscritos por região (barras) — ordenado do maior para o menor
-    var regioesOrdenadas = Object.keys(REGIOES)
-      .map(function (nome) { return { label: nome.replace(/ \(região\)$/, ""), valor: contRegiao[nome] || 0 }; })
-      .filter(function (d) { return d.valor > 0; })
-      .sort(function (a, b) { return b.valor - a.valor; });
-    if (regioesOrdenadas.length) {
-      grid.appendChild(graficoBarras("Inscritos por região", regioesOrdenadas));
-    }
-
     // Recomendações (rótulos curtos e distintos; texto completo no hover)
     var ROTULO_REC = {
       "Aprovado - Forte Recomendação": "Forte recomendação",
@@ -645,7 +662,7 @@
 
     // Por região (só faz sentido em "Todas")
     if (vizTipo === "todos") {
-      grid.appendChild(graficoBarras("Entrevistas por região", [
+      grid.appendChild(graficoBarras("Capital × Interior", [
         { label: "Capital", valor: linhas.filter(function (r) { return r.tipo === "capital"; }).length },
         { label: "Interior", valor: linhas.filter(function (r) { return r.tipo === "interior"; }).length },
       ]));
