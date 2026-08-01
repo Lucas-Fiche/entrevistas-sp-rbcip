@@ -140,6 +140,9 @@
     "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82, curto: "S.J. Rio Preto", dir: [1, 0], gap: 6 },
   };
 
+  // Ponto da Capital (cidade de São Paulo) — candidatos do formulário Capital.
+  var CAPITAL = { lon: -46.63, lat: -23.55, curto: "Capital", dir: [0, -1], gap: 10 };
+
   // Contorno aproximado do estado de São Paulo (lon, lat), só para dar contexto.
   var CONTORNO_SP = [
     [-51.0, -20.0], [-49.0, -20.2], [-47.2, -20.3], [-46.3, -21.2], [-45.0, -22.0],
@@ -489,13 +492,48 @@
     return wrap;
   }
 
-  function renderMapa(contagem) {
+  function desenharPonto(svg, px, py, n, maxN, nomeCompleto, curto, dir, gap, cls) {
+    var r = n > 0 ? 8 + (n / (maxN || 1)) * 18 : 4;
+    var g = svgEl("g", {});
+    var circ = svgEl("circle", {
+      cx: px, cy: py, r: r,
+      class: n > 0 ? "mapa__bola" + (cls ? " " + cls : "") : "mapa__bola--vazia",
+    });
+    var titulo = svgEl("title", {});
+    titulo.textContent = nomeCompleto + " — " + n + " inscrito" + (n === 1 ? "" : "s");
+    circ.appendChild(titulo);
+    g.appendChild(circ);
+
+    var rot = posRotulo(px, py, r, dir, gap);
+    if (rot.guia) {
+      g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
+    }
+    var lab = svgEl("text", {
+      x: rot.x, y: rot.y,
+      class: n > 0 ? "mapa__label" : "mapa__label--vazio",
+      "text-anchor": rot.anchor,
+      "dominant-baseline": rot.baseline,
+    });
+    lab.textContent = curto;
+    g.appendChild(lab);
+
+    if (n > 0) {
+      var t = svgEl("text", { x: px, y: py, class: "mapa__num", "text-anchor": "middle", "dominant-baseline": "central" });
+      t.textContent = String(n);
+      g.appendChild(t);
+    }
+    svg.appendChild(g);
+  }
+
+  // capitalCount: nº de inscritos da Capital (null = não exibir a bolha da Capital)
+  function renderMapa(contagem, capitalCount) {
     var card = el("div", { class: "grafico mapa" });
     card.appendChild(el("h3", { class: "grafico__titulo", text: "Inscritos por região (mapa)" }));
     card.appendChild(bandeiraSP());
 
     var maxN = 0;
     Object.keys(REGIOES).forEach(function (nome) { maxN = Math.max(maxN, contagem[nome] || 0); });
+    if (capitalCount != null) maxN = Math.max(maxN, capitalCount);
 
     var svg = svgEl("svg", { viewBox: "0 0 " + MAPA.W + " " + MAPA.H, class: "mapa__svg" });
 
@@ -505,44 +543,21 @@
     Object.keys(REGIOES).forEach(function (nome) {
       var c = REGIOES[nome];
       var p = projetar(c.lon, c.lat);
-      var n = contagem[nome] || 0;
-      var r = n > 0 ? 8 + (n / (maxN || 1)) * 18 : 4;
-      var g = svgEl("g", {});
-      var circ = svgEl("circle", { cx: p.x, cy: p.y, r: r, class: n > 0 ? "mapa__bola" : "mapa__bola--vazia" });
-      var titulo = svgEl("title", {});
-      titulo.textContent = nome + " — " + n + " inscrito" + (n === 1 ? "" : "s");
-      circ.appendChild(titulo);
-      g.appendChild(circ);
-
-      // Rótulo com o nome da região (com linha-guia quando afastado)
-      var rot = posRotulo(p.x, p.y, r, c.dir, c.gap);
-      if (rot.guia) {
-        g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
-      }
-      var lab = svgEl("text", {
-        x: rot.x, y: rot.y,
-        class: n > 0 ? "mapa__label" : "mapa__label--vazio",
-        "text-anchor": rot.anchor,
-        "dominant-baseline": rot.baseline,
-      });
-      lab.textContent = c.curto;
-      g.appendChild(lab);
-
-      if (n > 0) {
-        var t = svgEl("text", { x: p.x, y: p.y, class: "mapa__num", "text-anchor": "middle", "dominant-baseline": "central" });
-        t.textContent = String(n);
-        g.appendChild(t);
-      }
-      svg.appendChild(g);
+      desenharPonto(svg, p.x, p.y, contagem[nome] || 0, maxN, nome, c.curto, c.dir, c.gap, null);
     });
 
+    if (capitalCount != null) {
+      var pc = projetar(CAPITAL.lon, CAPITAL.lat);
+      desenharPonto(svg, pc.x, pc.y, capitalCount, maxN, "Capital (São Paulo)", CAPITAL.curto, CAPITAL.dir, CAPITAL.gap, "mapa__bola--capital");
+    }
+
     card.appendChild(svg);
-    var totalRegioes = Object.keys(contagem).reduce(function (s, k) { return s + contagem[k]; }, 0);
+    var total = Object.keys(contagem).reduce(function (s, k) { return s + contagem[k]; }, 0) + (capitalCount || 0);
     card.appendChild(el("p", {
       class: "mapa__legenda",
-      text: totalRegioes === 0
-        ? "Nenhum inscrito com região informada ainda."
-        : "Passe o mouse sobre cada ponto para ver a região. O tamanho da bolha indica o número de inscritos.",
+      text: total === 0
+        ? "Nenhum inscrito com localização ainda."
+        : "Passe o mouse sobre cada ponto para ver o local. O tamanho da bolha indica o número de inscritos (a Capital aparece em roxo).",
     }));
     return card;
   }
@@ -594,7 +609,9 @@
 
     // Contagem por região (formulário do Interior) + mapa
     var contRegiao = contarPor(lista, function (r) { return r.respostas && r.respostas.regiao_atuacao; });
-    painel.appendChild(renderMapa(contRegiao));
+    // A bolha da Capital só aparece quando o filtro não é "Interior".
+    var capitalCount = vizTipo === "interior" ? null : lista.filter(function (r) { return r.tipo === "capital"; }).length;
+    painel.appendChild(renderMapa(contRegiao, capitalCount));
 
     var grid = el("div", { class: "graficos" });
 

@@ -415,6 +415,9 @@
   fill-opacity: 0.35;
   cursor: pointer;
 }
+.mapa__bola--capital {
+  fill: var(--cor-roxo);
+}
 .mapa__num {
   fill: #fff;
   font-size: 13px;
