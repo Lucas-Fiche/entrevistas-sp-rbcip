@@ -436,7 +436,7 @@
     }
     dados.forEach(function (d) {
       var linha = el("div", { class: "barra" });
-      linha.appendChild(el("span", { class: "barra__rotulo", text: d.label }));
+      linha.appendChild(el("span", { class: "barra__rotulo", text: d.label, title: d.titulo || d.label }));
       var trilho = el("div", { class: "barra__trilho" });
       var preench = el("div", { class: "barra__preench" });
       preench.style.width = Math.round((d.valor / max) * 100) + "%";
@@ -624,11 +624,16 @@
       grid.appendChild(graficoBarras("Inscritos por região", regioesOrdenadas));
     }
 
-    // Recomendações
-    var ordemRec = ["Aprovado - Forte Recomendação", "Aprovado - Recomendação", "Aprovado - Recomendação com Ressalvas", "Reprovado"];
+    // Recomendações (rótulos curtos e distintos; texto completo no hover)
+    var ROTULO_REC = {
+      "Aprovado - Forte Recomendação": "Forte recomendação",
+      "Aprovado - Recomendação": "Recomendação",
+      "Aprovado - Recomendação com Ressalvas": "Com ressalvas",
+      "Reprovado": "Reprovado",
+    };
     var contRec = contarPor(lista, function (r) { return r.recomendacao; });
-    grid.appendChild(graficoBarras("Recomendação final", ordemRec.map(function (k) {
-      return { label: k.replace("Aprovado - ", "Aprov.: "), valor: contRec[k] || 0 };
+    grid.appendChild(graficoBarras("Recomendação final", Object.keys(ROTULO_REC).map(function (k) {
+      return { label: ROTULO_REC[k], titulo: k, valor: contRec[k] || 0 };
     })));
 
     // Por entrevistador
