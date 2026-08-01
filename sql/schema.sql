@@ -36,18 +36,21 @@ create index if not exists entrevistas_pontuacao_idx on public.entrevistas (pont
 -- ------------------------------------------------------------
 alter table public.entrevistas enable row level security;
 
--- Concede ao papel anônimo (chave pública) o direito de INSERIR na tabela.
--- Necessário quando "Automatically expose new tables" está DESLIGADO no projeto
--- (recomendado pelo Supabase). Com essa linha, o formulário funciona de qualquer forma.
--- Observação: só é concedido INSERT — o público não pode ler, editar nem apagar.
-grant insert on public.entrevistas to anon;
+-- Concede o direito de INSERIR na tabela tanto ao visitante (anon) quanto ao
+-- usuário logado (authenticated). Isso é importante porque o formulário e o
+-- dashboard ficam no mesmo domínio e COMPARTILHAM a sessão de login no navegador:
+-- se a pessoa estiver logada no dashboard, o envio do formulário vai como
+-- "authenticated" — então ambos os papéis precisam poder inserir.
+-- Observação: o público (anon) só pode INSERIR (não lê, edita nem apaga).
+grant insert on public.entrevistas to anon, authenticated;
 
--- Permite que o formulário (chave anon public) INSIRA novas entrevistas.
+-- Permite que o formulário INSIRA novas entrevistas (logado ou não).
 drop policy if exists "entrevistas_insert_anon" on public.entrevistas;
-create policy "entrevistas_insert_anon"
+drop policy if exists "entrevistas_insert" on public.entrevistas;
+create policy "entrevistas_insert"
   on public.entrevistas
   for insert
-  to anon
+  to anon, authenticated
   with check (true);
 
 -- Leitura (para o dashboard): liberada APENAS para usuários autenticados
