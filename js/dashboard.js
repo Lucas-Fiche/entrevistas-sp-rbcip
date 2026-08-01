@@ -493,7 +493,8 @@
   }
 
   function desenharPonto(svg, px, py, n, maxN, nomeCompleto, curto, dir, gap, cls) {
-    var r = n > 0 ? 8 + (n / (maxN || 1)) * 18 : 4;
+    // Bolhas pequenas, com área proporcional à contagem (raio ~4 a 9).
+    var r = n > 0 ? 4 + Math.sqrt(maxN > 0 ? n / maxN : 1) * 5 : 3.5;
     var g = svgEl("g", {});
     var circ = svgEl("circle", {
       cx: px, cy: py, r: r,
@@ -508,6 +509,7 @@
     if (rot.guia) {
       g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
     }
+    // Rótulo: nome + número de inscritos ao lado (quando houver).
     var lab = svgEl("text", {
       x: rot.x, y: rot.y,
       class: n > 0 ? "mapa__label" : "mapa__label--vazio",
@@ -515,13 +517,12 @@
       "dominant-baseline": rot.baseline,
     });
     lab.textContent = curto;
-    g.appendChild(lab);
-
     if (n > 0) {
-      var t = svgEl("text", { x: px, y: py, class: "mapa__num", "text-anchor": "middle", "dominant-baseline": "central" });
-      t.textContent = String(n);
-      g.appendChild(t);
+      var num = svgEl("tspan", { class: "mapa__labelnum", dx: "5" });
+      num.textContent = String(n);
+      lab.appendChild(num);
     }
+    g.appendChild(lab);
     svg.appendChild(g);
   }
 
@@ -557,7 +558,7 @@
       class: "mapa__legenda",
       text: total === 0
         ? "Nenhum inscrito com localização ainda."
-        : "Passe o mouse sobre cada ponto para ver o local. O tamanho da bolha indica o número de inscritos (a Capital aparece em roxo).",
+        : "O número ao lado de cada ponto indica a quantidade de inscritos (a Capital aparece em roxo).",
     }));
     return card;
   }

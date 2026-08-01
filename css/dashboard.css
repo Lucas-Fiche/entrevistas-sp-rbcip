@@ -393,6 +393,10 @@
   fill: var(--cor-texto-suave);
   pointer-events: none;
 }
+.mapa__labelnum {
+  font-weight: 800;
+  fill: var(--cor-primaria);
+}
 .mapa__svg {
   width: 100%;
   height: auto;
