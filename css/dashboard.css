@@ -297,8 +297,11 @@
 
 .graficos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 18px;
+}
+@media (max-width: 720px) {
+  .graficos { grid-template-columns: 1fr; }
 }
 
 .grafico {
@@ -382,7 +385,7 @@
   opacity: 0.5;
 }
 .mapa__label {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
   fill: var(--cor-primaria-escura);
   pointer-events: none;

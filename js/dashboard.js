@@ -519,8 +519,9 @@
   }
 
   function desenharPonto(svg, px, py, n, maxN, nomeCompleto, curto, dir, gap, cls) {
-    // Bolhas pequenas, com área proporcional à contagem (raio ~4 a 9).
-    var r = n > 0 ? 4 + Math.sqrt(maxN > 0 ? n / maxN : 1) * 5 : 3.5;
+    // Bolhas com área proporcional à contagem (raio ~7 a 12) — visíveis, mas sem
+    // sobrepor (as cidades do aglomerado central ficam a ~28px entre si).
+    var r = n > 0 ? 7 + Math.sqrt(maxN > 0 ? n / maxN : 1) * 5 : 4;
     var g = svgEl("g", {});
     var circ = svgEl("circle", {
       cx: px, cy: py, r: r,
@@ -641,6 +642,15 @@
     painel.appendChild(renderMapa(contRegiao, capitalCount));
 
     var grid = el("div", { class: "graficos" });
+
+    // Inscritos por região (leitura precisa dos números do interior) — do maior ao menor
+    var regioesOrdenadas = Object.keys(REGIOES)
+      .map(function (nome) { return { label: nome.replace(/ \(região\)$/, ""), valor: contRegiao[nome] || 0 }; })
+      .filter(function (d) { return d.valor > 0; })
+      .sort(function (a, b) { return b.valor - a.valor; });
+    if (regioesOrdenadas.length) {
+      grid.appendChild(graficoBarras("Inscritos por região (interior)", regioesOrdenadas));
+    }
 
     // Recomendações (rótulos curtos e distintos; texto completo no hover)
     var ROTULO_REC = {
