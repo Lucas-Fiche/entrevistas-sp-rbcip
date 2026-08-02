@@ -345,6 +345,24 @@ input[type="date"].viz-data {
   .graficos { grid-template-columns: 1fr; }
 }
 
+/* ---------- Ajustes para telas pequenas (mobile) ---------- */
+@media (max-width: 640px) {
+  .dash { padding: 16px 12px 60px; }
+
+  /* Cabeçalho: título em cima, usuário/botões embaixo */
+  .dash__topo { flex-direction: column; align-items: stretch; gap: 10px; }
+  .dash__usuario { justify-content: flex-start; }
+  /* e-mail em sua própria linha para os 3 botões ficarem juntos */
+  .dash__usuario > span { flex-basis: 100%; }
+
+  /* Filtros: cada grupo ocupa a linha inteira; campos se ajustam */
+  .viz-filtros { gap: 12px; }
+  .viz-grupo { width: 100%; }
+  input[type="date"].viz-data { flex: 1 1 0; width: auto; min-width: 0; }
+  .viz-select { flex: 1 1 auto; width: auto; }
+  .viz-filtro__rotulo { min-width: 62px; }
+}
+
 .grafico {
   background: var(--cor-branco);
   border: 1px solid var(--cor-borda);
