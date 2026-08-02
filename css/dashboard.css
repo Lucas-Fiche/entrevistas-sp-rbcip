@@ -276,6 +276,14 @@
   background: var(--cor-branco);
   color: var(--cor-texto);
 }
+/* largura fixa (sobrepõe a regra global input[type=date]{width:100%} dos formulários) */
+input[type="date"].viz-data {
+  width: 150px;
+}
+.viz-select {
+  width: 230px;
+  max-width: 100%;
+}
 .viz-data:focus,
 .viz-select:focus {
   outline: none;
