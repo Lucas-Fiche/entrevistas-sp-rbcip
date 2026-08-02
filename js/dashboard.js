@@ -518,6 +518,18 @@
     return wrap;
   }
 
+  // Mede a largura do rótulo (nome + número) sem depender de a aba estar visível.
+  var _mctx = (function () { try { return document.createElement("canvas").getContext("2d"); } catch (e) { return null; } })();
+  var FONTE_MAPA = '"Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+  function larguraRotulo(curto, n) {
+    if (!_mctx) return (String(curto).length + 2) * 7;
+    _mctx.font = "600 12.5px " + FONTE_MAPA;
+    var w1 = _mctx.measureText(curto).width;
+    _mctx.font = "800 12.5px " + FONTE_MAPA;
+    var w2 = _mctx.measureText(String(n)).width;
+    return w1 + 5 + w2;
+  }
+
   function desenharPonto(svg, px, py, n, maxN, nomeCompleto, curto, dir, gap, cls) {
     // Bolhas com área proporcional à contagem (raio ~7 a 12) — visíveis, mas sem
     // sobrepor (as cidades do aglomerado central ficam a ~28px entre si).
@@ -538,6 +550,17 @@
       if (rot.guia) {
         g.appendChild(svgEl("line", { x1: rot.x1, y1: rot.y1, x2: rot.x2, y2: rot.y2, class: "mapa__guia" }));
       }
+      // Fundo (pílula) atrás do rótulo para melhorar a leitura sobre o mapa.
+      var total = larguraRotulo(curto, n);
+      var fs = 12.5, padX = 7, padY = 3.5, H = fs + 2 * padY;
+      var cx = rot.anchor === "start" ? rot.x + total / 2 : rot.anchor === "end" ? rot.x - total / 2 : rot.x;
+      var cy = rot.baseline === "hanging" ? rot.y + fs / 2 : rot.baseline === "auto" ? rot.y - fs * 0.3 : rot.y;
+      g.appendChild(svgEl("rect", {
+        x: cx - total / 2 - padX, y: cy - H / 2,
+        width: total + 2 * padX, height: H, rx: 5,
+        class: "mapa__pill",
+      }));
+
       var lab = svgEl("text", {
         x: rot.x, y: rot.y,
         class: "mapa__label",
