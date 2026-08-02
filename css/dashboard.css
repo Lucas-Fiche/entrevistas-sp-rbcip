@@ -358,7 +358,10 @@ input[type="date"].viz-data {
   /* Filtros: cada grupo ocupa a linha inteira; campos se ajustam */
   .viz-filtros { gap: 12px; }
   .viz-grupo { width: 100%; }
-  input[type="date"].viz-data { flex: 1 1 0; width: auto; min-width: 0; }
+  /* Período: campos de data empilhados em largura total (confiável no iOS) */
+  .viz-grupo--periodo { flex-direction: column; align-items: stretch; gap: 6px; }
+  .viz-grupo--periodo input[type="date"].viz-data { width: 100%; flex: none; }
+  .viz-grupo--periodo .viz-ate { align-self: flex-start; }
   .viz-select { flex: 1 1 auto; width: auto; }
   .viz-filtro__rotulo { min-width: 62px; }
 }

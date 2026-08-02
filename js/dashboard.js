@@ -656,7 +656,7 @@
     barra.appendChild(gTipo);
 
     // Período (data da entrevista)
-    var gData = el("div", { class: "viz-grupo" });
+    var gData = el("div", { class: "viz-grupo viz-grupo--periodo" });
     gData.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Período:" }));
     var de = el("input", { type: "date", class: "viz-data", value: vizDe, title: "Data inicial" });
     de.addEventListener("change", function () { vizDe = de.value; renderDados(); });
