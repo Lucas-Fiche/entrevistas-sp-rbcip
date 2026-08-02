@@ -125,7 +125,7 @@
   // gap = distância extra além do raio da bolha (afasta o texto; gap grande usa linha-guia).
   var REGIOES = {
     "Itapeva (região)": { lon: -48.87, lat: -23.98, curto: "Itapeva", dir: [1, 0], gap: 6 },
-    "Marília (região)": { lon: -49.95, lat: -22.21, curto: "Marília", dir: [-1, 0], gap: 6 },
+    "Marília (região)": { lon: -49.95, lat: -22.21, curto: "Marília", dir: [1, 0], gap: 6 },
     "Campinas (região)": { lon: -47.06, lat: -22.90, curto: "Campinas", dir: [1, 0], gap: 10 },
     "Sorocaba (região)": { lon: -47.46, lat: -23.50, curto: "Sorocaba", dir: [0, 1], gap: 22 },
     "Ribeirão Preto (região)": { lon: -47.81, lat: -21.17, curto: "Ribeirão Preto", dir: [1, 0], gap: 6 },
@@ -135,7 +135,7 @@
     "Bauru (região)": { lon: -49.06, lat: -22.31, curto: "Bauru", dir: [0, -1], gap: 16 },
     "Americana (região)": { lon: -47.33, lat: -22.74, curto: "Americana", dir: [0, -1], gap: 40 },
     "Baixada Santista (Santos / Praia Grande / Guarujá)": { lon: -46.33, lat: -23.96, curto: "Baixada Santista", dir: [1, 0], gap: 8 },
-    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13, curto: "Pres. Prudente", dir: [1, 0], gap: 6 },
+    "Presidente Prudente (região)": { lon: -51.39, lat: -22.13, curto: "Pres. Prudente", dir: [-1, 0], gap: 6 },
     "Araçatuba (região)": { lon: -50.43, lat: -21.21, curto: "Araçatuba", dir: [1, 0], gap: 6 },
     "São José do Rio Preto (região)": { lon: -49.38, lat: -20.82, curto: "S.J. Rio Preto", dir: [1, 0], gap: 6 },
   };
@@ -439,10 +439,17 @@
 
   // ---------- Visualização de dados ----------
   var vizTipo = "todos";
+  var vizDe = "";
+  var vizAte = "";
+  var vizRegiao = "";
 
   function filtrarViz() {
-    if (vizTipo === "todos") return linhas.slice();
-    return linhas.filter(function (r) { return r.tipo === vizTipo; });
+    var lista = linhas.slice();
+    if (vizTipo !== "todos") lista = lista.filter(function (r) { return r.tipo === vizTipo; });
+    if (vizDe) lista = lista.filter(function (r) { return r.data_entrevista && r.data_entrevista >= vizDe; });
+    if (vizAte) lista = lista.filter(function (r) { return r.data_entrevista && r.data_entrevista <= vizAte; });
+    if (vizRegiao) lista = lista.filter(function (r) { return r.respostas && r.respostas.regiao_atuacao === vizRegiao; });
+    return lista;
   }
 
   function statCard(rotulo, valor) {
@@ -627,18 +634,68 @@
     var painel = $("#painel-dados");
     painel.innerHTML = "";
 
-    // Filtro por tipo
-    var barra = el("div", { class: "painel__barra" });
-    barra.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Região:" }));
+    // ----- Barra de filtros (tipo, período e região) -----
+    var barra = el("div", { class: "viz-filtros" });
+
+    // Tipo
+    var gTipo = el("div", { class: "viz-grupo" });
+    gTipo.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Tipo:" }));
     ["todos", "capital", "interior"].forEach(function (t) {
       var b = el("button", {
         class: "viz-filtro" + (vizTipo === t ? " viz-filtro--ativo" : ""),
         type: "button",
         text: t === "todos" ? "Todas" : t === "capital" ? "Capital" : "Interior",
       });
-      b.addEventListener("click", function () { vizTipo = t; renderDados(); });
-      barra.appendChild(b);
+      b.addEventListener("click", function () {
+        vizTipo = t;
+        if (t === "capital") vizRegiao = "";
+        renderDados();
+      });
+      gTipo.appendChild(b);
     });
+    barra.appendChild(gTipo);
+
+    // Período (data da entrevista)
+    var gData = el("div", { class: "viz-grupo" });
+    gData.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Período:" }));
+    var de = el("input", { type: "date", class: "viz-data", value: vizDe, title: "Data inicial" });
+    de.addEventListener("change", function () { vizDe = de.value; renderDados(); });
+    var ate = el("input", { type: "date", class: "viz-data", value: vizAte, title: "Data final" });
+    ate.addEventListener("change", function () { vizAte = ate.value; renderDados(); });
+    gData.appendChild(de);
+    gData.appendChild(el("span", { class: "viz-ate", text: "até" }));
+    gData.appendChild(ate);
+    barra.appendChild(gData);
+
+    // Região (interior)
+    var gReg = el("div", { class: "viz-grupo" });
+    gReg.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Região:" }));
+    var sel = el("select", { class: "viz-select" });
+    sel.appendChild(el("option", { value: "", text: "Todas as regiões" }));
+    Object.keys(REGIOES).forEach(function (nome) {
+      var o = el("option", { value: nome, text: nome.replace(/ \(região\)$/, "") });
+      sel.appendChild(o);
+    });
+    sel.value = vizRegiao;
+    if (vizTipo === "capital") sel.setAttribute("disabled", "disabled");
+    sel.addEventListener("change", function () {
+      vizRegiao = sel.value;
+      if (vizRegiao && vizTipo === "capital") vizTipo = "todos";
+      renderDados();
+    });
+    gReg.appendChild(sel);
+    barra.appendChild(gReg);
+
+    // Limpar
+    if (vizTipo !== "todos" || vizDe || vizAte || vizRegiao) {
+      var limpar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Limpar filtros" });
+      limpar.addEventListener("click", function () {
+        vizTipo = "todos"; vizDe = ""; vizAte = ""; vizRegiao = "";
+        renderDados();
+      });
+      barra.appendChild(limpar);
+    }
+
     painel.appendChild(barra);
 
     var lista = filtrarViz();
@@ -660,8 +717,8 @@
 
     // Contagem por região (formulário do Interior) + mapa
     var contRegiao = contarPor(lista, function (r) { return r.respostas && r.respostas.regiao_atuacao; });
-    // A bolha da Capital só aparece quando o filtro não é "Interior".
-    var capitalCount = vizTipo === "interior" ? null : lista.filter(function (r) { return r.tipo === "capital"; }).length;
+    // A bolha da Capital só aparece quando não filtrado por Interior nem por região específica.
+    var capitalCount = (vizTipo === "interior" || vizRegiao) ? null : lista.filter(function (r) { return r.tipo === "capital"; }).length;
     painel.appendChild(renderMapa(contRegiao, capitalCount));
 
     var grid = el("div", { class: "graficos" });
@@ -694,7 +751,7 @@
     })));
 
     // Por região (só faz sentido em "Todas")
-    if (vizTipo === "todos") {
+    if (vizTipo === "todos" && !vizRegiao) {
       grid.appendChild(graficoBarras("Capital × Interior", [
         { label: "Capital", valor: linhas.filter(function (r) { return r.tipo === "capital"; }).length },
         { label: "Interior", valor: linhas.filter(function (r) { return r.tipo === "interior"; }).length },

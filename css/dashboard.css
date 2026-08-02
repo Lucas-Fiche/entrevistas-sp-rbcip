@@ -250,7 +250,40 @@
 .tag--cinza { background: #eef0f2; color: var(--cor-texto-suave); }
 
 /* ---------- Visualização de dados ---------- */
+.viz-filtros {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-bottom: 20px;
+}
+.viz-grupo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .viz-filtro__rotulo { font-size: 14px; color: var(--cor-texto-suave); }
+.viz-ate { font-size: 13px; color: var(--cor-texto-suave); }
+
+.viz-data,
+.viz-select {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: var(--cor-branco);
+  color: var(--cor-texto);
+}
+.viz-data:focus,
+.viz-select:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+.viz-select { cursor: pointer; }
+.viz-select:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .viz-filtro {
   background: var(--cor-branco);
