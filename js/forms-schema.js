@@ -128,22 +128,12 @@ function secaoAvaliador() {
       {
         id: "exp_publico_v1",
         tipo: "textarea",
-        label: "Experiência com Atendimento ao Público (v1)",
+        label: "Experiência com Atendimento ao Público",
         ajuda:
           "Descreva uma situação em que você teve que lidar com um entrevistado ou público resistente ou com dificuldades de comunicação. Como você gerenciou a situação para atingir o objetivo da interação?",
         obrigatorio: true,
       },
-      { id: "exp_publico_v1_nota", tipo: "escala", label: "Experiência com Atendimento ao Público (v1): Avaliação do Candidato", obrigatorio: true },
-
-      {
-        id: "exp_publico_v2",
-        tipo: "textarea",
-        label: "Experiência com Atendimento ao Público (v2)",
-        ajuda:
-          "Descreva uma situação em que você teve que lidar com um entrevistado ou público resistente ou com dificuldades de comunicação. Como você gerenciou a situação para atingir o objetivo da interação?",
-        obrigatorio: true,
-      },
-      { id: "exp_publico_v2_nota", tipo: "escala", label: "Experiência com Atendimento ao Público (v2): Avaliação do Candidato", obrigatorio: true },
+      { id: "exp_publico_v1_nota", tipo: "escala", label: "Experiência com Atendimento ao Público: Avaliação do Candidato", obrigatorio: true },
 
       {
         id: "exp_organizacao_dados",

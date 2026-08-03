@@ -33,10 +33,10 @@ Por isso, a parte comum é definida uma única vez em `forms-schema.js`.
 
 - **Pontuação automática do candidato** (para ranquear no dashboard). O bloco de
   *Elegibilidade* não pontua. Somam pontos:
-  - Bloco 1 (STAR): 7 notas de 1 a 5 → até **35 pontos**;
+  - Bloco 1 (STAR): 6 notas de 1 a 5 → até **30 pontos**;
   - "Adequado/Inadequado" (Blocos 2 e 3): 1 ponto para cada "Adequado" → até **5**;
   - "Sim/Não" do Conflito de Interesses: 1 ponto para "Sim" → até **1**;
-  - **Total máximo: 41 pontos**, exibido ao vivo enquanto se preenche.
+  - **Total máximo: 36 pontos**, exibido ao vivo enquanto se preenche.
 - **Rascunho automático:** o formulário é salvo no navegador a cada alteração e
   recuperado se a página for fechada/recarregada, evitando perda de dados.
 - **Marcadores de saída rápida:** ao marcar *"candidato faltante"* ou *"não cumpre
@@ -109,7 +109,7 @@ Cada envio grava uma linha na tabela `entrevistas`:
 | `nao_cumpre_requisitos` | Marcado como reprovado por requisitos                  |
 | `recomendacao`          | Recomendação final                                     |
 | `pontuacao_total`       | Pontuação obtida (para ranking)                        |
-| `pontuacao_maxima`      | Pontuação máxima possível (41)                         |
+| `pontuacao_maxima`      | Pontuação máxima possível (36)                         |
 | `respostas`             | JSON com **todas** as respostas do formulário          |
 
 Manter os campos principais em colunas próprias (além do JSON) facilita o
