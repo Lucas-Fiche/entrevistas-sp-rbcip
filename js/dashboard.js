@@ -447,19 +447,82 @@
     return ordem;
   }
 
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function metaEntrevista(r) {
+    return (r.tipo === "capital" ? "Capital" : "Interior") +
+      " · " + (r.entrevistador || "—") +
+      " · " + formatarData(r.data_entrevista) +
+      " · Pontuação: " + pontuacaoTexto(r);
+  }
+
+  // Monta um documento HTML imprimível (usado para "Baixar PDF").
+  function htmlDetalhes(r) {
+    var resp = r.respostas || {};
+    var secaoAtual = null;
+    var corpo = "";
+    mapaPerguntas(r.tipo).forEach(function (p) {
+      var v = resp[p.id];
+      if (v === undefined || v === "" || v === false) return;
+      if (p.secao && p.secao !== secaoAtual) {
+        secaoAtual = p.secao;
+        corpo += '<h3 class="sec">' + escapeHtml(p.secao) + "</h3>";
+      }
+      corpo += '<p class="q">' + escapeHtml(p.label) + '</p><p class="a">' + escapeHtml(v === true ? "Sim" : String(v)) + "</p>";
+    });
+    var css =
+      "*{box-sizing:border-box}body{font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#1c2530;margin:0;line-height:1.5}" +
+      ".doc{max-width:760px;margin:0 auto;padding:8px}" +
+      ".cab{border-bottom:3px solid #004e6b;padding-bottom:12px;margin-bottom:16px}" +
+      ".marca{color:#004e6b;font-weight:700;letter-spacing:1px;font-size:12px;text-transform:uppercase}" +
+      "h1{font-size:24px;margin:6px 0 4px}.meta{color:#5c6b78;margin:0;font-size:13px}.status{margin:6px 0 0;font-size:13px;color:#004e6b}" +
+      ".sec{color:#004e6b;font-size:13px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #d5dee3;padding-bottom:4px;margin:22px 0 8px}" +
+      ".q{font-weight:700;font-size:14px;margin:12px 0 2px}.a{margin:0;font-size:14px;white-space:pre-wrap}" +
+      ".rodape{margin-top:28px;color:#5c6b78;font-size:11px;border-top:1px solid #d5dee3;padding-top:8px}" +
+      "@page{margin:1.5cm}";
+    return "<!doctype html><html lang='pt-BR'><head><meta charset='utf-8'>" +
+      "<title>Entrevista - " + escapeHtml(r.candidato || "") + "</title><style>" + css + "</style></head><body>" +
+      '<div class="doc"><div class="cab"><div class="marca">RBCIP — Processo Seletivo</div>' +
+      "<h1>" + escapeHtml(r.candidato || "(sem nome)") + "</h1>" +
+      '<p class="meta">' + escapeHtml(metaEntrevista(r)) + "</p>" +
+      '<p class="status">Status: ' + escapeHtml(statusTexto(r)) + "</p></div>" +
+      corpo +
+      '<p class="rodape">Documento gerado pelo dashboard de entrevistas — Processo Seletivo RBCIP.</p>' +
+      "</div></body></html>";
+  }
+
+  function baixarPdf(r) {
+    var w = window.open("", "_blank");
+    if (!w) {
+      alert("Não foi possível abrir a janela de impressão. Permita pop-ups para este site e tente de novo.");
+      return;
+    }
+    w.document.open();
+    w.document.write(htmlDetalhes(r));
+    w.document.close();
+    w.focus();
+    setTimeout(function () { try { w.print(); } catch (e) {} }, 300);
+  }
+
   function abrirModal(r) {
     var alvo = $("#modal-conteudo");
     alvo.innerHTML = "";
     alvo.appendChild(el("h2", { class: "modal__titulo", text: r.candidato || "(sem nome)" }));
 
     var meta = el("p", { class: "modal__meta" });
-    meta.textContent =
-      (r.tipo === "capital" ? "Capital" : "Interior") +
-      " · " + (r.entrevistador || "—") +
-      " · " + formatarData(r.data_entrevista) +
-      " · Pontuação: " + pontuacaoTexto(r);
+    meta.textContent = metaEntrevista(r);
     alvo.appendChild(meta);
-    alvo.appendChild(el("span", { class: statusClasse(r) + " modal__status", text: statusTexto(r) }));
+
+    var topo = el("div", { class: "modal__topo" });
+    topo.appendChild(el("span", { class: statusClasse(r) + " modal__status", text: statusTexto(r) }));
+    var btnPdf = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar PDF" });
+    btnPdf.addEventListener("click", function () { baixarPdf(r); });
+    topo.appendChild(btnPdf);
+    alvo.appendChild(topo);
 
     var resp = r.respostas || {};
     var ordem = mapaPerguntas(r.tipo);

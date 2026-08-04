@@ -568,7 +568,15 @@ input[type="date"].viz-data {
 .modal__fechar:hover { color: var(--cor-texto); }
 .modal__titulo { margin: 0 0 4px; font-size: 22px; }
 .modal__meta { margin: 0 0 10px; color: var(--cor-texto-suave); font-size: 14px; }
-.modal__status { margin-bottom: 8px; }
+.modal__status { margin-bottom: 0; }
+.modal__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
 
 .detalhe { margin: 18px 0 0; }
 .detalhe__secao {
