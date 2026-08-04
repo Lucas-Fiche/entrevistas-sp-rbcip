@@ -774,11 +774,25 @@
       return { label: ROTULO_REC[k], titulo: k, valor: contRec[k] || 0 };
     })));
 
-    // Por entrevistador
+    // Por entrevistador (quantidade)
     var contEnt = contarPor(lista, function (r) { return r.entrevistador; });
     grid.appendChild(graficoBarras("Entrevistas por entrevistador", Object.keys(contEnt).sort().map(function (k) {
       return { label: k, valor: contEnt[k] };
     })));
+
+    // Nota média por entrevistador (só candidatos avaliados, com pontuação)
+    var somaEnt = {}, qtdEnt = {};
+    lista.forEach(function (r) {
+      if (r.pontuacao_total == null || !r.entrevistador) return;
+      somaEnt[r.entrevistador] = (somaEnt[r.entrevistador] || 0) + r.pontuacao_total;
+      qtdEnt[r.entrevistador] = (qtdEnt[r.entrevistador] || 0) + 1;
+    });
+    var mediaEnt = Object.keys(somaEnt).sort().map(function (k) {
+      return { label: k, valor: Math.round((somaEnt[k] / qtdEnt[k]) * 10) / 10 };
+    });
+    if (mediaEnt.length) {
+      grid.appendChild(graficoBarras("Nota média por entrevistador", mediaEnt));
+    }
 
     // Por região (só faz sentido em "Todas")
     if (vizTipo === "todos" && !vizRegiao) {
