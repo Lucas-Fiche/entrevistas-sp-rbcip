@@ -245,7 +245,9 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.tag--verde { background: #e6f4ea; color: var(--cor-sucesso); }
+.tag--verde-forte { background: #188038; color: #fff; }
+.tag--verde { background: #d6efd9; color: #1b6b2e; }
+.tag--verde-claro { background: #eef7ea; color: #5f8b3a; }
 .tag--vermelho { background: #fce8e6; color: var(--cor-erro); }
 .tag--cinza { background: #eef0f2; color: var(--cor-texto-suave); }
 

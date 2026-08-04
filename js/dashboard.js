@@ -42,6 +42,31 @@
     if (r.nao_cumpre_requisitos) return "tag tag--vermelho";
     return "tag tag--verde";
   }
+  // Recomendação: rótulo curto, cor (tons de verde para aprovados; vermelho para reprovado)
+  // e rank para ordenação (do melhor ao pior).
+  var REC_RANK = {
+    "Aprovado - Forte Recomendação": 4,
+    "Aprovado - Recomendação": 3,
+    "Aprovado - Recomendação com Ressalvas": 2,
+    "Reprovado": 1,
+  };
+  function recomendacaoCurta(v) {
+    if (!v) return "—";
+    if (v.indexOf("Forte") !== -1) return "Forte recomendação";
+    if (v.indexOf("Ressalvas") !== -1) return "Com ressalvas";
+    if (v === "Reprovado") return "Reprovado";
+    if (v.indexOf("Aprovado") !== -1) return "Recomendação";
+    return v;
+  }
+  function recomendacaoClasse(r) {
+    var v = r.recomendacao;
+    if (!v) return "";
+    if (v === "Reprovado") return "tag tag--vermelho";
+    if (v.indexOf("Forte") !== -1) return "tag tag--verde-forte";
+    if (v.indexOf("Ressalvas") !== -1) return "tag tag--verde-claro";
+    if (v.indexOf("Aprovado") !== -1) return "tag tag--verde";
+    return "";
+  }
   function pontuacaoTexto(r) {
     if (r.pontuacao_total === null || r.pontuacao_total === undefined) return "—";
     return r.pontuacao_total + (r.pontuacao_maxima ? " / " + r.pontuacao_maxima : "");
@@ -60,8 +85,14 @@
     { chave: "data", titulo: "Data", valor: function (r) { return formatarData(r.data_entrevista); }, ord: function (r) { return r.data_entrevista || ""; } },
     { chave: "entrevistador", titulo: "Entrevistador", valor: function (r) { return r.entrevistador || "—"; } },
     { chave: "pontuacao", titulo: "Pontuação", num: true, valor: pontuacaoTexto, ord: function (r) { return r.pontuacao_total == null ? -1 : r.pontuacao_total; } },
-    { chave: "recomendacao", titulo: "Recomendação", valor: function (r) { return r.recomendacao || "—"; } },
-    { chave: "status", titulo: "Status", valor: statusTexto, ord: statusTexto, tag: true },
+    {
+      chave: "recomendacao", titulo: "Recomendação",
+      valor: function (r) { return recomendacaoCurta(r.recomendacao); },
+      tituloCel: function (r) { return r.recomendacao || ""; },
+      ord: function (r) { return REC_RANK[r.recomendacao] || 0; },
+      tag: true, tagClasse: recomendacaoClasse,
+    },
+    { chave: "status", titulo: "Status", valor: statusTexto, ord: statusTexto, tag: true, tagClasse: statusClasse },
     { chave: "registro", titulo: "Registrado em", valor: function (r) { return formatarDataHora(r.created_at); }, ord: function (r) { return r.created_at || ""; } },
   ];
 
@@ -382,8 +413,11 @@
       var tr = el("tr", { class: "tabela__tr" });
       COLUNAS.forEach(function (c) {
         var td = el("td", { class: "tabela__td" + (c.num ? " tabela__td--num" : "") });
-        if (c.tag) {
-          td.appendChild(el("span", { class: statusClasse(r), text: c.valor(r) }));
+        var cls = c.tag && c.tagClasse ? c.tagClasse(r) : "";
+        if (cls) {
+          var span = el("span", { class: cls, text: c.valor(r) });
+          if (c.tituloCel) { var t = c.tituloCel(r); if (t) span.setAttribute("title", t); }
+          td.appendChild(span);
         } else {
           td.textContent = c.valor(r);
         }
