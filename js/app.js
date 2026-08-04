@@ -47,7 +47,12 @@
   var supabaseConfigurado = Boolean(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY);
   var supabaseClient = null;
   if (supabaseConfigurado && window.supabase) {
-    supabaseClient = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    // persistSession:false -> o formulário NÃO herda a sessão de login do dashboard.
+    // Ele sempre envia como visitante (anon), que é o papel correto e não expira,
+    // evitando o erro "JWT expired" quando alguém está logado no mesmo navegador.
+    supabaseClient = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
   }
 
   // ---------- Renderização de perguntas ----------
