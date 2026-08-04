@@ -473,8 +473,14 @@
       );
     }
 
+    var enviado = false; // vira true após envio bem-sucedido
+    var formSujo = false; // vira true quando algo é preenchido
+
     // Formulário
     var form = el("form", { id: "form-entrevista", novalidate: "novalidate" });
+    // TRAVA PERMANENTE: impede o envio nativo do HTML (que recarregaria a página
+    // em branco e perderia as respostas), mesmo que algo mais falhe na inicialização.
+    form.addEventListener("submit", function (e) { e.preventDefault(); });
     schema.secoes.forEach(function (s) {
       form.appendChild(renderSecao(s));
     });
@@ -499,8 +505,13 @@
     var campoData = form.querySelector('[name="data_entrevista"]');
     if (campoData && !campoData.value) campoData.value = hojeISO();
 
-    // 2) restaura rascunho, se houver
-    var temRascunho = restaurarRascunho(form, schema);
+    // 2) restaura rascunho, se houver (protegido: nunca deve abortar a inicialização)
+    var temRascunho = false;
+    try {
+      temRascunho = restaurarRascunho(form, schema);
+    } catch (e) {
+      console.error("Falha ao restaurar rascunho:", e);
+    }
     if (temRascunho) {
       bannerRascunho.textContent = "Rascunho recuperado automaticamente. ";
       var descartar = el("button", { type: "button", class: "link-descartar", text: "Descartar rascunho" });
@@ -522,12 +533,21 @@
     }
 
     function aoAlterar() {
+      formSujo = true;
       aplicarColapso(form);
       atualizarScore();
       salvarRascunho(form, schema);
     }
     form.addEventListener("input", aoAlterar);
     form.addEventListener("change", aoAlterar);
+
+    // Avisa antes de sair/recarregar com respostas ainda não enviadas.
+    window.addEventListener("beforeunload", function (e) {
+      if (formSujo && !enviado) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
 
     aplicarColapso(form);
     atualizarScore();
@@ -553,6 +573,7 @@
 
       enviar(montarRegistro(form, schema))
         .then(function (resultado) {
+          enviado = true;
           limparRascunho(schema);
           mostrarSucesso(container, resultado.modo);
         })
@@ -568,5 +589,20 @@
     });
   }
 
-  document.addEventListener("DOMContentLoaded", init);
+  document.addEventListener("DOMContentLoaded", function () {
+    try {
+      init();
+    } catch (e) {
+      console.error("Erro ao inicializar o formulário:", e);
+      var container = $("#app");
+      if (container) {
+        container.appendChild(
+          el("div", {
+            class: "banner banner--erro",
+            text: "Ocorreu um erro ao carregar o formulário. Recarregue a página (Ctrl+Shift+R). Se persistir, avise o suporte.",
+          })
+        );
+      }
+    }
+  });
 })();
