@@ -433,9 +433,28 @@
     window.scrollTo(0, 0);
   }
 
+  var SITE_URL = "https://entrevistas-sp-rbcip.vercel.app/";
+
   // ---------- Inicialização ----------
   function init() {
     var container = $("#app");
+
+    // Proteção: se a página foi aberta como ARQUIVO salvo no computador
+    // (protocolo file:), ela não funciona — orienta a usar o site.
+    if (location.protocol === "file:") {
+      container.innerHTML = "";
+      var aviso = el("div", { class: "banner banner--erro" });
+      aviso.innerHTML =
+        "⚠️ <strong>Esta é uma cópia salva no computador e não funciona.</strong><br><br>" +
+        "As respostas preenchidas aqui <strong>não são registradas</strong>. " +
+        "Use sempre o site oficial:<br><br>" +
+        '<a href="' + SITE_URL + '" style="font-size:17px;font-weight:700">' + SITE_URL + "</a><br><br>" +
+        "Dica: abra o link acima e salve nos <strong>Favoritos</strong> do navegador. " +
+        "Se houver um arquivo deste formulário na sua Área de Trabalho, pode apagá-lo.";
+      container.appendChild(aviso);
+      return;
+    }
+
     var tipo = (getParam("tipo") || "").toLowerCase();
     var schema = window.FORMULARIOS[tipo];
 
