@@ -511,6 +511,33 @@
     return card;
   }
 
+  function formatarNum(n) {
+    return String(n).replace(".", ",");
+  }
+
+  // Lista de médias (nome + valor destacado, sem barra).
+  function graficoMedia(titulo, dados) {
+    var card = el("div", { class: "grafico" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    if (!dados.length) {
+      card.appendChild(el("p", { class: "vazio", text: "Sem dados." }));
+      return card;
+    }
+    var lista = el("div", { class: "medias" });
+    dados.forEach(function (d) {
+      var valor = el("span", { class: "media-item__valor" }, [
+        el("strong", { text: formatarNum(d.valor) }),
+        d.max ? el("span", { class: "media-item__max", text: " / " + formatarNum(d.max) }) : null,
+      ]);
+      lista.appendChild(el("div", { class: "media-item" }, [
+        el("span", { class: "media-item__nome", text: d.label }),
+        valor,
+      ]));
+    });
+    card.appendChild(lista);
+    return card;
+  }
+
   // Calcula a posição do rótulo a partir da direção (dir) e da distância (raio + gap).
   function posRotulo(px, py, r, dir, gap) {
     var ux = dir[0], uy = dir[1];
@@ -781,17 +808,22 @@
     })));
 
     // Nota média por entrevistador (só candidatos avaliados, com pontuação)
-    var somaEnt = {}, qtdEnt = {};
+    var somaEnt = {}, somaMaxEnt = {}, qtdEnt = {};
     lista.forEach(function (r) {
       if (r.pontuacao_total == null || !r.entrevistador) return;
       somaEnt[r.entrevistador] = (somaEnt[r.entrevistador] || 0) + r.pontuacao_total;
+      somaMaxEnt[r.entrevistador] = (somaMaxEnt[r.entrevistador] || 0) + (r.pontuacao_maxima || 0);
       qtdEnt[r.entrevistador] = (qtdEnt[r.entrevistador] || 0) + 1;
     });
     var mediaEnt = Object.keys(somaEnt).sort().map(function (k) {
-      return { label: k, valor: Math.round((somaEnt[k] / qtdEnt[k]) * 10) / 10 };
+      return {
+        label: k,
+        valor: Math.round((somaEnt[k] / qtdEnt[k]) * 10) / 10,
+        max: Math.round((somaMaxEnt[k] / qtdEnt[k]) * 10) / 10,
+      };
     });
     if (mediaEnt.length) {
-      grid.appendChild(graficoBarras("Nota média por entrevistador", mediaEnt));
+      grid.appendChild(graficoMedia("Nota média por entrevistador", mediaEnt));
     }
 
     // Por região (só faz sentido em "Todas")
