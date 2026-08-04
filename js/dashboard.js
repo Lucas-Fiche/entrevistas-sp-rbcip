@@ -249,25 +249,55 @@
   }
 
   // ---------- Carregar dados ----------
+  function buscarEntrevistas() {
+    return client
+      .from(cfg.TABELA || "entrevistas")
+      .select("*")
+      .order("pontuacao_total", { ascending: false, nullsFirst: false });
+  }
+
+  // Reconhece erros de sessão expirada (JWT) para tratar sem assustar o usuário.
+  function ehErroSessao(err) {
+    if (!err) return false;
+    var m = String(err.message || err.msg || "").toLowerCase();
+    return m.indexOf("jwt") !== -1 || m.indexOf("expired") !== -1 ||
+      err.code === "PGRST301" || err.status === 401;
+  }
+
   function carregarDados() {
     var carregando = $("#carregando");
     var erro = $("#dash-erro");
     mostrar(erro, false);
     mostrar(carregando, true);
-    client
-      .from(cfg.TABELA || "entrevistas")
-      .select("*")
-      .order("pontuacao_total", { ascending: false, nullsFirst: false })
-      .then(function (resp) {
-        mostrar(carregando, false);
-        if (resp.error) {
-          erro.textContent = "Não foi possível carregar os dados: " + (resp.error.message || resp.error);
-          mostrar(erro, true);
-          return;
-        }
-        linhas = resp.data || [];
-        renderTudo();
-      });
+
+    function aplicar(resp) {
+      mostrar(carregando, false);
+      if (resp.error) {
+        erro.textContent = "Não foi possível carregar os dados: " + (resp.error.message || resp.error);
+        mostrar(erro, true);
+        return;
+      }
+      linhas = resp.data || [];
+      renderTudo();
+    }
+
+    buscarEntrevistas().then(function (resp) {
+      if (resp.error && ehErroSessao(resp.error)) {
+        // Sessão expirou: tenta renovar em silêncio e refazer a busca.
+        client.auth.refreshSession().then(function (r) {
+          if (r.error || !r.data || !r.data.session) {
+            // Não deu para renovar: volta ao login com mensagem amigável.
+            mostrar(carregando, false);
+            linhas = [];
+            mostrarLogin("Sua sessão expirou por segurança. Entre novamente para continuar.");
+            return;
+          }
+          buscarEntrevistas().then(aplicar);
+        });
+        return;
+      }
+      aplicar(resp);
+    });
   }
 
   // ---------- Render das tabelas ----------
