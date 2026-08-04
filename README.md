@@ -1,163 +1,286 @@
-# Entrevistas SP — RBCIP
+# Entrevistas SP — Processo Seletivo RBCIP
 
-Formulários de Entrevista Estruturada do Processo Seletivo RBCIP (perfil
-**Avaliador / Entrevistador**), em substituição ao Google Forms.
+Sistema para conduzir e acompanhar as **entrevistas estruturadas** do processo
+seletivo da RBCIP (perfil **Avaliador / Entrevistador**), em substituição ao
+Google Forms.
 
-Feito com **HTML + CSS + JavaScript puro** e **Supabase** para armazenamento —
-sem framework, sem build, fácil de manter.
+- **Formulários** (Capital e Interior) que o entrevistador preenche durante a entrevista.
+- **Dashboard** (com login) para acompanhar candidatos, pontuações, filtros, gráficos, mapa e exportação.
+- **Banco de dados** no Supabase.
 
-## Estrutura
+Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
+**Supabase**. É um site estático: os arquivos são servidos como estão.
+
+---
+
+## Índice
+
+1. [Como funciona (arquitetura)](#como-funciona-arquitetura)
+2. [Estrutura de arquivos](#estrutura-de-arquivos)
+3. [Onde ficam salvas as respostas](#onde-ficam-salvas-as-respostas)  ← leia se procurou os campos no Supabase
+4. [Modelo de dados](#modelo-de-dados)
+5. [Os formulários](#os-formulários)
+6. [O dashboard](#o-dashboard)
+7. [Segurança (RLS)](#segurança-rls)
+8. [Configurar o Supabase (passo a passo)](#configurar-o-supabase-passo-a-passo)
+9. [Rodar localmente](#rodar-localmente)
+10. [Publicar (Vercel)](#publicar-vercel)
+11. [Como alterar coisas comuns](#como-alterar-coisas-comuns)
+12. [Solução de problemas](#solução-de-problemas)
+13. [Boas práticas operacionais](#boas-práticas-operacionais)
+
+---
+
+## Como funciona (arquitetura)
+
+```
+  Entrevistador                        Você (gestor)
+      │                                     │
+      ▼                                     ▼
+ [ Formulário ] --insere--> [ Supabase ] <--lê (login)-- [ Dashboard ]
+  (site, anon)              (Postgres +                    (site, autenticado)
+                             RLS + Auth)
+```
+
+- **Formulário** e **Dashboard** são páginas estáticas hospedadas na Vercel.
+- Os dados são gravados e lidos no **Supabase** (banco Postgres gerenciado).
+- O formulário grava como **visitante (anon)**; o dashboard só lê após **login**.
+- Não há servidor próprio nem etapa de build.
+
+---
+
+## Estrutura de arquivos
 
 ```
 .
-├── index.html          # Página inicial: escolha entre Capital e Interior
-├── formulario.html     # Página do formulário (?tipo=capital | ?tipo=interior)
-├── dashboard.html      # Dashboard (login + abas Capital/Interior/Dados)
+├── index.html            # Página inicial: escolha entre Capital e Interior
+├── formulario.html       # Formulário (?tipo=capital | ?tipo=interior)
+├── dashboard.html        # Dashboard (login + abas + gráficos)
+├── vercel.json           # Cabeçalhos de cache (revalidação) na Vercel
 ├── css/
-│   ├── styles.css      # Estilos dos formulários e base
-│   └── dashboard.css   # Estilos do dashboard
+│   ├── styles.css        # Estilos dos formulários e base (variáveis de cor)
+│   └── dashboard.css     # Estilos do dashboard
 ├── js/
-│   ├── config.js       # Credenciais do Supabase (preencher)
-│   ├── forms-schema.js # Estrutura das perguntas dos dois formulários
-│   ├── app.js          # Renderiza o formulário, valida e envia ao Supabase
-│   └── dashboard.js    # Login, tabelas e gráficos do dashboard
-└── sql/
-    └── schema.sql      # Criação da tabela + políticas de segurança (RLS)
+│   ├── config.js         # Credenciais do Supabase (URL + publishable key)
+│   ├── forms-schema.js   # Estrutura das perguntas dos dois formulários
+│   ├── app.js            # Renderiza o formulário, valida, pontua e envia
+│   ├── dashboard.js      # Login, tabelas, filtros, gráficos, mapa, exportação
+│   └── export.js         # Geração de CSV e XLSX no navegador (sem biblioteca)
+├── sql/
+│   ├── schema.sql        # Cria a tabela + segurança (RLS) + permissões
+│   └── view_respostas.sql# VIEW que mostra as respostas em colunas (opcional)
+├── assets/
+│   ├── logo-rbcip.png    # Logo (barra superior)
+│   └── bandeira-sp.png   # Bandeira de SP (canto do mapa)
+└── docs/
+    └── GUIA-ENTREVISTADORES.md  # Guia simples para quem faz as entrevistas
 ```
 
-Os dois formulários são quase idênticos: compartilham os blocos de avaliação
-(Blocos 1 a 4 + observação final) e diferem apenas na seção de **Elegibilidade**.
-Por isso, a parte comum é definida uma única vez em `forms-schema.js`.
+---
 
-## Funcionalidades
+## Onde ficam salvas as respostas
 
-- **Pontuação automática do candidato** (para ranquear no dashboard). O bloco de
-  *Elegibilidade* não pontua. Somam pontos:
-  - Bloco 1 (STAR): 6 notas de 1 a 5 → até **30 pontos**;
-  - "Adequado/Inadequado" (Blocos 2 e 3): 1 ponto para cada "Adequado" → até **5**;
-  - "Sim/Não" do Conflito de Interesses: 1 ponto para "Sim" → até **1**;
-  - **Total máximo: 36 pontos**, exibido ao vivo enquanto se preenche.
-- **Rascunho automático:** o formulário é salvo no navegador a cada alteração e
-  recuperado se a página for fechada/recarregada, evitando perda de dados.
-- **Marcadores de saída rápida:** ao marcar *"candidato faltante"* ou *"não cumpre
-  requisitos"*, as seções não aplicáveis são ocultadas e a validação se ajusta.
-- **Entrevistador por lista** (Christiane Borges, Fabiola Seabra, Luiz Rocha),
-  mantendo o dado padronizado. Edite a lista `ENTREVISTADORES` em `forms-schema.js`.
-- **Data da entrevista** já vem preenchida com a data atual.
+**Todas as respostas ficam no Supabase, na tabela `entrevistas`.**
 
-## Identidade visual
+O ponto que costuma confundir: as respostas **não** aparecem como uma coluna para
+cada pergunta. Existem duas partes:
 
-As cores ficam centralizadas em variáveis CSS no topo de `css/styles.css`
-(`--cor-primaria`, `--cor-secundaria`, `--cor-roxo` etc.) — mudar a paleta é
-editar esses valores. Paleta atual da RBCIP:
+1. **Colunas "promovidas"** (para facilitar filtros e ranking): `candidato`,
+   `data_entrevista`, `entrevistador`, `pontuacao_total`, `recomendacao`, etc.
+2. **A coluna `respostas`** — do tipo **JSONB** — que guarda **todas** as
+   respostas do formulário, uma por chave. É aqui que estão os textos das
+   perguntas. No Table Editor, essa célula aparece "cortada"; **clique nela**
+   para ver o JSON inteiro.
 
-| Cor | Uso |
-|-----|-----|
-| `#004e6b` | Primária (cabeçalhos, botões, destaques) |
-| `#2f166e` | Roxo (degradê da marca, Interior) |
-| `#308ead` | Azul secundário |
-| `#ffffff` | Branco |
+Exemplo do conteúdo de `respostas`:
 
-A **logo** entra em `assets/logo-rbcip.png` (veja `assets/README.md`). Enquanto
-o arquivo não existir, um texto "RBCIP — pesquisa e inovação" aparece no lugar.
-
-## Como configurar o Supabase
-
-1. Crie um projeto em <https://app.supabase.com>.
-2. No **SQL Editor**, cole e execute o conteúdo de `sql/schema.sql`.
-3. Em **Settings → API**, copie:
-   - **Project URL** → `SUPABASE_URL`
-   - Chave **anon public** → `SUPABASE_ANON_KEY`
-4. Cole os dois valores em `js/config.js`.
-
-A chave *anon public* pode ficar no front-end: o acesso é controlado pelas
-políticas de **Row Level Security** do `schema.sql` (o público só pode
-**inserir** entrevistas, não ler).
-
-> **Modo de teste:** enquanto `js/config.js` estiver em branco, o formulário
-> funciona normalmente, mas salva as respostas apenas no navegador
-> (`localStorage`). Útil para validar a experiência antes de conectar o banco.
-
-## Como rodar localmente
-
-Basta um servidor estático (por causa dos parâmetros de URL e do carregamento
-dos scripts). Por exemplo:
-
-```bash
-python3 -m http.server 8000
+```json
+{
+  "nome_candidato": "Amanda Campos",
+  "regiao_atuacao": "Presidente Prudente (região)",
+  "exp_entrevistas": "Já fiz entrevistas presenciais e online...",
+  "exp_entrevistas_nota": "5",
+  "recomendacao_final": "Aprovado - Forte Recomendação",
+  "justificativa_recomendacao": "Ótima candidata."
+}
 ```
 
-Depois abra <http://localhost:8000>.
+### Como ver as respostas de forma legível
 
-## Como publicar
+- **No dashboard:** clique em **Detalhes** na linha do candidato → mostra todas
+  as perguntas e respostas com os rótulos certos. Há também **Baixar PDF** e
+  **Baixar CSV/Excel** (que já transformam cada resposta em coluna).
+- **No Supabase, como planilha:** rode `sql/view_respostas.sql` uma vez. Ele cria
+  a view **`entrevistas_detalhado`**, que expõe cada resposta em uma coluna
+  separada. Depois é só abrir essa view no Table Editor ou rodar
+  `select * from entrevistas_detalhado;`.
+- **Por SQL, um campo específico:** `select candidato, respostas->>'exp_entrevistas' from entrevistas;`
 
-Qualquer hospedagem de site estático serve (GitHub Pages, Netlify, Vercel,
-Cloudflare Pages). Não há etapa de build — publique os arquivos como estão.
+> Por que guardar tudo em JSON? Os dois formulários têm ~30 campos e variam entre
+> si (Capital x Interior). Um único JSON deixa a tabela flexível e simples de
+> manter, sem precisar de dezenas de colunas fixas — e os campos principais ficam
+> duplicados em colunas próprias para o dashboard.
+
+---
 
 ## Modelo de dados
 
-Cada envio grava uma linha na tabela `entrevistas`:
+Tabela `public.entrevistas` (criada por `sql/schema.sql`):
 
-| Coluna                  | Descrição                                              |
-|-------------------------|--------------------------------------------------------|
-| `tipo`                  | `capital` ou `interior`                                |
-| `perfil`                | Sempre `Avaliador (Entrevistador)`                     |
-| `candidato`             | Nome do candidato                                      |
-| `data_entrevista`       | Data informada                                         |
-| `entrevistador`         | Nome do entrevistador                                  |
-| `nao_compareceu`        | Marcado como candidato faltante                        |
-| `nao_cumpre_requisitos` | Marcado como reprovado por requisitos                  |
-| `recomendacao`          | Recomendação final                                     |
-| `pontuacao_total`       | Pontuação obtida (para ranking)                        |
-| `pontuacao_maxima`      | Pontuação máxima possível (36)                         |
-| `respostas`             | JSON com **todas** as respostas do formulário          |
+| Coluna                  | Tipo        | Descrição                                            |
+|-------------------------|-------------|-----------------------------------------------------|
+| `id`                    | uuid        | Gerado automaticamente                              |
+| `created_at`            | timestamptz | Data/hora do registro (automático)                  |
+| `tipo`                  | text        | `capital` ou `interior`                             |
+| `perfil`                | text        | Sempre `Avaliador (Entrevistador)`                  |
+| `candidato`             | text        | Nome do candidato                                   |
+| `data_entrevista`       | text        | Data informada na entrevista                        |
+| `entrevistador`         | text        | Nome do entrevistador                               |
+| `nao_compareceu`        | boolean     | Marcado como candidato faltante                     |
+| `nao_cumpre_requisitos` | boolean     | Marcado como reprovado por requisitos               |
+| `recomendacao`          | text        | Recomendação final                                  |
+| `pontuacao_total`       | integer     | Pontuação obtida (para ranking)                     |
+| `pontuacao_maxima`      | integer     | Pontuação máxima possível (36)                      |
+| `respostas`             | jsonb       | **Todas** as respostas do formulário                |
 
-Manter os campos principais em colunas próprias (além do JSON) facilita o
-**dashboard** que será feito na próxima etapa.
+---
 
-## Dashboard
+## Os formulários
 
-`dashboard.html` mostra as entrevistas em três abas: **Capital**, **Interior**
-(tabelas com busca, ordenação por coluna e detalhe de cada entrevista) e
-**Visualização de dados** (indicadores e gráficos).
+Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 
-O acesso é **restrito por login** (Supabase Auth): só usuários autenticados
-conseguem ler os dados. O público continua podendo apenas **inserir** pelo
-formulário.
+- **Compartilham** os mesmos blocos de avaliação (Blocos 1 a 4 + observação final),
+  definidos **uma única vez** em `js/forms-schema.js`. Diferem apenas na seção de
+  **Elegibilidade** (a Capital confirma residência na região central; o Interior
+  pergunta a cidade e a **região de atuação**).
+- **Pontuação automática** (para ranquear) — o bloco de *Elegibilidade* não pontua:
+  - Bloco 1 (STAR): 6 notas de 1 a 5 → até **30 pontos**;
+  - "Adequado/Inadequado" (Blocos 2 e 3): 1 ponto por "Adequado" → até **5**;
+  - "Sim/Não" do Conflito de Interesses: 1 ponto para "Sim" → até **1**;
+  - **Total máximo: 36 pontos**, exibido ao vivo enquanto se preenche.
+- **Marcadores de saída rápida:** *"candidato faltante"* e *"não cumpre requisitos"*
+  ocultam as seções não aplicáveis e ajustam a validação. Faltante/reprovado **não
+  pontuam**.
+- **Rascunho automático:** o formulário é salvo no navegador a cada alteração e
+  recuperado se a página for fechada/recarregada. O rascunho só é apagado após um
+  envio bem-sucedido.
+- **Envio sempre como visitante (anon):** o formulário não usa a sessão de login do
+  dashboard (evita erro de sessão), então qualquer pessoa com o link consegue enviar.
+- **Data da entrevista** já vem preenchida com a data atual.
 
-Cada aba (Capital/Interior) tem os botões **Baixar CSV** e **Baixar Excel**, que
-exportam todas as entrevistas daquela região — incluindo as respostas completas —
-geradas no próprio navegador (sem biblioteca externa; ver `js/export.js`).
+---
 
-A aba **Visualização de dados** inclui, além dos indicadores e gráficos, um
-**mapa de São Paulo** com uma bolha por região de atuação (formulário do
-Interior), dimensionada pelo número de inscritos. As coordenadas das regiões
-ficam em `REGIOES` dentro de `js/dashboard.js`.
+## O dashboard
 
-### Liberar a leitura para autenticados
-O `sql/schema.sql` já inclui a política de `select` para o papel `authenticated`.
-Se você rodou uma versão anterior do script, rode este trecho no SQL Editor:
+`dashboard.html` — **acesso restrito por login** (Supabase Auth). Três abas:
 
-```sql
-grant select on public.entrevistas to authenticated;
+- **Capital** e **Interior:** tabela das entrevistas com busca, ordenação por
+  coluna (padrão: ranking por pontuação), **Recomendação colorida** (verde =
+  aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
+  **Baixar CSV / Baixar Excel**.
+- **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**),
+  indicadores (KPIs), gráficos (inscritos por região, recomendação, entrevistas e
+  **nota média por entrevistador**) e um **mapa de São Paulo** com o número de
+  inscritos por região.
 
-drop policy if exists "entrevistas_select_auth" on public.entrevistas;
-create policy "entrevistas_select_auth"
-  on public.entrevistas for select to authenticated using (true);
+---
+
+## Segurança (RLS)
+
+O acesso é controlado pelo **Row Level Security** do Postgres (definido em
+`sql/schema.sql`):
+
+- **Papel `anon`** (chave pública / formulário): **só INSERT**. Não lê, não edita,
+  não apaga.
+- **Papel `authenticated`** (login no dashboard): **SELECT**. Lê os dados após login.
+- A **publishable key** pode ficar exposta no front-end (`js/config.js`) — quem
+  controla o acesso é o RLS. **Nunca** use a chave *secret*/*service_role* no site.
+
+---
+
+## Configurar o Supabase (passo a passo)
+
+1. Crie um projeto em <https://app.supabase.com> (pode ser na mesma organização de
+   outros sistemas — cada projeto é isolado).
+2. **SQL Editor → New query →** cole e rode o conteúdo de **`sql/schema.sql`**
+   (cria a tabela, o RLS e as permissões). É idempotente (pode rodar de novo).
+3. *(Opcional, recomendado para consultar)* rode também **`sql/view_respostas.sql`**
+   para ver as respostas como colunas.
+4. **Settings → API:** copie a **Project URL** e a **Publishable key** (formato
+   novo) ou a chave **anon public** (formato antigo). Cole as duas em
+   **`js/config.js`**.
+5. **Authentication → Users → Add user:** crie o(s) usuário(s) do dashboard
+   (e-mail + senha, marque *Auto Confirm User*). Recomendado desativar
+   *"Allow new users to sign up"* em Authentication → Sign In / Providers.
+
+> A leitura do dashboard exige o `grant select ... to authenticated` + a policy de
+> select, que já estão no `schema.sql`.
+
+---
+
+## Rodar localmente
+
+Use um servidor estático (por causa dos parâmetros de URL e do carregamento dos
+scripts). **Não** abra o `.html` direto do disco (`file://`) — o formulário bloqueia
+esse modo de propósito.
+
+```bash
+python3 -m http.server 8000
+# depois abra http://localhost:8000
 ```
 
-### Criar o(s) usuário(s) de acesso
-No painel do Supabase:
+---
 
-1. Menu **Authentication → Users → Add user** (*Create new user*).
-2. Informe **e-mail** e **senha** e marque **Auto Confirm User**.
-3. Repita para cada pessoa que terá acesso (ou crie um único login compartilhado).
+## Publicar (Vercel)
 
-Recomendado: em **Authentication → Providers/Sign In → Email**, **desative
-"Allow new users to sign up"**, já que os usuários são criados manualmente.
+O projeto é estático — sem build.
 
-Pronto — acesse `dashboard.html`, faça login e os dados aparecem.
+1. Vercel → **Add New → Project** → importe o repositório do GitHub.
+2. **Framework Preset:** `Other`. **Build Command** e **Output Directory:** deixe
+   **vazios**. **Root Directory:** `/`.
+3. **Deploy.** A cada `git push` na branch de produção, a Vercel publica sozinha.
 
-## Próximos passos
+O arquivo **`vercel.json`** define `Cache-Control: must-revalidate`, para que os
+arquivos `.js`/`.css` sejam sempre revalidados e as atualizações apareçam sem
+precisar limpar o cache.
 
-- [ ] (Opcional) Exportar entrevistas para CSV/Excel a partir do dashboard.
+---
+
+## Como alterar coisas comuns
+
+- **Adicionar/editar uma pergunta:** edite `js/forms-schema.js`. Cada pergunta é um
+  objeto com `id`, `tipo`, `label`, `ajuda`, `obrigatorio`. Blocos comuns ficam em
+  `secaoAvaliador()` (valem para os dois formulários).
+- **Regiões do Interior:** edite `REGIOES_INTERIOR` em `js/forms-schema.js`. Para o
+  ponto no mapa, ajuste `REGIOES` em `js/dashboard.js` (lon/lat e posição do rótulo).
+- **Entrevistadores:** edite `ENTREVISTADORES` em `js/forms-schema.js`.
+- **Cores / identidade:** variáveis no topo de `css/styles.css` (`--cor-primaria`
+  etc.).
+- **Logo / bandeira:** troque os arquivos em `assets/`.
+
+> ⚠️ Ao remover uma pergunta que pontua, a pontuação máxima muda. Registros antigos
+> mantêm a pontuação com que foram gravados — ajuste-os no Supabase se quiser
+> comparabilidade.
+
+---
+
+## Solução de problemas
+
+| Sintoma | Causa provável | Solução |
+|---------|----------------|---------|
+| `permission denied for table entrevistas` ao enviar | Faltou a permissão de INSERT (ou a pessoa está logada e o papel `authenticated` não tinha INSERT) | Rode o `sql/schema.sql` atualizado (concede INSERT a `anon` e `authenticated`) |
+| `JWT expired` **no dashboard** | Sessão de login expirou | O dashboard tenta renovar sozinho; se não, cai no login. Basta entrar de novo |
+| `JWT expired` **no formulário** | Já corrigido: o formulário envia sempre como `anon`. Se aparecer, recarregue com Ctrl+Shift+R | Recarregar; o rascunho é restaurado |
+| Formulário "recarrega em branco" ao enviar | A página foi aberta como **arquivo salvo** (`file://`), não pelo site | Usar sempre o **link** do site, nunca "Salvar página como". O formulário já bloqueia o modo arquivo |
+| Vejo uma versão antiga após um deploy | Cache do navegador | Ctrl+Shift+R uma vez (o `vercel.json` evita recorrência) |
+| "Baixar PDF" não abre | Pop-up bloqueado | Permitir pop-ups para o site |
+
+---
+
+## Boas práticas operacionais
+
+- **Sempre acessar pelo link do site** (favorito no navegador), nunca por um arquivo
+  `.html` salvo no computador. Veja `docs/GUIA-ENTREVISTADORES.md`.
+- Os entrevistadores **não** precisam de login (só preenchem o formulário). O login
+  é apenas para o gestor acessar o dashboard.
+- Compartilhe com a equipe o guia em `docs/GUIA-ENTREVISTADORES.md`.
