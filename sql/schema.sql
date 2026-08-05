@@ -64,3 +64,28 @@ create policy "entrevistas_select_auth"
   for select
   to authenticated
   using (true);
+
+-- ------------------------------------------------------------
+--  Link da pasta de gravações/atas (Google Drive)
+-- ------------------------------------------------------------
+-- Coluna nova, opcional. As entrevistas já existentes ficam com o campo vazio
+-- (NULL) — nada é alterado ou perdido.
+alter table public.entrevistas add column if not exists ata_link text;
+
+-- Permite que o usuário logado (gestor) GRAVE o link das atas pelo dashboard,
+-- porém de forma restrita e segura:
+--   • grant só na coluna ata_link  -> não dá para alterar nenhuma outra coluna
+--     (pontuação, recomendação, respostas etc. continuam intocáveis por UPDATE);
+--   • policy "write-once" (using ata_link is null) -> só é possível gravar quando
+--     o link ainda está vazio. Depois de salvo, fica somente-leitura, como um
+--     registro de auditoria. (Se precisar corrigir, faça direto no Table Editor
+--     do Supabase.)
+grant update (ata_link) on public.entrevistas to authenticated;
+
+drop policy if exists "entrevistas_update_ata" on public.entrevistas;
+create policy "entrevistas_update_ata"
+  on public.entrevistas
+  for update
+  to authenticated
+  using (ata_link is null)
+  with check (ata_link is not null);

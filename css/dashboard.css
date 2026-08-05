@@ -578,6 +578,51 @@ input[type="date"].viz-data {
   margin: 8px 0 4px;
 }
 
+/* ---------- Link das atas (Google Drive) ---------- */
+.ata {
+  margin: 14px 0 4px;
+  padding: 14px 16px;
+  background: var(--cor-primaria-clara);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+.ata__titulo {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--cor-primaria);
+  margin-bottom: 10px;
+}
+.ata__form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ata__input {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  background: #fff;
+}
+.ata__input:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+.ata__input:disabled { background: #eef2f4; color: var(--cor-texto-suave); }
+.ata__link {
+  display: inline-block;
+  word-break: break-all;
+  color: var(--cor-primaria);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ata__msg { margin: 8px 0 0; font-size: 13px; }
+.ata__msg--erro { color: #b3261e; }
+
 .detalhe { margin: 18px 0 0; }
 .detalhe__secao {
   margin: 20px 0 8px;

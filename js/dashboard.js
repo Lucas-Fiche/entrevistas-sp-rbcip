@@ -474,6 +474,10 @@
       }
       corpo += '<p class="q">' + escapeHtml(p.label) + '</p><p class="a">' + escapeHtml(v === true ? "Sim" : String(v)) + "</p>";
     });
+    if (r.ata_link) {
+      corpo += '<h3 class="sec">Gravações / Atas</h3>' +
+        '<p class="a"><a href="' + escapeHtml(r.ata_link) + '">' + escapeHtml(r.ata_link) + "</a></p>";
+    }
     var css =
       "*{box-sizing:border-box}body{font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#1c2530;margin:0;line-height:1.5}" +
       ".doc{max-width:760px;margin:0 auto;padding:8px}" +
@@ -508,6 +512,83 @@
     setTimeout(function () { try { w.print(); } catch (e) {} }, 300);
   }
 
+  // ---------- Link das atas (pasta no Google Drive) ----------
+  function salvarAtaLink(id, url) {
+    if (!client) return Promise.reject(new Error("Sessão indisponível. Entre novamente."));
+    return client
+      .from(cfg.TABELA || "entrevistas")
+      .update({ ata_link: url })
+      .eq("id", id)
+      .then(function (resp) {
+        if (resp.error) throw resp.error;
+        return resp;
+      });
+  }
+
+  // Desenha o bloco de atas dentro de `wrap`, conforme já exista link ou não.
+  function renderAta(wrap, r) {
+    wrap.innerHTML = "";
+    wrap.appendChild(el("div", { class: "ata__titulo", text: "📁 Pasta de gravações / atas" }));
+
+    if (r.ata_link) {
+      wrap.appendChild(
+        el("a", {
+          class: "ata__link",
+          href: r.ata_link,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          text: r.ata_link,
+        })
+      );
+      return;
+    }
+
+    var input = el("input", {
+      class: "ata__input",
+      type: "url",
+      placeholder: "Cole o link da pasta (Google Drive)…",
+    });
+    var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Salvar link" });
+    var msg = el("p", { class: "ata__msg oculto" });
+    function erro(texto) {
+      msg.textContent = texto;
+      msg.className = "ata__msg ata__msg--erro";
+    }
+    btn.addEventListener("click", function () {
+      var url = input.value.trim();
+      if (!/^https?:\/\/\S+/i.test(url)) {
+        erro("Cole um link válido (deve começar com https://).");
+        return;
+      }
+      if (!window.confirm("Depois de salvo, o link NÃO poderá ser editado pelo painel. Deseja continuar?")) {
+        return;
+      }
+      btn.disabled = true;
+      input.disabled = true;
+      btn.textContent = "Salvando…";
+      salvarAtaLink(r.id, url)
+        .then(function () {
+          r.ata_link = url; // reflete na memória (a mesma entrevista da tabela)
+          renderAta(wrap, r); // troca para o modo somente-leitura
+        })
+        .catch(function (e) {
+          btn.disabled = false;
+          input.disabled = false;
+          btn.textContent = "Salvar link";
+          erro("Não foi possível salvar: " + (e.message || e));
+        });
+    });
+
+    wrap.appendChild(el("div", { class: "ata__form" }, [input, btn]));
+    wrap.appendChild(msg);
+  }
+
+  function blocoAta(r) {
+    var wrap = el("div", { class: "ata" });
+    renderAta(wrap, r);
+    return wrap;
+  }
+
   function abrirModal(r) {
     var alvo = $("#modal-conteudo");
     alvo.innerHTML = "";
@@ -539,6 +620,10 @@
       lista.appendChild(el("dd", { class: "detalhe__resposta", text: v === true ? "Sim" : String(v) }));
     });
     alvo.appendChild(lista);
+
+    // Link da pasta de gravações/atas (Google Drive) — ao final dos detalhes.
+    // Grava uma vez; depois fica somente-leitura.
+    alvo.appendChild(blocoAta(r));
 
     mostrar($("#modal"), true);
   }

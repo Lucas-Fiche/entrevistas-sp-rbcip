@@ -27,6 +27,7 @@ select
   e.recomendacao,
   e.pontuacao_total,
   e.pontuacao_maxima,
+  e.ata_link,
 
   -- Elegibilidade (alguns campos existem só na Capital ou só no Interior)
   e.respostas->>'residencia'               as residencia_capital,   -- Capital (Sim/Não)
