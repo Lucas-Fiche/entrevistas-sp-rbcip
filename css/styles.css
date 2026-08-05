@@ -230,12 +230,15 @@ a {
 /* ---------- Seções ---------- */
 .secao {
   margin-top: 24px;
+  background: var(--cor-branco);
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  overflow: hidden; /* arredonda os cantos internos (cabeçalho/última pergunta) */
 }
 
 .secao__cabecalho {
   background: var(--cor-primaria);
   color: var(--cor-branco);
-  border-radius: var(--raio) var(--raio) 0 0;
   padding: 14px 20px;
 }
 
@@ -252,15 +255,15 @@ a {
 }
 
 /* ---------- Perguntas ---------- */
+/* A moldura/sombra agora vem da .secao; aqui só a divisória entre perguntas. */
 .pergunta {
   background: var(--cor-branco);
-  border: 1px solid var(--cor-borda);
-  border-top: none;
+  border-bottom: 1px solid var(--cor-borda);
   padding: 20px;
 }
 
 .pergunta:last-child {
-  border-radius: 0 0 var(--raio) var(--raio);
+  border-bottom: none;
 }
 
 .pergunta__label {

@@ -290,6 +290,7 @@
     toggleSecao(form, "elegibilidade", !faltante);
     toggleSecao(form, "informativo", !(faltante || reprovado));
     toggleSecao(form, "avaliador", !(faltante || reprovado));
+    toggleSecao(form, "fechamento", !(faltante || reprovado));
     var box = $("#score-box");
     if (box) box.classList.toggle("oculto", faltante || reprovado);
   }
@@ -545,9 +546,28 @@
       ]),
       el("div", { class: "score-box__aviso", id: "score-aviso" }),
     ]);
+    // A Recomendação Final (Bloco 4) sai da seção do Avaliador para um cartão
+    // próprio, com a caixa de pontuação logo acima — assim cada bloco fica
+    // sendo um cartão independente (cantos arredondados + sombra).
     var alvoRec = form.querySelector('.pergunta[data-id="recomendacao_final"]');
-    if (alvoRec && alvoRec.parentNode) alvoRec.parentNode.insertBefore(scoreBox, alvoRec);
-    else form.appendChild(scoreBox); // reserva
+    if (alvoRec && alvoRec.parentNode) {
+      var secaoOrigem = alvoRec.parentNode;
+      var fechamento = el("section", { class: "secao secao--fechamento", "data-chave": "fechamento" });
+      var mover = [];
+      // título "Bloco 4: Fechamento" (irmão anterior sem data-id), se houver
+      var prev = alvoRec.previousElementSibling;
+      if (prev && prev.classList.contains("pergunta") && !prev.getAttribute("data-id")) {
+        mover.push(prev);
+      }
+      // recomendação + tudo que vier depois dela na seção
+      for (var cur = alvoRec; cur; cur = cur.nextElementSibling) mover.push(cur);
+      mover.forEach(function (n) { fechamento.appendChild(n); });
+      // insere logo após a seção de origem: [seção avaliador][score][fechamento]
+      secaoOrigem.parentNode.insertBefore(scoreBox, secaoOrigem.nextSibling);
+      scoreBox.parentNode.insertBefore(fechamento, scoreBox.nextSibling);
+    } else {
+      form.appendChild(scoreBox); // reserva
+    }
 
     // Rodapé: botão + erro geral
     var msgErro = el("div", { class: "banner banner--erro oculto", id: "erro-geral" });
@@ -594,7 +614,8 @@
       var aviso = $("#score-aviso");
       var pct = r.maximo > 0 ? Math.max(0, Math.min(100, (r.total / r.maximo) * 100)) : 0;
       if (barra) barra.style.width = pct + "%";
-      if (caixa) caixa.className = "score-box";
+      // Ajusta só as classes de faixa (preserva "oculto" e demais classes da caixa).
+      if (caixa) caixa.classList.remove("faixa--baixa", "faixa--media", "faixa--boa", "faixa--otima");
       if (r.total <= 0) {
         if (aviso) {
           aviso.textContent = "A pontuação aparece aqui conforme você preenche as avaliações.";
@@ -602,7 +623,7 @@
         }
       } else {
         var f = faixaPontuacao(r.total);
-        if (caixa) caixa.className = "score-box " + f.classe;
+        if (caixa) caixa.classList.add(f.classe);
         if (aviso) {
           aviso.textContent = f.texto;
           aviso.className = "score-box__aviso";
