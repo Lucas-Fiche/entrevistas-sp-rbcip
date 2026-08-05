@@ -544,37 +544,108 @@ textarea {
 }
 
 /* ---------- Pontuação ---------- */
+/* Cor da faixa (texto/barra) e fundo suave do aviso, definidos por faixa.
+   Padrão = azul da marca, usado enquanto ainda não há pontuação. */
 .score-box {
-  margin-top: 20px;
-  background: var(--cor-primaria-clara);
-  border: 1px solid var(--cor-primaria);
+  --faixa-cor: var(--cor-primaria);
+  --faixa-fundo: var(--cor-primaria-clara);
+  margin: 24px 0;
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--faixa-cor);
   border-radius: var(--raio);
-  padding: 14px 18px;
-  font-size: 16px;
+  box-shadow: var(--sombra);
+  padding: 18px 20px;
+  transition: border-color 0.25s ease;
+}
+
+.score-box__cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.score-box__icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--faixa-fundo);
+  color: var(--faixa-cor);
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.score-box__icone svg {
+  width: 20px;
+  height: 20px;
+}
+
+.score-box__rotulo {
+  font-weight: 600;
   color: var(--cor-primaria-escura);
 }
 
+.score-box__num {
+  margin-left: auto;
+  white-space: nowrap;
+  color: var(--cor-texto-suave);
+  font-size: 15px;
+}
 .score-box__valor {
-  font-size: 20px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--faixa-cor);
+  transition: color 0.25s ease;
 }
 
-.score-box__max {
-  color: var(--cor-texto-suave);
+.score-box__barra {
+  margin-top: 14px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--cor-primaria-clara);
+  overflow: hidden;
+}
+.score-box__preenchido {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--faixa-cor);
+  transition: width 0.3s ease, background-color 0.25s ease;
 }
 
 .score-box__aviso {
-  margin-top: 8px;
+  margin-top: 14px;
+  padding: 9px 14px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--faixa-cor);
+  background: var(--faixa-fundo);
+}
+.score-box__aviso::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
 }
 .score-box__aviso--neutro {
   color: var(--cor-texto-suave);
-  font-weight: 400;
+  font-weight: 500;
+  background: #f2f5f7;
 }
-.faixa--baixa { color: #b3261e; }   /* vermelho */
-.faixa--media { color: #9a7000; }   /* âmbar */
-.faixa--boa   { color: #1b6b2e; }   /* verde */
-.faixa--otima { color: #0a5a2a; }   /* verde forte */
+
+/* Paleta por faixa — cada cor com um fundo suave combinando. */
+.score-box.faixa--baixa { --faixa-cor: #c0362b; --faixa-fundo: #fdecea; }
+.score-box.faixa--media { --faixa-cor: #94690a; --faixa-fundo: #fbf1d6; }
+.score-box.faixa--boa   { --faixa-cor: #1b7a3d; --faixa-fundo: #e6f4ec; }
+.score-box.faixa--otima { --faixa-cor: #0a6b34; --faixa-fundo: #ddf1e4; }
 
 /* Botão de descartar rascunho (dentro do banner) */
 .link-descartar {

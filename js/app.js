@@ -526,11 +526,22 @@
 
     // Caixa de pontuação (com aviso por faixa), inserida ANTES da Recomendação Final
     // para o entrevistador se guiar pela nota ao recomendar.
+    var ICONE_SCORE =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4.5"></circle>' +
+      '<circle cx="12" cy="12" r="0.6" fill="currentColor"></circle></svg>';
     var scoreBox = el("div", { class: "score-box", id: "score-box" }, [
-      el("div", { class: "score-box__linha" }, [
-        el("span", { class: "score-box__rotulo", text: "Pontuação do candidato: " }),
-        el("strong", { class: "score-box__valor", id: "score-valor", text: "0" }),
-        el("span", { class: "score-box__max", id: "score-max", text: " / 0" }),
+      el("div", { class: "score-box__cabecalho" }, [
+        el("span", { class: "score-box__icone", html: ICONE_SCORE }),
+        el("span", { class: "score-box__rotulo", text: "Pontuação do candidato" }),
+        el("span", { class: "score-box__num" }, [
+          el("strong", { class: "score-box__valor", id: "score-valor", text: "0" }),
+          el("span", { class: "score-box__max", id: "score-max", text: " / 0" }),
+        ]),
+      ]),
+      el("div", { class: "score-box__barra" }, [
+        el("div", { class: "score-box__preenchido", id: "score-barra" }),
       ]),
       el("div", { class: "score-box__aviso", id: "score-aviso" }),
     ]);
@@ -577,15 +588,24 @@
       var m = $("#score-max");
       if (v) v.textContent = String(r.total);
       if (m) m.textContent = " / " + r.maximo;
+
+      var caixa = $("#score-box");
+      var barra = $("#score-barra");
       var aviso = $("#score-aviso");
-      if (aviso) {
-        if (r.total <= 0) {
+      var pct = r.maximo > 0 ? Math.max(0, Math.min(100, (r.total / r.maximo) * 100)) : 0;
+      if (barra) barra.style.width = pct + "%";
+      if (caixa) caixa.className = "score-box";
+      if (r.total <= 0) {
+        if (aviso) {
           aviso.textContent = "A pontuação aparece aqui conforme você preenche as avaliações.";
           aviso.className = "score-box__aviso score-box__aviso--neutro";
-        } else {
-          var f = faixaPontuacao(r.total);
+        }
+      } else {
+        var f = faixaPontuacao(r.total);
+        if (caixa) caixa.className = "score-box " + f.classe;
+        if (aviso) {
           aviso.textContent = f.texto;
-          aviso.className = "score-box__aviso " + f.classe;
+          aviso.className = "score-box__aviso";
         }
       }
     }
