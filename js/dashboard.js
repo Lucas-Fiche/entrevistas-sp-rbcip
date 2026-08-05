@@ -76,7 +76,8 @@
   var cfg = window.SUPABASE_CONFIG || {};
   var client = null;
   var linhas = [];
-  var ordenacao = { capital: { col: "pontuacao", asc: false }, interior: { col: "pontuacao", asc: false } };
+  // Ordenação padrão: por data da entrevista, mais recente no topo (desempate por horário de registro).
+  var ordenacao = { capital: { col: "data", asc: false }, interior: { col: "data", asc: false } };
   var busca = { capital: "", interior: "" };
 
   // ---------- Colunas da tabela ----------
@@ -284,7 +285,7 @@
     return client
       .from(cfg.TABELA || "entrevistas")
       .select("*")
-      .order("pontuacao_total", { ascending: false, nullsFirst: false });
+      .order("created_at", { ascending: false, nullsFirst: false });
   }
 
   // Reconhece erros de sessão expirada (JWT) para tratar sem assustar o usuário.
@@ -347,6 +348,12 @@
       var va = fn(a), vb = fn(b);
       if (va < vb) return o.asc ? -1 : 1;
       if (va > vb) return o.asc ? 1 : -1;
+      // Empate na coluna ordenada: o registro mais recente vem primeiro (topo),
+      // usando a data/hora de registro (created_at). Resolve datas iguais com
+      // horários diferentes.
+      var ca = a.created_at || "", cb = b.created_at || "";
+      if (ca > cb) return -1;
+      if (ca < cb) return 1;
       return 0;
     });
     return lista;
