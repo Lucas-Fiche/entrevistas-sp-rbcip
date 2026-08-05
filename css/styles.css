@@ -562,6 +562,20 @@ textarea {
   color: var(--cor-texto-suave);
 }
 
+.score-box__aviso {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.score-box__aviso--neutro {
+  color: var(--cor-texto-suave);
+  font-weight: 400;
+}
+.faixa--baixa { color: #b3261e; }   /* vermelho */
+.faixa--media { color: #9a7000; }   /* âmbar */
+.faixa--boa   { color: #1b6b2e; }   /* verde */
+.faixa--otima { color: #0a5a2a; }   /* verde forte */
+
 /* Botão de descartar rascunho (dentro do banner) */
 .link-descartar {
   background: none;

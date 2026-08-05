@@ -257,6 +257,21 @@
     return { total: total, maximo: maximo };
   }
 
+  // Faixas de pontuação para orientar o entrevistador (fáceis de ajustar aqui).
+  // "ate" = limite superior da faixa (inclusivo). Máximo atual: 36.
+  var FAIXAS_PONTUACAO = [
+    { ate: 20, texto: "Pontuação baixa — o candidato não atendeu às expectativas.", classe: "faixa--baixa" },
+    { ate: 28, texto: "Pontuação mediana — o candidato atendeu parcialmente.", classe: "faixa--media" },
+    { ate: 33, texto: "Pontuação boa — o candidato atende bem às expectativas.", classe: "faixa--boa" },
+    { ate: Infinity, texto: "Pontuação excelente — o candidato se destacou.", classe: "faixa--otima" },
+  ];
+  function faixaPontuacao(total) {
+    for (var i = 0; i < FAIXAS_PONTUACAO.length; i++) {
+      if (total <= FAIXAS_PONTUACAO[i].ate) return FAIXAS_PONTUACAO[i];
+    }
+    return FAIXAS_PONTUACAO[FAIXAS_PONTUACAO.length - 1];
+  }
+
   // ---------- Colapso conforme marcadores ----------
   function estaFaltante(form) {
     return form.querySelector('[name="nao_compareceu"]').checked;
@@ -509,17 +524,25 @@
       form.appendChild(renderSecao(s));
     });
 
-    // Rodapé: pontuação + botão + erro geral
+    // Caixa de pontuação (com aviso por faixa), inserida ANTES da Recomendação Final
+    // para o entrevistador se guiar pela nota ao recomendar.
     var scoreBox = el("div", { class: "score-box", id: "score-box" }, [
-      el("span", { class: "score-box__rotulo", text: "Pontuação do candidato: " }),
-      el("strong", { class: "score-box__valor", id: "score-valor", text: "0" }),
-      el("span", { class: "score-box__max", id: "score-max", text: " / 0" }),
+      el("div", { class: "score-box__linha" }, [
+        el("span", { class: "score-box__rotulo", text: "Pontuação do candidato: " }),
+        el("strong", { class: "score-box__valor", id: "score-valor", text: "0" }),
+        el("span", { class: "score-box__max", id: "score-max", text: " / 0" }),
+      ]),
+      el("div", { class: "score-box__aviso", id: "score-aviso" }),
     ]);
+    var alvoRec = form.querySelector('.pergunta[data-id="recomendacao_final"]');
+    if (alvoRec && alvoRec.parentNode) alvoRec.parentNode.insertBefore(scoreBox, alvoRec);
+    else form.appendChild(scoreBox); // reserva
+
+    // Rodapé: botão + erro geral
     var msgErro = el("div", { class: "banner banner--erro oculto", id: "erro-geral" });
     var botao = el("button", { class: "btn", type: "submit", text: "Enviar" });
     var rodape = el("div", { class: "form-rodape" }, [botao]);
 
-    form.appendChild(scoreBox);
     form.appendChild(msgErro);
     form.appendChild(rodape);
     container.appendChild(form);
@@ -554,6 +577,17 @@
       var m = $("#score-max");
       if (v) v.textContent = String(r.total);
       if (m) m.textContent = " / " + r.maximo;
+      var aviso = $("#score-aviso");
+      if (aviso) {
+        if (r.total <= 0) {
+          aviso.textContent = "A pontuação aparece aqui conforme você preenche as avaliações.";
+          aviso.className = "score-box__aviso score-box__aviso--neutro";
+        } else {
+          var f = faixaPontuacao(r.total);
+          aviso.textContent = f.texto;
+          aviso.className = "score-box__aviso " + f.classe;
+        }
+      }
     }
 
     function aoAlterar() {
