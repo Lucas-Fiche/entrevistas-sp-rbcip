@@ -31,7 +31,8 @@ select
 
   -- Identificação (perguntas extras)
   e.respostas->>'sipe_inscricao'          as sipe_inscricao,       -- Sim/Não
-  e.respostas->>'indicacao'               as indicacao,            -- nome de quem indicou ou "Não"
+  e.respostas->>'indicacao'               as indicacao,            -- Sim/Não (foi indicado?)
+  e.respostas->>'indicacao_nome'          as indicacao_nome,       -- nome de quem indicou (se Sim)
 
   -- Elegibilidade (alguns campos existem só na Capital ou só no Interior)
   e.respostas->>'residencia'               as residencia_capital,   -- Capital (Sim/Não)

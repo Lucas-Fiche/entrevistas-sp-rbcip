@@ -110,10 +110,18 @@ function secaoIdentificacao(tipo) {
       },
       {
         id: "indicacao",
-        tipo: "texto",
-        label: "Indicação",
-        ajuda: "O candidato foi indicado por alguém? Informe o nome de quem indicou ou escreva “Não”.",
+        tipo: "radio",
+        label: "O candidato foi indicado por alguém?",
+        opcoes: OPCOES_SIM_NAO,
         obrigatorio: true,
+      },
+      {
+        // Aparece apenas quando "Indicação" = Sim.
+        id: "indicacao_nome",
+        tipo: "texto",
+        label: "Nome de quem indicou",
+        obrigatorio: true,
+        dependeDe: { campo: "indicacao", valor: "Sim" },
       },
       {
         id: "nao_compareceu",

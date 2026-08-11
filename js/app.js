@@ -68,6 +68,8 @@
     if (p.tipo === "info") return renderInfo(p);
 
     var wrap = el("div", { class: "pergunta", "data-id": p.id });
+    // Campo condicional começa escondido; é revelado por atualizarCondicionais().
+    if (p.dependeDe) wrap.classList.add("oculto");
 
     var label = el("label", { class: "pergunta__label", for: "campo_" + p.id });
     label.appendChild(document.createTextNode(p.label));
@@ -314,15 +316,37 @@
     if (box) box.classList.toggle("oculto", faltante || reprovado);
   }
 
-  // Mostra/esconde avisos condicionais conforme a resposta selecionada.
-  function atualizarAvisos(form, schema) {
+  // Verdadeiro se a condição de exibição (p.dependeDe) está satisfeita.
+  function condicaoAtendida(form, p) {
+    if (!p.dependeDe) return true;
+    var alvo = form.querySelector('[name="' + p.dependeDe.campo + '"]:checked');
+    return !!(alvo && alvo.value === p.dependeDe.valor);
+  }
+
+  // Mostra/esconde avisos e campos condicionais conforme as respostas.
+  function atualizarCondicionais(form, schema) {
     todasPerguntas(schema).forEach(function (p) {
-      if (!p.aviso) return;
-      var box = document.getElementById("aviso_" + p.id);
-      if (!box) return;
-      var marcado = form.querySelector('[name="' + p.id + '"]:checked');
-      var mostrar = marcado && marcado.value === p.aviso.quando;
-      box.classList.toggle("oculto", !mostrar);
+      // Aviso estático (ex.: link do SIPE quando "Não").
+      if (p.aviso) {
+        var box = document.getElementById("aviso_" + p.id);
+        if (box) {
+          var marcado = form.querySelector('[name="' + p.id + '"]:checked');
+          box.classList.toggle("oculto", !(marcado && marcado.value === p.aviso.quando));
+        }
+      }
+      // Campo condicional (ex.: nome de quem indicou quando "Sim").
+      if (p.dependeDe) {
+        var wrap = form.querySelector('.pergunta[data-id="' + p.id + '"]');
+        if (wrap) {
+          var mostrar = condicaoAtendida(form, p);
+          wrap.classList.toggle("oculto", !mostrar);
+          if (!mostrar) {
+            // Limpa o valor ao esconder, para não gravar dado obsoleto.
+            var campo = form.querySelector('[name="' + p.id + '"]');
+            if (campo && campo.value) campo.value = "";
+          }
+        }
+      }
     });
   }
 
@@ -382,6 +406,7 @@
       if (!p.obrigatorio) return;
       if (faltante && !ehIdentificacao(p)) return;
       if (reprovado && ehAvaliacao(p, schema)) return;
+      if (p.dependeDe && !condicaoAtendida(form, p)) return; // campo escondido não é exigido
 
       var valor = lerValor(form, p);
       if (valor === "" || valor === null) invalidos.push(p);
@@ -665,7 +690,7 @@
     function aoAlterar() {
       formSujo = true;
       aplicarColapso(form);
-      atualizarAvisos(form, schema);
+      atualizarCondicionais(form, schema);
       atualizarScore();
       salvarRascunho(form, schema);
     }
@@ -681,7 +706,7 @@
     });
 
     aplicarColapso(form);
-    atualizarAvisos(form, schema);
+    atualizarCondicionais(form, schema);
     atualizarScore();
 
     // ----- Envio -----
