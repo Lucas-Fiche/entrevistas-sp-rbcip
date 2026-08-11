@@ -266,6 +266,27 @@ a {
   border-bottom: none;
 }
 
+/* Aviso condicional (ex.: link do SIPE quando o candidato não tem inscrição) */
+.aviso-cond {
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #fff7e0;
+  border: 1px solid #f0d78a;
+  border-left: 4px solid #d99a00;
+  border-radius: 8px;
+}
+.aviso-cond__texto {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #7a5a00;
+}
+.aviso-cond__link {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
 .pergunta__label {
   display: block;
   font-size: 16px;

@@ -68,8 +68,15 @@ const OPCOES_RECOMENDACAO = [
   "Reprovado",
 ];
 
-/** Cabeçalho comum aos dois formulários (dados de identificação). */
-function secaoIdentificacao() {
+/**
+ * Cabeçalho comum aos dois formulários (dados de identificação).
+ * `tipo` ("capital" | "interior") define apenas o link de cadastro no SIPE.
+ */
+function secaoIdentificacao(tipo) {
+  var linkSipe =
+    tipo === "interior"
+      ? "https://sp.rbcip.org/link/c2interior/cadastro/bolsista/"
+      : "https://sp.rbcip.org/link/c2/cadastro/bolsista/";
   return {
     titulo: "Identificação",
     chave: "identificacao",
@@ -86,6 +93,26 @@ function secaoIdentificacao() {
         tipo: "select",
         label: "Nome do Entrevistador",
         opcoes: ENTREVISTADORES,
+        obrigatorio: true,
+      },
+      {
+        id: "sipe_inscricao",
+        tipo: "radio",
+        label: "O candidato possui inscrição no SIPE?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        // Se responder "Não", revela um aviso com o link de cadastro do candidato.
+        aviso: {
+          quando: "Não",
+          texto: "Favor, compartilhar o link de cadastro com o candidato:",
+          link: linkSipe,
+        },
+      },
+      {
+        id: "indicacao",
+        tipo: "texto",
+        label: "Indicação",
+        ajuda: "O candidato foi indicado por alguém? Informe o nome de quem indicou ou escreva “Não”.",
         obrigatorio: true,
       },
       {
@@ -319,7 +346,7 @@ const FORM_CAPITAL = {
   subtitulo: "Entrevista realizada online, duração de 20 min, gravada para transcrição.",
   regiao: "Capital",
   secoes: [
-    secaoIdentificacao(),
+    secaoIdentificacao("capital"),
     {
       titulo: "Elegibilidade e Disponibilidade",
       chave: "elegibilidade",
@@ -378,7 +405,7 @@ const FORM_INTERIOR = {
   subtitulo: "Entrevista realizada online, duração de 20 min, gravada para transcrição.",
   regiao: "Interior",
   secoes: [
-    secaoIdentificacao(),
+    secaoIdentificacao("interior"),
     {
       titulo: "Elegibilidade e Disponibilidade",
       chave: "elegibilidade",

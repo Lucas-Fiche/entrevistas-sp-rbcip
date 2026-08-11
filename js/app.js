@@ -79,8 +79,27 @@
     }
 
     wrap.appendChild(renderControle(p));
+    if (p.aviso) wrap.appendChild(renderAvisoCondicional(p));
     wrap.appendChild(el("div", { class: "pergunta__msg-erro", text: "Este campo é obrigatório." }));
     return wrap;
+  }
+
+  // Aviso que aparece apenas quando a resposta bate com p.aviso.quando.
+  function renderAvisoCondicional(p) {
+    var box = el("div", { class: "aviso-cond oculto", id: "aviso_" + p.id });
+    box.appendChild(el("p", { class: "aviso-cond__texto", text: p.aviso.texto }));
+    if (p.aviso.link) {
+      box.appendChild(
+        el("a", {
+          class: "aviso-cond__link",
+          href: p.aviso.link,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          text: p.aviso.link,
+        })
+      );
+    }
+    return box;
   }
 
   function renderControle(p) {
@@ -293,6 +312,18 @@
     toggleSecao(form, "fechamento", !(faltante || reprovado));
     var box = $("#score-box");
     if (box) box.classList.toggle("oculto", faltante || reprovado);
+  }
+
+  // Mostra/esconde avisos condicionais conforme a resposta selecionada.
+  function atualizarAvisos(form, schema) {
+    todasPerguntas(schema).forEach(function (p) {
+      if (!p.aviso) return;
+      var box = document.getElementById("aviso_" + p.id);
+      if (!box) return;
+      var marcado = form.querySelector('[name="' + p.id + '"]:checked');
+      var mostrar = marcado && marcado.value === p.aviso.quando;
+      box.classList.toggle("oculto", !mostrar);
+    });
   }
 
   // ---------- Autosave (rascunho) ----------
@@ -634,6 +665,7 @@
     function aoAlterar() {
       formSujo = true;
       aplicarColapso(form);
+      atualizarAvisos(form, schema);
       atualizarScore();
       salvarRascunho(form, schema);
     }
@@ -649,6 +681,7 @@
     });
 
     aplicarColapso(form);
+    atualizarAvisos(form, schema);
     atualizarScore();
 
     // ----- Envio -----

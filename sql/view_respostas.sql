@@ -29,6 +29,10 @@ select
   e.pontuacao_maxima,
   e.ata_link,
 
+  -- Identificação (perguntas extras)
+  e.respostas->>'sipe_inscricao'          as sipe_inscricao,       -- Sim/Não
+  e.respostas->>'indicacao'               as indicacao,            -- nome de quem indicou ou "Não"
+
   -- Elegibilidade (alguns campos existem só na Capital ou só no Interior)
   e.respostas->>'residencia'               as residencia_capital,   -- Capital (Sim/Não)
   e.respostas->>'residencia_cidade'        as residencia_cidade,    -- Interior (cidade)
