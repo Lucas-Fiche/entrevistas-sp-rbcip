@@ -66,6 +66,7 @@
     }
 
     if (p.tipo === "info") return renderInfo(p);
+    if (p.tipo === "alerta") return renderAlerta(p);
 
     var wrap = el("div", { class: "pergunta", "data-id": p.id });
     // Campo condicional começa escondido; é revelado por atualizarCondicionais().
@@ -163,6 +164,23 @@
     });
     det.appendChild(corpo);
     return det;
+  }
+
+  // Card de alerta destacado (vermelho), sempre visível — ex.: exigência da conta.
+  function renderAlerta(p) {
+    var box = el("div", { class: "alerta-card", role: "alert" });
+    if (p.titulo) {
+      box.appendChild(
+        el("div", { class: "alerta-card__titulo" }, [
+          el("span", { class: "alerta-card__icone", text: "!" }),
+          el("span", { text: p.titulo }),
+        ])
+      );
+    }
+    (p.paragrafos || []).forEach(function (t) {
+      box.appendChild(el("p", { class: "alerta-card__p", text: t }));
+    });
+    return box;
   }
 
   function renderRubrica(itens) {

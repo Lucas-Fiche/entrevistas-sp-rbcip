@@ -486,6 +486,18 @@ textarea {
 }
 
 /* ---------- Box informativo (recolhível) ---------- */
+/* A seção "informativo" agrupa cartões independentes (info + alerta),
+   por isso ela própria não é um cartão — deixa cada filho ter sua moldura. */
+.secao[data-chave="informativo"] {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+.secao[data-chave="informativo"] > * + * {
+  margin-top: 16px;
+}
+
 .infobox {
   background: var(--cor-branco);
   border: 1px solid var(--cor-borda);
@@ -493,6 +505,43 @@ textarea {
   border-radius: var(--raio);
   box-shadow: var(--sombra);
   overflow: hidden;
+}
+
+/* Card de alerta (vermelho) — chama atenção para exigências obrigatórias. */
+.alerta-card {
+  background: #fdeceb;
+  border: 1px solid #f2b8b3;
+  border-left: 4px solid #c62828;
+  border-radius: var(--raio);
+  box-shadow: var(--sombra);
+  padding: 16px 20px;
+}
+.alerta-card__titulo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #9c1c14;
+  margin-bottom: 4px;
+}
+.alerta-card__icone {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #c62828;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+.alerta-card__p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  color: #7a1a13;
 }
 
 .infobox__titulo {

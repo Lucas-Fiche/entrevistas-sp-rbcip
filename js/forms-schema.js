@@ -315,6 +315,14 @@ function secaoInformativa() {
           { destaque: "R$ 2.740,00 + R$ 600,00 = R$ 3.340,00" },
         ],
       },
+      {
+        tipo: "alerta",
+        titulo: "Conta no Banco do Brasil é obrigatória",
+        paragrafos: [
+          "Para receber os pagamentos, o candidato precisa ter uma conta corrente no Banco do Brasil.",
+          "Os repasses (bolsa e auxílio) são realizados exclusivamente nesse tipo de conta — contas de outros bancos não são aceitas.",
+        ],
+      },
     ],
   };
 }
