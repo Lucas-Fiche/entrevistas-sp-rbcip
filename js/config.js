@@ -26,10 +26,16 @@ window.SUPABASE_CONFIG = {
   // Enquanto estiver em branco, os botões de convocação ficam desativados.
   CONVOCACAO_BACKEND_URL: "",
 
-  // Link de agendamento do Google Agenda usado no e-mail de convocação p/ entrevista.
-  AGENDA_LINK: "",
+  // Links de agendamento (Google Agenda) da entrevista — 3 opções no e-mail.
+  AGENDA_LINKS: [
+    "https://calendar.app.google/xzsVELUHJnbt77P57",
+    "https://calendar.app.google/WP7ra4gvR8Tx9QA2A",
+    "https://calendar.app.google/SdKe61wjv8DHMpgH6",
+  ],
 
-  // Links de cadastro de bolsista (usados no e-mail de convocação p/ cadastro).
-  CADASTRO_LINK_CAPITAL: "https://sp.rbcip.org/link/c2/cadastro/bolsista/",
-  CADASTRO_LINK_INTERIOR: "https://sp.rbcip.org/link/c2interior/cadastro/bolsista/",
+  // Formulário de Cadastro de Bolsista (Google Forms) usado na convocação p/ cadastro.
+  // Mesmo link p/ Capital e Interior; se o Interior tiver um formulário próprio,
+  // troque apenas CADASTRO_LINK_INTERIOR.
+  CADASTRO_LINK_CAPITAL: "https://docs.google.com/forms/d/e/1FAIpQLSekgW71d-1miBB0k7wFivFaomvPzbla30KHg3lQV74AaRW9Zg/viewform?usp=header",
+  CADASTRO_LINK_INTERIOR: "https://docs.google.com/forms/d/e/1FAIpQLSekgW71d-1miBB0k7wFivFaomvPzbla30KHg3lQV74AaRW9Zg/viewform?usp=header",
 };

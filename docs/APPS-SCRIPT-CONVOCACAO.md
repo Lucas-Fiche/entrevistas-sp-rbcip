@@ -101,15 +101,14 @@ function json(obj) {
 
 ## Passo 3 — Ligar no painel
 
-No arquivo **`js/config.js`**, preencha:
+No arquivo **`js/config.js`**, preencha **só a URL do Web App**:
 
 ```javascript
 CONVOCACAO_BACKEND_URL: "COLE_AQUI_A_URL_DO_WEB_APP",   // termina em /exec
-AGENDA_LINK: "COLE_AQUI_O_LINK_DO_SEU_GOOGLE_AGENDA",   // agendamento da entrevista
 ```
 
-Os links de cadastro (Capital e Interior) já vêm preenchidos — confira se estão
-corretos.
+Os links de agendamento da entrevista (`AGENDA_LINKS`, 3 opções) e o link do
+formulário de Cadastro de Bolsista já vêm preenchidos — confira se estão corretos.
 
 Salve, faça o commit/deploy e recarregue o painel (Ctrl+Shift+R). Pronto: os
 botões de convocação passam a enviar de verdade.

@@ -854,30 +854,34 @@
   function primeiroNome(nome) { return (String(nome || "").trim().split(/\s+/)[0]) || ""; }
 
   function emailConvocacaoEntrevista(cand) {
+    var links = (cfg.AGENDA_LINKS || [])
+      .map(function (l, i) { return "Link para agendamento " + (i + 1) + ": " + l; })
+      .join("\n");
     return {
       para: cand.email,
-      assunto: "Convocação para entrevista — Processo Seletivo RBCIP",
+      assunto: "Convite para Entrevista - Processo Seletivo RBCIP",
       corpo:
-        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
-        "Você foi convocado(a) para a entrevista do processo seletivo da RBCIP.\n\n" +
-        "Agende o melhor horário para você por este link:\n" + (cfg.AGENDA_LINK || "") + "\n\n" +
-        "A entrevista é online (Google Meet) e dura cerca de 20 minutos.\n\n" +
-        "Qualquer dúvida, é só responder a este e-mail.\n\n" +
-        "Atenciosamente,\nEquipe RBCIP — Processo Seletivo",
+        "Prezado(a),\n\n" +
+        "Espero que este e-mail o(a) encontre bem.\n\n" +
+        "Estamos iniciando nosso processo seletivo para oportunidades em São Paulo e região, e gostaríamos de convidá-lo(a) para uma entrevista, conforme seu interesse e inscrição na plataforma SIPE.\n\n" +
+        "Para darmos continuidade, por favor, acesse um dos links abaixo e escolha o horário de sua preferência. Pedimos a gentileza de reservar apenas uma opção na agenda.\n\n" +
+        links + "\n\n" +
+        "A ordem dos links não interfere na ordem em que as entrevistas serão realizadas. Agende sua entrevista no que melhor se adequar aos seus horários.\n\n" +
+        "Caso tenha alguma dúvida ou ocorra algum imprevisto, fique à vontade para responder a este e-mail.\n\n" +
+        "Atenciosamente,",
     };
   }
   function emailConvocacaoCadastro(cand) {
     var link = cand.tipo === "interior" ? cfg.CADASTRO_LINK_INTERIOR : cfg.CADASTRO_LINK_CAPITAL;
     return {
       para: cand.email,
-      assunto: "Convocação para cadastro de bolsista — RBCIP",
+      assunto: "Cadastro de Bolsista - Processo Seletivo RBCIP",
       corpo:
-        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
-        "Parabéns! Você avançou no processo seletivo da RBCIP e está convocado(a) para o cadastro de bolsista.\n\n" +
-        "Preencha seu cadastro por este link:\n" + (link || "") + "\n\n" +
-        "IMPORTANTE: é obrigatório ter uma conta corrente no Banco do Brasil — os pagamentos são feitos exclusivamente nesse tipo de conta.\n\n" +
-        "Qualquer dúvida, é só responder a este e-mail.\n\n" +
-        "Atenciosamente,\nEquipe RBCIP — Processo Seletivo",
+        "Boa tarde, " + primeiroNome(cand.nome) + "!\n\n" +
+        "Sou o Lucas da RBCIP. Você foi aprovado(a) em nossa entrevista.\n\n" +
+        "Solicitamos que preencha o cadastro de bolsista no link abaixo para que possamos prosseguir com o seu termo de bolsa. Após o preenchimento, agendaremos um treinamento online para você participar e, após a conclusão do mesmo, poderá iniciar as atividades.\n\n" +
+        "Coordenador do Projeto: Marcelo Fiche\n\n" +
+        "Cadastro de Bolsista: " + (link || ""),
     };
   }
 
@@ -906,7 +910,6 @@
 
   function convocarEntrevistaTodos() {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
-    if (!cfg.AGENDA_LINK) { alert("Configure o AGENDA_LINK em js/config.js (link do Google Agenda) antes de convocar para entrevista."); return; }
     var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !c.data_convocacao_entrevista; });
     if (!pendentes.length) { alert("Não há candidatos pendentes de convocação para entrevista."); return; }
     if (!confirm("Enviar convocação de ENTREVISTA para " + pendentes.length + " candidato(s) ainda não convocados (" + candTipo + ")?")) return;
