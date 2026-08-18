@@ -706,6 +706,64 @@ input[type="date"].viz-data {
 
 .tabela-scroll { overflow-x: auto; }
 
+/* Tabela de candidatos — colunas confortáveis no desktop… */
+.tabela--cand { width: 100%; }
+.tabela--cand .cand-td-nome { min-width: 150px; }
+.tabela--cand .cand-email { min-width: 190px; word-break: break-word; }
+
+/* …e cada linha vira um CARTÃO em telas estreitas (tablet/celular). */
+@media (max-width: 760px) {
+  .tabela--cand thead { display: none; }
+  .tabela--cand,
+  .tabela--cand tbody,
+  .tabela--cand tr,
+  .tabela--cand td { display: block; width: 100%; min-width: 0; }
+  .tabela--cand .cand-td-nome,
+  .tabela--cand .cand-email { min-width: 0; }
+  .tabela--cand tr {
+    border: 1px solid var(--cor-borda);
+    border-radius: var(--raio);
+    box-shadow: var(--sombra);
+    background: var(--cor-branco);
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .tabela--cand td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    border: none;
+    border-top: 1px solid var(--cor-borda);
+    padding: 9px 14px;
+    text-align: right;
+    white-space: normal;
+    font-size: 14px;
+  }
+  .tabela--cand td::before {
+    content: attr(data-label);
+    flex: 0 0 38%;
+    text-align: left;
+    font-weight: 600;
+    color: var(--cor-texto-suave);
+  }
+  .tabela--cand td > * { min-width: 0; }
+  .tabela--cand .cand-email { overflow-wrap: anywhere; }
+  .tabela--cand td.cand-td-nome {
+    display: block;
+    padding: 11px 14px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 15px;
+    background: var(--cor-primaria-clara);
+    color: var(--cor-primaria-escura);
+    border-top: none;
+  }
+  .tabela--cand td.cand-td-nome::before { display: none; }
+  .tabela--cand .btn { white-space: normal; }
+}
+
 /* Células editáveis das etapas */
 .cand-edit {
   font-family: inherit;

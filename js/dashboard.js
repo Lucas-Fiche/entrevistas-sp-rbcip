@@ -1036,7 +1036,7 @@
     if (candTipo === "interior") cols.push("Região");
     cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
 
-    var tabela = el("table", { class: "tabela" });
+    var tabela = el("table", { class: "tabela tabela--cand" });
     var trh = el("tr");
     cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
     var thead = el("thead"); thead.appendChild(trh); tabela.appendChild(thead);
@@ -1047,12 +1047,12 @@
       var ent = casarEntrevista(c);
       if (ent) casados++;
       var tr = el("tr", { class: "tabela__tr" });
-      tr.appendChild(el("td", { class: "tabela__td", text: c.nome || "—" }));
-      tr.appendChild(el("td", { class: "tabela__td cand-email", text: c.email || "—" }));
-      if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", text: c.regiao || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td cand-td-nome", text: c.nome || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: c.email || "—" }));
+      if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: c.regiao || "—" }));
 
       // Convocação entrevista: data do envio, ou "Enviado" (vindo da planilha), ou pendente.
-      var tdConvE = el("td", { class: "tabela__td" });
+      var tdConvE = el("td", { class: "tabela__td", "data-label": "Convocação entrevista" });
       if (c.data_convocacao_entrevista) {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
       } else if (c.convocacao_entrevista === "Enviado") {
@@ -1064,23 +1064,27 @@
 
       // Resultado: prioriza a entrevista casada (sistema); senão o valor da planilha.
       var res = ent ? resultadoSistema(ent) : (c.resultado_entrevista || "");
-      var tdRes = el("td", { class: "tabela__td" });
+      var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
       if (ent) {
-        tdRes.appendChild(el("span", { class: resultadoClasse(res), text: res || "—" }));
-        tdRes.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }));
+        tdRes.appendChild(el("span", { class: "cand-val" }, [
+          el("span", { class: resultadoClasse(res), text: res || "—" }),
+          el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }),
+        ]));
       } else if (c.resultado_entrevista) {
-        tdRes.appendChild(el("span", { class: resultadoClasse(res), text: c.resultado_entrevista }));
-        tdRes.appendChild(el("span", { class: "cand-fonte", text: "planilha" }));
+        tdRes.appendChild(el("span", { class: "cand-val" }, [
+          el("span", { class: resultadoClasse(res), text: c.resultado_entrevista }),
+          el("span", { class: "cand-fonte", text: "planilha" }),
+        ]));
       } else {
         tdRes.textContent = "—";
       }
       tr.appendChild(tdRes);
 
       var data = ent ? ent.data_entrevista : c.data_entrevista;
-      tr.appendChild(el("td", { class: "tabela__td", text: data ? formatarData(data) : "—" }));
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Data entrevista", text: data ? formatarData(data) : "—" }));
 
       // Convocação cadastro: já enviada (data/status), ou botão (só p/ selecionados), ou —.
-      var tdConvC = el("td", { class: "tabela__td" });
+      var tdConvC = el("td", { class: "tabela__td", "data-label": "Convocação cadastro" });
       var selecionado = res.toUpperCase().indexOf("SELECIONADO") === 0;
       if (c.data_convocacao_cadastro) {
         tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado em " + c.data_convocacao_cadastro }));
