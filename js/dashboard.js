@@ -918,38 +918,62 @@
     });
   }
 
-  function convocarEntrevistaTodos() {
+  function convocarEntrevistaTodos(btn) {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !jaConvocadoEntrevista(c); });
     if (!pendentes.length) { alert("Não há candidatos pendentes de convocação para entrevista."); return; }
     if (!confirm("Enviar convocação de ENTREVISTA para " + pendentes.length + " candidato(s) ainda não convocados (" + candTipo + ")?")) return;
 
+    carregandoConvocacao(btn, true);
     var hoje = hojeBR();
-    enviarConvocacao(pendentes.map(emailConvocacaoEntrevista)).then(function () {
+    enviarConvocacao(pendentes.map(emailConvocacaoEntrevista)).then(function (res) {
+      var enviados = (res && typeof res.enviados === "number") ? res.enviados : pendentes.length;
+      if (enviados <= 0) {
+        renderPainelCandidatos();
+        alert("Atenção: o servidor respondeu, mas informou 0 e-mails enviados. Nada foi marcado. Verifique o Apps Script (docs/APPS-SCRIPT-CONVOCACAO.md).");
+        return;
+      }
       var ids = pendentes.map(function (c) { c.data_convocacao_entrevista = hoje; c.convocacao_entrevista = "Enviado"; return c.id; });
       return client.from(candTabela())
         .update({ data_convocacao_entrevista: hoje, convocacao_entrevista: "Enviado", updated_at: new Date().toISOString() })
-        .in("id", ids);
-    }).then(function () {
-      renderPainelCandidatos();
-      alert("Convocação de entrevista enviada para " + pendentes.length + " candidato(s).");
-    }).catch(function (e) { alert("Não foi possível enviar: " + (e.message || e)); });
+        .in("id", ids)
+        .then(function () {
+          renderPainelCandidatos();
+          alert("Convocação de entrevista enviada para " + enviados + " candidato(s).\n\nOs e-mails vão para os CANDIDATOS — confira sua caixa de \"Enviados\" no Gmail para confirmar.");
+        });
+    }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
 
-  function convocarCadastro(cand) {
+  function convocarCadastro(cand, btn) {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
     if (!confirm("Enviar convocação de CADASTRO para " + (cand.nome || "") + " (" + cand.email + ")?")) return;
 
-    enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function () {
+    carregandoConvocacao(btn, true);
+    enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function (res) {
+      var enviados = (res && typeof res.enviados === "number") ? res.enviados : 1;
+      if (enviados <= 0) {
+        renderPainelCandidatos();
+        alert("Atenção: o servidor respondeu, mas informou 0 e-mails enviados. Nada foi marcado.");
+        return;
+      }
       var hoje = hojeBR();
       cand.data_convocacao_cadastro = hoje;
       cand.convocacao_cadastro = "Enviado";
       return client.from(candTabela())
         .update({ data_convocacao_cadastro: hoje, convocacao_cadastro: "Enviado", updated_at: new Date().toISOString() })
-        .eq("id", cand.id);
-    }).then(function () { renderPainelCandidatos(); })
-      .catch(function (e) { alert("Não foi possível enviar: " + (e.message || e)); });
+        .eq("id", cand.id)
+        .then(function () { renderPainelCandidatos(); });
+    }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
+  // Estado de carregando em um botão de convocação (spinner + desabilitado).
+  function carregandoConvocacao(btn, sim) {
+    if (!btn) return;
+    if (sim) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Enviando…';
+    }
   }
 
   function renderPainelCandidatos() {
@@ -1025,7 +1049,7 @@
       text: "✉ Convocar todos para entrevista (" + pendEntr + " pendente" + (pendEntr === 1 ? "" : "s") + ")",
     });
     if (!pendEntr) btnGeral.disabled = true;
-    btnGeral.addEventListener("click", convocarEntrevistaTodos);
+    btnGeral.addEventListener("click", function () { convocarEntrevistaTodos(btnGeral); });
     acoes.appendChild(btnGeral);
     if (!backendConvocacao()) {
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
@@ -1092,7 +1116,7 @@
         tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
       } else if (selecionado) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
-        btnCad.addEventListener("click", function () { convocarCadastro(c); });
+        btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
         tdConvC.appendChild(btnCad);
       } else {
         tdConvC.appendChild(el("span", { class: "cand-pendente", text: "—" }));

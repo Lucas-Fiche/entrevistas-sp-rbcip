@@ -50,13 +50,33 @@ function doPost(e) {
     // 2) Envia cada mensagem pelo Gmail.
     var mensagens = body.mensagens || [];
     var enviados = 0;
+    var erros = [];
+    var destinatarios = [];
     for (var i = 0; i < mensagens.length; i++) {
       var m = mensagens[i];
       if (!m || !m.para) continue;
-      GmailApp.sendEmail(m.para, m.assunto || "(sem assunto)", m.corpo || "");
-      enviados++;
+      try {
+        GmailApp.sendEmail(m.para, m.assunto || "(sem assunto)", m.corpo || "");
+        enviados++;
+        destinatarios.push(m.para);
+      } catch (errEnvio) {
+        erros.push(m.para + ": " + errEnvio);
+      }
     }
-    return json({ ok: true, enviados: enviados });
+
+    // 3) Recibo para VOCÊ (remetente), para confirmar o que realmente saiu.
+    if (enviados > 0) {
+      try {
+        MailApp.sendEmail(
+          Session.getEffectiveUser().getEmail(),
+          "RBCIP — " + enviados + " convocacao(oes) enviada(s)",
+          "Enviadas para:\n" + destinatarios.join("\n") +
+            (erros.length ? "\n\nFalhas:\n" + erros.join("\n") : "")
+        );
+      } catch (e2) {}
+    }
+
+    return json({ ok: true, enviados: enviados, erros: erros });
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
@@ -112,6 +132,24 @@ formulário de Cadastro de Bolsista já vêm preenchidos — confira se estão c
 
 Salve, faça o commit/deploy e recarregue o painel (Ctrl+Shift+R). Pronto: os
 botões de convocação passam a enviar de verdade.
+
+---
+
+## "Apertei enviar, mas não recebi o e-mail!"
+
+Quase sempre é isto: **as convocações vão para os CANDIDATOS, não para você.**
+Sua caixa de entrada não recebe nada — o e-mail sai da sua conta para o candidato.
+Para confirmar:
+
+1. Abra a pasta **"Enviados"** (Sent) do seu Gmail — as convocações devem estar lá.
+2. Com o script atualizado acima, **você recebe um recibo** ("RBCIP — X
+   convocações enviadas") listando para quem foi. Se o recibo chegou, os e-mails
+   saíram.
+3. Para um teste 100% seu, importe um CSV com **apenas o seu e-mail** como
+   candidato e convoque — aí você recebe a convocação de verdade.
+
+Se o painel disser "0 e-mails enviados", o problema é no script (autorização do
+Gmail ou token) — reimplante uma **nova versão** e teste de novo.
 
 ---
 
