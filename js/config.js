@@ -19,4 +19,17 @@ window.SUPABASE_CONFIG = {
   SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",
   // Nome da tabela onde as entrevistas serão gravadas.
   TABELA: "entrevistas",
+
+  // ---- Convocações por e-mail (aba Candidatos) ----
+  // URL do Web App do Google Apps Script que envia os e-mails pelo Gmail.
+  // Deixe em branco até publicar o script (veja docs/APPS-SCRIPT-CONVOCACAO.md).
+  // Enquanto estiver em branco, os botões de convocação ficam desativados.
+  CONVOCACAO_BACKEND_URL: "",
+
+  // Link de agendamento do Google Agenda usado no e-mail de convocação p/ entrevista.
+  AGENDA_LINK: "",
+
+  // Links de cadastro de bolsista (usados no e-mail de convocação p/ cadastro).
+  CADASTRO_LINK_CAPITAL: "https://sp.rbcip.org/link/c2/cadastro/bolsista/",
+  CADASTRO_LINK_INTERIOR: "https://sp.rbcip.org/link/c2interior/cadastro/bolsista/",
 };

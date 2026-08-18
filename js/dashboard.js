@@ -794,8 +794,8 @@
   }
 
   var CAMPOS_ETAPA = [
-    "convocacao_entrevista", "resultado_entrevista", "data_entrevista",
-    "convocacao_cadastro", "data_convocacao_cadastro",
+    "convocacao_entrevista", "data_convocacao_entrevista", "resultado_entrevista",
+    "data_entrevista", "convocacao_cadastro", "data_convocacao_cadastro",
   ];
 
   function importarCSV(tipo, text) {
@@ -845,32 +845,98 @@
     });
   }
 
-  // Célula editável: <select> com opções fixas (+ o valor atual, se for outro).
-  function celulaSelect(cand, campo, opcoes) {
-    var td = el("td", { class: "tabela__td" });
-    var sel = el("select", { class: "cand-edit" });
-    sel.appendChild(el("option", { value: "", text: "—" }));
-    var atual = cand[campo] || "";
-    var lista = opcoes.slice();
-    if (atual && lista.indexOf(atual) === -1) lista.push(atual);
-    lista.forEach(function (o) {
-      var opt = el("option", { value: o, text: o });
-      if (atual === o) opt.selected = true;
-      sel.appendChild(opt);
-    });
-    sel.value = atual;
-    sel.addEventListener("change", function () { atualizarEtapa(cand, campo, sel.value, sel); });
-    td.appendChild(sel);
-    return td;
+  // ---------- Convocações por e-mail ----------
+  function hojeBR() {
+    var d = new Date();
+    return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear();
+  }
+  function backendConvocacao() { return cfg.CONVOCACAO_BACKEND_URL || ""; }
+  function primeiroNome(nome) { return (String(nome || "").trim().split(/\s+/)[0]) || ""; }
+
+  function emailConvocacaoEntrevista(cand) {
+    return {
+      para: cand.email,
+      assunto: "Convocação para entrevista — Processo Seletivo RBCIP",
+      corpo:
+        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
+        "Você foi convocado(a) para a entrevista do processo seletivo da RBCIP.\n\n" +
+        "Agende o melhor horário para você por este link:\n" + (cfg.AGENDA_LINK || "") + "\n\n" +
+        "A entrevista é online (Google Meet) e dura cerca de 20 minutos.\n\n" +
+        "Qualquer dúvida, é só responder a este e-mail.\n\n" +
+        "Atenciosamente,\nEquipe RBCIP — Processo Seletivo",
+    };
+  }
+  function emailConvocacaoCadastro(cand) {
+    var link = cand.tipo === "interior" ? cfg.CADASTRO_LINK_INTERIOR : cfg.CADASTRO_LINK_CAPITAL;
+    return {
+      para: cand.email,
+      assunto: "Convocação para cadastro de bolsista — RBCIP",
+      corpo:
+        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
+        "Parabéns! Você avançou no processo seletivo da RBCIP e está convocado(a) para o cadastro de bolsista.\n\n" +
+        "Preencha seu cadastro por este link:\n" + (link || "") + "\n\n" +
+        "IMPORTANTE: é obrigatório ter uma conta corrente no Banco do Brasil — os pagamentos são feitos exclusivamente nesse tipo de conta.\n\n" +
+        "Qualquer dúvida, é só responder a este e-mail.\n\n" +
+        "Atenciosamente,\nEquipe RBCIP — Processo Seletivo",
+    };
   }
 
-  // Célula editável de texto livre (datas/observações — aceita "Já cadastrado" etc.).
-  function celulaTexto(cand, campo, placeholder) {
-    var td = el("td", { class: "tabela__td" });
-    var inp = el("input", { type: "text", class: "cand-edit cand-edit--texto", value: cand[campo] || "", placeholder: placeholder || "" });
-    inp.addEventListener("change", function () { atualizarEtapa(cand, campo, inp.value.trim(), inp); });
-    td.appendChild(inp);
-    return td;
+  // Envia via Web App do Apps Script (que valida o login e manda pelo Gmail).
+  function enviarConvocacao(mensagens) {
+    var url = backendConvocacao();
+    if (!url) {
+      return Promise.reject(new Error("Envio ainda não configurado (veja docs/APPS-SCRIPT-CONVOCACAO.md)."));
+    }
+    return client.auth.getSession().then(function (resp) {
+      var token = resp.data && resp.data.session && resp.data.session.access_token;
+      if (!token) throw new Error("Sessão expirada. Entre novamente.");
+      return fetch(url, {
+        method: "POST",
+        // text/plain evita o "preflight" de CORS com o Apps Script
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ token: token, mensagens: mensagens }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (!res || !res.ok) throw new Error((res && res.error) || "Falha no envio.");
+          return res;
+        });
+    });
+  }
+
+  function convocarEntrevistaTodos() {
+    if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (!cfg.AGENDA_LINK) { alert("Configure o AGENDA_LINK em js/config.js (link do Google Agenda) antes de convocar para entrevista."); return; }
+    var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !c.data_convocacao_entrevista; });
+    if (!pendentes.length) { alert("Não há candidatos pendentes de convocação para entrevista."); return; }
+    if (!confirm("Enviar convocação de ENTREVISTA para " + pendentes.length + " candidato(s) ainda não convocados (" + candTipo + ")?")) return;
+
+    var hoje = hojeBR();
+    enviarConvocacao(pendentes.map(emailConvocacaoEntrevista)).then(function () {
+      var ids = pendentes.map(function (c) { c.data_convocacao_entrevista = hoje; c.convocacao_entrevista = "Enviado"; return c.id; });
+      return client.from(candTabela())
+        .update({ data_convocacao_entrevista: hoje, convocacao_entrevista: "Enviado", updated_at: new Date().toISOString() })
+        .in("id", ids);
+    }).then(function () {
+      renderPainelCandidatos();
+      alert("Convocação de entrevista enviada para " + pendentes.length + " candidato(s).");
+    }).catch(function (e) { alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
+  function convocarCadastro(cand) {
+    if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
+    if (!confirm("Enviar convocação de CADASTRO para " + (cand.nome || "") + " (" + cand.email + ")?")) return;
+
+    enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function () {
+      var hoje = hojeBR();
+      cand.data_convocacao_cadastro = hoje;
+      cand.convocacao_cadastro = "Enviado";
+      return client.from(candTabela())
+        .update({ data_convocacao_cadastro: hoje, convocacao_cadastro: "Enviado", updated_at: new Date().toISOString() })
+        .eq("id", cand.id);
+    }).then(function () { renderPainelCandidatos(); })
+      .catch(function (e) { alert("Não foi possível enviar: " + (e.message || e)); });
   }
 
   function renderPainelCandidatos() {
@@ -937,9 +1003,25 @@
       return;
     }
 
+    // --- Ação geral: convocar todos p/ entrevista (quem ainda não recebeu) ---
+    var pendEntr = lista.filter(function (c) { return c.email && !c.data_convocacao_entrevista; }).length;
+    var acoes = el("div", { class: "cand-acoes" });
+    var btnGeral = el("button", {
+      class: "btn btn--pequeno",
+      type: "button",
+      text: "✉ Convocar todos para entrevista (" + pendEntr + " pendente" + (pendEntr === 1 ? "" : "s") + ")",
+    });
+    if (!pendEntr) btnGeral.disabled = true;
+    btnGeral.addEventListener("click", convocarEntrevistaTodos);
+    acoes.appendChild(btnGeral);
+    if (!backendConvocacao()) {
+      acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
+    }
+    painel.appendChild(acoes);
+
     var cols = ["Nome", "E-mail"];
     if (candTipo === "interior") cols.push("Região");
-    cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro", "Data da convocação"]);
+    cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
 
     var tabela = el("table", { class: "tabela" });
     var trh = el("tr");
@@ -955,11 +1037,19 @@
       tr.appendChild(el("td", { class: "tabela__td", text: c.nome || "—" }));
       tr.appendChild(el("td", { class: "tabela__td cand-email", text: c.email || "—" }));
       if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", text: c.regiao || "—" }));
-      tr.appendChild(celulaSelect(c, "convocacao_entrevista", ["Enviado"]));
 
+      // Convocação entrevista: só a data (a ação é o botão geral acima).
+      var tdConvE = el("td", { class: "tabela__td" });
+      if (c.data_convocacao_entrevista) {
+        tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
+      } else {
+        tdConvE.appendChild(el("span", { class: "cand-pendente", text: "pendente" }));
+      }
+      tr.appendChild(tdConvE);
+
+      var res = ent ? resultadoSistema(ent) : "";
       var tdRes = el("td", { class: "tabela__td" });
       if (ent) {
-        var res = resultadoSistema(ent);
         tdRes.appendChild(el("span", { class: resultadoClasse(res), text: res || "—" }));
         tdRes.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }));
       } else if (c.resultado_entrevista) {
@@ -972,8 +1062,20 @@
 
       var data = ent ? ent.data_entrevista : c.data_entrevista;
       tr.appendChild(el("td", { class: "tabela__td", text: data ? formatarData(data) : "—" }));
-      tr.appendChild(celulaSelect(c, "convocacao_cadastro", ["Enviado", "Não Enviado"]));
-      tr.appendChild(celulaTexto(c, "data_convocacao_cadastro", "dd/mm/aaaa"));
+
+      // Convocação cadastro: botão individual (só p/ selecionados) ou a data enviada.
+      var tdConvC = el("td", { class: "tabela__td" });
+      var selecionado = res.indexOf("SELECIONADO") === 0;
+      if (c.data_convocacao_cadastro) {
+        tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado em " + c.data_convocacao_cadastro }));
+      } else if (selecionado) {
+        var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
+        btnCad.addEventListener("click", function () { convocarCadastro(c); });
+        tdConvC.appendChild(btnCad);
+      } else {
+        tdConvC.appendChild(el("span", { class: "cand-pendente", text: "—" }));
+      }
+      tr.appendChild(tdConvC);
       tbody.appendChild(tr);
     });
     tabela.appendChild(tbody);
