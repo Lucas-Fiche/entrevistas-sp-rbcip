@@ -646,6 +646,56 @@ input[type="date"].viz-data {
   white-space: pre-wrap;
 }
 
+/* ---------- Candidatos (controle central) ---------- */
+.cand-importar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: var(--cor-primaria-clara);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  margin-bottom: 16px;
+}
+.cand-imp-rot { font-weight: 600; color: var(--cor-primaria-escura); font-size: 14px; }
+.cand-file { font-family: inherit; font-size: 13px; max-width: 100%; }
+.cand-status { font-size: 13px; color: var(--cor-texto-suave); }
+
+.cand-filtro { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.cand-tab {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 16px;
+  border: 1px solid var(--cor-borda);
+  background: var(--cor-branco);
+  color: var(--cor-texto-suave);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cand-tab--ativa {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #fff;
+}
+
+.cand-vazio { color: var(--cor-texto-suave); padding: 20px 4px; }
+.cand-resumo { color: var(--cor-texto-suave); font-size: 13px; margin: 0 0 10px; }
+.cand-email { font-size: 13px; color: var(--cor-texto-suave); }
+
+/* Fonte do resultado (sistema x planilha) */
+.cand-fonte {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  vertical-align: middle;
+}
+.cand-fonte--sistema { color: var(--cor-primaria); font-weight: 600; }
+
+.tabela-scroll { overflow-x: auto; }
+
 @media (max-width: 480px) {
   .barra__rotulo { width: 110px; }
 }

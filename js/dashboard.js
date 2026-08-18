@@ -311,6 +311,7 @@
       }
       linhas = resp.data || [];
       renderTudo();
+      carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
     }
 
     buscarEntrevistas().then(function (resp) {
@@ -642,6 +643,267 @@
   }
   function fecharModal() { mostrar($("#modal"), false); }
 
+  // ============================================================
+  //  Candidatos (controle central) — importar inscrições + casar entrevistas
+  // ============================================================
+  var candidatos = [];
+  var candTipo = "capital"; // sub-filtro da tabela de candidatos
+  var candMsg = "";
+
+  function normStr(s) {
+    return String(s || "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().trim().replace(/\s+/g, " ");
+  }
+  function normEmail(s) { return String(s || "").trim().toLowerCase(); }
+  function soDigitos(s) { return String(s || "").replace(/\D/g, ""); }
+
+  // Leitor de CSV robusto (trata aspas, vírgulas e quebras dentro de campos).
+  function parseCSV(text) {
+    var regs = [], campo = "", reg = [], aspas = false, i = 0, n = text.length;
+    while (i < n) {
+      var c = text[i];
+      if (aspas) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { campo += '"'; i += 2; continue; }
+          aspas = false; i++; continue;
+        }
+        campo += c; i++; continue;
+      }
+      if (c === '"') { aspas = true; i++; continue; }
+      if (c === ",") { reg.push(campo); campo = ""; i++; continue; }
+      if (c === "\r") { i++; continue; }
+      if (c === "\n") { reg.push(campo); regs.push(reg); reg = []; campo = ""; i++; continue; }
+      campo += c; i++;
+    }
+    if (campo !== "" || reg.length) { reg.push(campo); regs.push(reg); }
+    regs = regs.filter(function (r) { return r.some(function (v) { return v && v.trim() !== ""; }); });
+    if (!regs.length) return { headers: [], rows: [] };
+    var headers = regs[0].map(function (h) { return h.trim(); });
+    var rows = regs.slice(1).map(function (r) {
+      var o = {};
+      headers.forEach(function (h, idx) { o[h] = (r[idx] !== undefined ? r[idx] : "").trim(); });
+      return o;
+    });
+    return { headers: headers, rows: rows };
+  }
+
+  function pegaCol(row, nomes) {
+    for (var i = 0; i < nomes.length; i++) {
+      if (row[nomes[i]] !== undefined && row[nomes[i]] !== "") return row[nomes[i]];
+    }
+    return "";
+  }
+
+  // Converte uma linha do CSV de inscrição numa ficha de candidato.
+  function linhaParaCandidato(tipo, row) {
+    var nome = pegaCol(row, ["Nome completo", "Nome"]);
+    var email = pegaCol(row, ["E-mail", "Email"]);
+    var cpf = pegaCol(row, ["CPF"]);
+    var regiao = pegaCol(row, ["Região", "Regiao"]);
+    var emailN = normEmail(email);
+    var chave = emailN || soDigitos(cpf) || normStr(nome);
+    if (!chave) return null;
+    return {
+      tipo: tipo,
+      chave: chave,
+      nome: nome || null,
+      email: email || null,
+      email_norm: emailN || null,
+      cpf: cpf || null,
+      regiao: regiao || null,
+      inscricao: row,
+      convocacao_entrevista: pegaCol(row, ["Convocação para Entrevista"]) || null,
+      resultado_entrevista: pegaCol(row, ["Resultado Entrevista", "Resultado"]) || null,
+      data_entrevista: pegaCol(row, ["Data da Entrevista"]) || null,
+      convocacao_cadastro: pegaCol(row, ["Convocação para Cadastro"]) || null,
+      data_convocacao_cadastro: pegaCol(row, ["Data do Envio para Convocação para Cadastro"]) || null,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  // Resultado da entrevista no formato das planilhas (SELECIONADO / REPROVADO…).
+  function resultadoSistema(ent) {
+    if (!ent) return "";
+    if (ent.nao_compareceu) return "NÃO COMPARECEU";
+    if (ent.nao_cumpre_requisitos) return "REPROVADO";
+    var v = ent.recomendacao || "";
+    if (v === "Reprovado") return "REPROVADO";
+    if (v.indexOf("Ressalva") !== -1) return "SELECIONADO COM RESSALVA";
+    if (v.indexOf("Aprovado") !== -1) return "SELECIONADO";
+    return v.toUpperCase();
+  }
+  function resultadoClasse(res) {
+    if (res === "SELECIONADO") return "tag tag--verde-forte";
+    if (res === "SELECIONADO COM RESSALVA") return "tag tag--verde-claro";
+    if (res === "REPROVADO") return "tag tag--vermelho";
+    if (res === "NÃO COMPARECEU") return "tag tag--cinza";
+    return "tag";
+  }
+
+  // Casa uma ficha de candidato com uma entrevista: 1º por e-mail (cid), 2º por nome.
+  function casarEntrevista(cand) {
+    var doTipo = linhas.filter(function (r) { return r.tipo === cand.tipo; });
+    var achadas = [];
+    if (cand.email_norm) {
+      achadas = doTipo.filter(function (r) {
+        return r.respostas && normEmail(r.respostas.cid) && normEmail(r.respostas.cid) === cand.email_norm;
+      });
+    }
+    if (!achadas.length && cand.nome) {
+      var alvo = normStr(cand.nome);
+      achadas = doTipo.filter(function (r) { return normStr(r.candidato) === alvo; });
+    }
+    if (!achadas.length) return null;
+    // mais recente primeiro
+    achadas.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
+    return achadas[0];
+  }
+
+  function candTabela() { return cfg.CANDIDATOS_TABELA || "candidatos"; }
+
+  function carregarCandidatos() {
+    if (!client) return;
+    client.from(candTabela()).select("*").then(function (resp) {
+      if (resp.error) {
+        var s = $("#cand-status");
+        if (s) s.textContent = "Não foi possível carregar candidatos: " + (resp.error.message || resp.error);
+        return;
+      }
+      candidatos = resp.data || [];
+      var badge = $("#cont-candidatos");
+      if (badge) badge.textContent = candidatos.length;
+      renderPainelCandidatos();
+    });
+  }
+
+  function importarCSV(tipo, text) {
+    var parsed = parseCSV(text);
+    var mapa = {};
+    parsed.rows.forEach(function (row) {
+      var c = linhaParaCandidato(tipo, row);
+      if (c) mapa[c.chave] = c; // deduplica por chave (mantém a última ocorrência)
+    });
+    var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
+    if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
+    return client.from(candTabela())
+      .upsert(rows, { onConflict: "tipo,chave" })
+      .then(function (resp) { if (resp.error) throw resp.error; return { total: rows.length }; });
+  }
+
+  function renderPainelCandidatos() {
+    var painel = $("#painel-candidatos");
+    if (!painel) return;
+    painel.innerHTML = "";
+
+    // --- Barra de importação ---
+    var barra = el("div", { class: "cand-importar" });
+    barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar inscrições:" }));
+    var selTipo = el("select", { class: "viz-select", id: "cand-imp-tipo" });
+    selTipo.appendChild(el("option", { value: "capital", text: "Capital" }));
+    selTipo.appendChild(el("option", { value: "interior", text: "Interior" }));
+    selTipo.value = candTipo;
+    var file = el("input", { type: "file", accept: ".csv,text/csv", id: "cand-file", class: "cand-file" });
+    var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Enviar CSV" });
+    var status = el("span", { class: "cand-status", id: "cand-status", text: candMsg });
+    btn.addEventListener("click", function () {
+      var f = file.files && file.files[0];
+      if (!f) { status.textContent = "Escolha um arquivo CSV primeiro."; return; }
+      var tipo = selTipo.value;
+      btn.disabled = true; status.textContent = "Lendo arquivo…";
+      var reader = new FileReader();
+      reader.onload = function () {
+        importarCSV(tipo, String(reader.result)).then(function (r) {
+          candMsg = "✓ " + r.total + " candidatos importados/atualizados (" + tipo + ").";
+          candTipo = tipo;
+          carregarCandidatos();
+        }).catch(function (e) {
+          btn.disabled = false;
+          var s = $("#cand-status");
+          if (s) s.textContent = "Erro ao importar: " + (e.message || e);
+        });
+      };
+      reader.onerror = function () { btn.disabled = false; status.textContent = "Não foi possível ler o arquivo."; };
+      reader.readAsText(f, "utf-8");
+    });
+    barra.appendChild(selTipo);
+    barra.appendChild(file);
+    barra.appendChild(btn);
+    barra.appendChild(status);
+    painel.appendChild(barra);
+
+    // --- Sub-filtro Capital / Interior ---
+    var filtro = el("div", { class: "cand-filtro" });
+    ["capital", "interior"].forEach(function (t) {
+      var n = candidatos.filter(function (c) { return c.tipo === t; }).length;
+      var b = el("button", {
+        class: "cand-tab" + (candTipo === t ? " cand-tab--ativa" : ""),
+        type: "button",
+        text: (t === "capital" ? "Capital" : "Interior") + " (" + n + ")",
+      });
+      b.addEventListener("click", function () { candTipo = t; renderPainelCandidatos(); });
+      filtro.appendChild(b);
+    });
+    painel.appendChild(filtro);
+
+    // --- Tabela ---
+    var lista = candidatos.filter(function (c) { return c.tipo === candTipo; });
+    lista.sort(function (a, b) { return normStr(a.nome).localeCompare(normStr(b.nome)); });
+
+    if (!lista.length) {
+      painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato importado ainda para " + candTipo + ". Envie o CSV de inscrição acima." }));
+      return;
+    }
+
+    var cols = ["Nome", "E-mail"];
+    if (candTipo === "interior") cols.push("Região");
+    cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
+
+    var tabela = el("table", { class: "tabela" });
+    var trh = el("tr");
+    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
+    var thead = el("thead"); thead.appendChild(trh); tabela.appendChild(thead);
+
+    var tbody = el("tbody");
+    var casados = 0;
+    lista.forEach(function (c) {
+      var ent = casarEntrevista(c);
+      if (ent) casados++;
+      var tr = el("tr", { class: "tabela__tr" });
+      tr.appendChild(el("td", { class: "tabela__td", text: c.nome || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td cand-email", text: c.email || "—" }));
+      if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", text: c.regiao || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td", text: c.convocacao_entrevista || "—" }));
+
+      var tdRes = el("td", { class: "tabela__td" });
+      if (ent) {
+        var res = resultadoSistema(ent);
+        tdRes.appendChild(el("span", { class: resultadoClasse(res), text: res || "—" }));
+        tdRes.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }));
+      } else if (c.resultado_entrevista) {
+        tdRes.appendChild(el("span", { text: c.resultado_entrevista }));
+        tdRes.appendChild(el("span", { class: "cand-fonte", text: "planilha" }));
+      } else {
+        tdRes.textContent = "—";
+      }
+      tr.appendChild(tdRes);
+
+      var data = ent ? ent.data_entrevista : c.data_entrevista;
+      tr.appendChild(el("td", { class: "tabela__td", text: data ? formatarData(data) : "—" }));
+      tr.appendChild(el("td", { class: "tabela__td", text: c.convocacao_cadastro || "—" }));
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+
+    painel.appendChild(el("p", {
+      class: "cand-resumo",
+      text: lista.length + " candidatos · " + casados + " com entrevista casada automaticamente pelo sistema.",
+    }));
+    var wrap = el("div", { class: "tabela-scroll" });
+    wrap.appendChild(tabela);
+    painel.appendChild(wrap);
+  }
+
   // ---------- Abas ----------
   function configurarAbas() {
     Array.prototype.forEach.call(document.querySelectorAll(".aba"), function (aba) {
@@ -651,6 +913,7 @@
         var alvo = aba.getAttribute("data-aba");
         mostrar($("#painel-capital"), alvo === "capital");
         mostrar($("#painel-interior"), alvo === "interior");
+        mostrar($("#painel-candidatos"), alvo === "candidatos");
         mostrar($("#painel-dados"), alvo === "dados");
       });
     });
@@ -1032,6 +1295,7 @@
     $("#cont-interior").textContent = linhas.filter(function (r) { return r.tipo === "interior"; }).length;
     renderPainelTabela("capital");
     renderPainelTabela("interior");
+    renderPainelCandidatos();
     renderDados();
   }
 
