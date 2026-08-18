@@ -861,7 +861,7 @@
       class: "mapa__legenda",
       text: total === 0
         ? "Nenhum inscrito com localização ainda."
-        : "O número ao lado de cada ponto indica a quantidade de inscritos (a Capital aparece em roxo).",
+        : "O número ao lado de cada ponto indica a quantidade de entrevistados (a Capital aparece em roxo).",
     }));
     return card;
   }
@@ -975,7 +975,7 @@
       .filter(function (d) { return d.valor > 0; })
       .sort(function (a, b) { return b.valor - a.valor; });
     if (regioesOrdenadas.length) {
-      grid.appendChild(graficoBarras("Inscritos por região (interior)", regioesOrdenadas));
+      grid.appendChild(graficoBarras("Entrevistados por região (interior)", regioesOrdenadas));
     }
 
     // Recomendações (rótulos curtos e distintos; texto completo no hover)
