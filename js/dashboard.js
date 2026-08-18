@@ -658,8 +658,24 @@
   function normEmail(s) { return String(s || "").trim().toLowerCase(); }
   function soDigitos(s) { return String(s || "").replace(/\D/g, ""); }
 
-  // Leitor de CSV robusto (trata aspas, vírgulas e quebras dentro de campos).
+  // Detecta o separador do CSV (vírgula ou ponto e vírgula) pela 1ª linha,
+  // contando apenas ocorrências FORA de aspas. Exports brasileiros usam ";".
+  function detectarDelim(text) {
+    var aspas = false, virg = 0, pv = 0;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (c === '"') { aspas = !aspas; continue; }
+      if (aspas) continue;
+      if (c === "\n") break;
+      if (c === ",") virg++;
+      else if (c === ";") pv++;
+    }
+    return pv > virg ? ";" : ",";
+  }
+
+  // Leitor de CSV robusto (trata aspas, separador e quebras dentro de campos).
   function parseCSV(text) {
+    var delim = detectarDelim(text);
     var regs = [], campo = "", reg = [], aspas = false, i = 0, n = text.length;
     while (i < n) {
       var c = text[i];
@@ -671,7 +687,7 @@
         campo += c; i++; continue;
       }
       if (c === '"') { aspas = true; i++; continue; }
-      if (c === ",") { reg.push(campo); campo = ""; i++; continue; }
+      if (c === delim) { reg.push(campo); campo = ""; i++; continue; }
       if (c === "\r") { i++; continue; }
       if (c === "\n") { reg.push(campo); regs.push(reg); reg = []; campo = ""; i++; continue; }
       campo += c; i++;
