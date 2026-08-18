@@ -930,7 +930,8 @@
       var enviados = (res && typeof res.enviados === "number") ? res.enviados : pendentes.length;
       if (enviados <= 0) {
         renderPainelCandidatos();
-        alert("Atenção: o servidor respondeu, mas informou 0 e-mails enviados. Nada foi marcado. Verifique o Apps Script (docs/APPS-SCRIPT-CONVOCACAO.md).");
+        alert("Nenhum e-mail foi enviado — nada foi marcado.\n" + diagnosticoEnvio(res) +
+          "\nVeja o recibo no seu e-mail e em Apps Script → Execuções. Guia: docs/APPS-SCRIPT-CONVOCACAO.md");
         return;
       }
       var ids = pendentes.map(function (c) { c.data_convocacao_entrevista = hoje; c.convocacao_entrevista = "Enviado"; return c.id; });
@@ -939,7 +940,9 @@
         .in("id", ids)
         .then(function () {
           renderPainelCandidatos();
-          alert("Convocação de entrevista enviada para " + enviados + " candidato(s).\n\nOs e-mails vão para os CANDIDATOS — confira sua caixa de \"Enviados\" no Gmail para confirmar.");
+          var falhas = (res && res.erros && res.erros.length) ? "\n(" + res.erros.length + " falharam — veja o recibo no seu e-mail.)" : "";
+          alert("Convocação de entrevista enviada para " + enviados + " candidato(s)." + falhas +
+            "\n\nOs e-mails vão para os CANDIDATOS. Você recebeu um recibo confirmando o que saiu.");
         });
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
@@ -954,7 +957,8 @@
       var enviados = (res && typeof res.enviados === "number") ? res.enviados : 1;
       if (enviados <= 0) {
         renderPainelCandidatos();
-        alert("Atenção: o servidor respondeu, mas informou 0 e-mails enviados. Nada foi marcado.");
+        alert("Nenhum e-mail foi enviado — nada foi marcado.\n" + diagnosticoEnvio(res) +
+          "\nVeja o recibo no seu e-mail e em Apps Script → Execuções.");
         return;
       }
       var hoje = hojeBR();
@@ -965,6 +969,15 @@
         .eq("id", cand.id)
         .then(function () { renderPainelCandidatos(); });
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
+  // Resumo de diagnóstico da resposta do backend (para os avisos de falha).
+  function diagnosticoEnvio(res) {
+    if (!res) return "";
+    var l = [];
+    if (typeof res.recebidas === "number") l.push("O servidor recebeu " + res.recebidas + " mensagem(ns) e enviou " + (res.enviados || 0) + ".");
+    if (res.erros && res.erros.length) l.push("Falhas: " + res.erros.join(" | "));
+    return l.length ? l.join("\n") + "\n" : "";
   }
 
   // Estado de carregando em um botão de convocação (spinner + desabilitado).

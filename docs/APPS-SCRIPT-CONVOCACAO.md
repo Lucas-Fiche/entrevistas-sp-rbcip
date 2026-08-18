@@ -40,7 +40,10 @@ function doGet() {
 
 function doPost(e) {
   try {
-    var body = JSON.parse(e.postData.contents);
+    // Lê o corpo com segurança (se não vier, mensagens fica vazio e o recibo avisa).
+    var raw = (e && e.postData && e.postData.contents) ? e.postData.contents : "";
+    var body = {};
+    try { body = JSON.parse(raw); } catch (pe) { body = {}; }
 
     // 1) Confere que quem chamou está logado no painel (token do Supabase).
     if (!body.token || !usuarioValido(body.token)) {
@@ -49,12 +52,13 @@ function doPost(e) {
 
     // 2) Envia cada mensagem pelo Gmail.
     var mensagens = body.mensagens || [];
+    var recebidas = mensagens.length;
     var enviados = 0;
     var erros = [];
     var destinatarios = [];
     for (var i = 0; i < mensagens.length; i++) {
       var m = mensagens[i];
-      if (!m || !m.para) continue;
+      if (!m || !m.para) { erros.push("mensagem " + i + " sem destinatário"); continue; }
       try {
         GmailApp.sendEmail(m.para, m.assunto || "(sem assunto)", m.corpo || "");
         enviados++;
@@ -64,19 +68,18 @@ function doPost(e) {
       }
     }
 
-    // 3) Recibo para VOCÊ (remetente), para confirmar o que realmente saiu.
-    if (enviados > 0) {
-      try {
-        MailApp.sendEmail(
-          Session.getEffectiveUser().getEmail(),
-          "RBCIP — " + enviados + " convocacao(oes) enviada(s)",
-          "Enviadas para:\n" + destinatarios.join("\n") +
-            (erros.length ? "\n\nFalhas:\n" + erros.join("\n") : "")
-        );
-      } catch (e2) {}
-    }
+    // 3) Recibo/diagnóstico SEMPRE para você (remetente) — confirma o que ocorreu.
+    try {
+      MailApp.sendEmail(
+        Session.getEffectiveUser().getEmail(),
+        "RBCIP — convocacoes: recebidas " + recebidas + ", enviadas " + enviados,
+        "Recebidas: " + recebidas + "\nEnviadas: " + enviados +
+          "\n\nDestinatarios:\n" + (destinatarios.join("\n") || "(nenhum)") +
+          (erros.length ? "\n\nFalhas:\n" + erros.join("\n") : "")
+      );
+    } catch (e2) {}
 
-    return json({ ok: true, enviados: enviados, erros: erros });
+    return json({ ok: true, recebidas: recebidas, enviados: enviados, erros: erros });
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
