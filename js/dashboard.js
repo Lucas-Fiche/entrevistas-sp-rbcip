@@ -749,6 +749,14 @@
     if (v.indexOf("Aprovado") !== -1) return "SELECIONADO";
     return v.toUpperCase();
   }
+  // Já convocado? Considera tanto a data (envio pelo sistema) quanto o status
+  // "Enviado" que veio da planilha de controle — evita reconvocar quem já recebeu.
+  function jaConvocadoEntrevista(c) {
+    return !!(c.data_convocacao_entrevista || c.convocacao_entrevista === "Enviado");
+  }
+  function jaConvocadoCadastro(c) {
+    return !!(c.data_convocacao_cadastro || c.convocacao_cadastro === "Enviado");
+  }
   function resultadoClasse(res) {
     if (res === "SELECIONADO") return "tag tag--verde-forte";
     if (res === "SELECIONADO COM RESSALVA") return "tag tag--verde-claro";
@@ -810,9 +818,10 @@
       if (!c) return;
       var ex = existentes[c.chave];
       if (ex) {
-        // Já existe: reimportar atualiza só a inscrição; as etapas do painel
-        // são mantidas com os valores atuais (não são sobrescritas pelo CSV).
-        CAMPOS_ETAPA.forEach(function (campo) { c[campo] = ex[campo] || null; });
+        // Já existe: reimportar atualiza a inscrição e PREENCHE etapas que ainda
+        // estão vazias (semeia o cenário atual da planilha), mas NÃO sobrescreve
+        // etapas já definidas no painel/sistema.
+        CAMPOS_ETAPA.forEach(function (campo) { c[campo] = ex[campo] || c[campo] || null; });
       }
       mapa[c.chave] = c; // deduplica por chave (mantém a última ocorrência)
     });
@@ -877,11 +886,12 @@
       para: cand.email,
       assunto: "Cadastro de Bolsista - Processo Seletivo RBCIP",
       corpo:
-        "Boa tarde, " + primeiroNome(cand.nome) + "!\n\n" +
-        "Sou o Lucas da RBCIP. Você foi aprovado(a) em nossa entrevista.\n\n" +
-        "Solicitamos que preencha o cadastro de bolsista no link abaixo para que possamos prosseguir com o seu termo de bolsa. Após o preenchimento, agendaremos um treinamento online para você participar e, após a conclusão do mesmo, poderá iniciar as atividades.\n\n" +
+        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
+        "Sou o Lucas, da RBCIP. Você foi aprovado(a) em nossa entrevista.\n\n" +
+        "Solicitamos que preencha o cadastro de bolsista no link abaixo para que possamos prosseguir com o seu termo de bolsa. Após o preenchimento, agendaremos um treinamento online para você participar e, após a conclusão dele, poderá iniciar as atividades.\n\n" +
         "Coordenador do Projeto: Marcelo Fiche\n\n" +
-        "Cadastro de Bolsista: " + (link || ""),
+        "Cadastro de Bolsista: " + (link || "") + "\n\n" +
+        "Além disso, é essencial que você envie os seus antecedentes criminais nas esferas Estadual e Federal para o e-mail rh@rbcip.org. O seu termo de bolsa só poderá ser gerado após o recebimento do cadastro e dos antecedentes.",
     };
   }
 
@@ -910,7 +920,7 @@
 
   function convocarEntrevistaTodos() {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
-    var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !c.data_convocacao_entrevista; });
+    var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !jaConvocadoEntrevista(c); });
     if (!pendentes.length) { alert("Não há candidatos pendentes de convocação para entrevista."); return; }
     if (!confirm("Enviar convocação de ENTREVISTA para " + pendentes.length + " candidato(s) ainda não convocados (" + candTipo + ")?")) return;
 
@@ -1007,7 +1017,7 @@
     }
 
     // --- Ação geral: convocar todos p/ entrevista (quem ainda não recebeu) ---
-    var pendEntr = lista.filter(function (c) { return c.email && !c.data_convocacao_entrevista; }).length;
+    var pendEntr = lista.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
     var acoes = el("div", { class: "cand-acoes" });
     var btnGeral = el("button", {
       class: "btn btn--pequeno",
@@ -1041,22 +1051,25 @@
       tr.appendChild(el("td", { class: "tabela__td cand-email", text: c.email || "—" }));
       if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", text: c.regiao || "—" }));
 
-      // Convocação entrevista: só a data (a ação é o botão geral acima).
+      // Convocação entrevista: data do envio, ou "Enviado" (vindo da planilha), ou pendente.
       var tdConvE = el("td", { class: "tabela__td" });
       if (c.data_convocacao_entrevista) {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
+      } else if (c.convocacao_entrevista === "Enviado") {
+        tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
       } else {
         tdConvE.appendChild(el("span", { class: "cand-pendente", text: "pendente" }));
       }
       tr.appendChild(tdConvE);
 
-      var res = ent ? resultadoSistema(ent) : "";
+      // Resultado: prioriza a entrevista casada (sistema); senão o valor da planilha.
+      var res = ent ? resultadoSistema(ent) : (c.resultado_entrevista || "");
       var tdRes = el("td", { class: "tabela__td" });
       if (ent) {
         tdRes.appendChild(el("span", { class: resultadoClasse(res), text: res || "—" }));
         tdRes.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }));
       } else if (c.resultado_entrevista) {
-        tdRes.appendChild(el("span", { text: c.resultado_entrevista }));
+        tdRes.appendChild(el("span", { class: resultadoClasse(res), text: c.resultado_entrevista }));
         tdRes.appendChild(el("span", { class: "cand-fonte", text: "planilha" }));
       } else {
         tdRes.textContent = "—";
@@ -1066,11 +1079,13 @@
       var data = ent ? ent.data_entrevista : c.data_entrevista;
       tr.appendChild(el("td", { class: "tabela__td", text: data ? formatarData(data) : "—" }));
 
-      // Convocação cadastro: botão individual (só p/ selecionados) ou a data enviada.
+      // Convocação cadastro: já enviada (data/status), ou botão (só p/ selecionados), ou —.
       var tdConvC = el("td", { class: "tabela__td" });
-      var selecionado = res.indexOf("SELECIONADO") === 0;
+      var selecionado = res.toUpperCase().indexOf("SELECIONADO") === 0;
       if (c.data_convocacao_cadastro) {
         tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado em " + c.data_convocacao_cadastro }));
+      } else if (c.convocacao_cadastro === "Enviado") {
+        tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
       } else if (selecionado) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
         btnCad.addEventListener("click", function () { convocarCadastro(c); });
