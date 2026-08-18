@@ -459,6 +459,12 @@
     todasPerguntas(schema).forEach(function (p) {
       respostas[p.id] = lerValor(form, p);
     });
+    // Identificador do candidato (o e-mail dele), vindo do link ?cid=... .
+    // Serve para o painel casar esta entrevista com a ficha do candidato, sem
+    // depender do nome digitado. É invisível para o entrevistador e opcional
+    // (se o link não trouxer, cai no casamento por nome).
+    var cid = getParam("cid");
+    if (cid && cid.trim()) respostas.cid = cid.trim();
     // Candidato faltante ou reprovado não é pontuado (fora do ranking).
     var avaliado = !respostas.nao_compareceu && !respostas.nao_cumpre_requisitos;
     var pont = calcularPontuacao(schema, form);
