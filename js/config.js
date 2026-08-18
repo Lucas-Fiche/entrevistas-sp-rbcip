@@ -24,7 +24,7 @@ window.SUPABASE_CONFIG = {
   // URL do Web App do Google Apps Script que envia os e-mails pelo Gmail.
   // Deixe em branco até publicar o script (veja docs/APPS-SCRIPT-CONVOCACAO.md).
   // Enquanto estiver em branco, os botões de convocação ficam desativados.
-  CONVOCACAO_BACKEND_URL: "",
+  CONVOCACAO_BACKEND_URL: "https://script.google.com/macros/s/AKfycbxaGp9pcsh90dwLSbAVywmTBDLwcIUvzzk9ahhaeGtQGQ2-rrumTu7Hdr00glmK8R3b/exec",
 
   // Links de agendamento (Google Agenda) da entrevista — 3 opções no e-mail.
   AGENDA_LINKS: [
