@@ -940,9 +940,8 @@
         .in("id", ids)
         .then(function () {
           renderPainelCandidatos();
-          var falhas = (res && res.erros && res.erros.length) ? "\n(" + res.erros.length + " falharam — veja o recibo no seu e-mail.)" : "";
-          alert("Convocação de entrevista enviada para " + enviados + " candidato(s)." + falhas +
-            "\n\nOs e-mails vão para os CANDIDATOS. Você recebeu um recibo confirmando o que saiu.");
+          alert("Convocação de entrevista concluída.\n\n" + resumoEnvio(res, enviados) +
+            "\n\nOs e-mails vão para os CANDIDATOS (confira sua pasta Enviados).");
         });
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
@@ -967,8 +966,22 @@
       return client.from(candTabela())
         .update({ data_convocacao_cadastro: hoje, convocacao_cadastro: "Enviado", updated_at: new Date().toISOString() })
         .eq("id", cand.id)
-        .then(function () { renderPainelCandidatos(); });
+        .then(function () {
+          renderPainelCandidatos();
+          alert("Convocação de cadastro concluída.\n\n" + resumoEnvio(res, enviados));
+        });
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
+  // Resumo do envio bem-sucedido (para o aviso de conclusão).
+  function resumoEnvio(res, enviados) {
+    var linhas = ["✓ Enviadas: " + enviados];
+    if (res && res.erros && res.erros.length) {
+      linhas.push("✗ Falharam: " + res.erros.length);
+      linhas.push("   " + res.erros.join("\n   "));
+    }
+    if (res && res.recibo) linhas.push("Recibo: " + res.recibo);
+    return linhas.join("\n");
   }
 
   // Resumo de diagnóstico da resposta do backend (para os avisos de falha).

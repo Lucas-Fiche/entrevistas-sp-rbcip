@@ -33,6 +33,9 @@ Você faz isto **uma vez**. Depois, todo clique de convocação envia sozinho.
 var SUPABASE_URL = "https://gnqzcmzyupetpvlhsfsu.supabase.co";
 var SUPABASE_ANON_KEY = "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_";
 
+// >>> COLOQUE AQUI o e-mail que deve receber o RECIBO de cada envio. <<<
+var EMAIL_RECIBO = "lucas@rbcip.org";
+
 // Health-check simples (abrir a URL no navegador deve mostrar {"ok":true}).
 function doGet() {
   return json({ ok: true, servico: "convocacoes RBCIP" });
@@ -68,18 +71,27 @@ function doPost(e) {
       }
     }
 
-    // 3) Recibo/diagnóstico SEMPRE para você (remetente) — confirma o que ocorreu.
+    // 3) Recibo/diagnóstico SEMPRE para você — confirma o que ocorreu.
+    var recibo = "";
     try {
-      MailApp.sendEmail(
-        Session.getEffectiveUser().getEmail(),
-        "RBCIP — convocacoes: recebidas " + recebidas + ", enviadas " + enviados,
-        "Recebidas: " + recebidas + "\nEnviadas: " + enviados +
-          "\n\nDestinatarios:\n" + (destinatarios.join("\n") || "(nenhum)") +
-          (erros.length ? "\n\nFalhas:\n" + erros.join("\n") : "")
-      );
-    } catch (e2) {}
+      var paraRecibo = EMAIL_RECIBO || Session.getEffectiveUser().getEmail();
+      if (!paraRecibo) {
+        recibo = "sem endereço definido (preencha EMAIL_RECIBO no script)";
+      } else {
+        MailApp.sendEmail(
+          paraRecibo,
+          "RBCIP — convocacoes: recebidas " + recebidas + ", enviadas " + enviados,
+          "Recebidas: " + recebidas + "\nEnviadas: " + enviados +
+            "\n\nDestinatarios:\n" + (destinatarios.join("\n") || "(nenhum)") +
+            (erros.length ? "\n\nFalhas:\n" + erros.join("\n") : "")
+        );
+        recibo = "recibo enviado para " + paraRecibo;
+      }
+    } catch (e2) {
+      recibo = "falha ao enviar recibo: " + e2;
+    }
 
-    return json({ ok: true, recebidas: recebidas, enviados: enviados, erros: erros });
+    return json({ ok: true, recebidas: recebidas, enviados: enviados, erros: erros, recibo: recibo });
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
