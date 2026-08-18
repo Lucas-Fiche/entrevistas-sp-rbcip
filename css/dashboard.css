@@ -696,6 +696,27 @@ input[type="date"].viz-data {
 
 .tabela-scroll { overflow-x: auto; }
 
+/* Células editáveis das etapas */
+.cand-edit {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: var(--cor-branco);
+  color: var(--cor-texto);
+  max-width: 100%;
+}
+.cand-edit--texto { width: 120px; }
+.cand-edit:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+.cand-edit--salvando { opacity: 0.6; }
+.cand-edit--ok { border-color: var(--cor-sucesso); box-shadow: 0 0 0 2px rgba(24, 128, 56, 0.15); }
+.cand-edit--erro { border-color: var(--cor-erro); box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.15); }
+
 @media (max-width: 480px) {
   .barra__rotulo { width: 110px; }
 }

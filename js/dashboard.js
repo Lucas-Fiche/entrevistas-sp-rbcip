@@ -793,18 +793,84 @@
     });
   }
 
+  var CAMPOS_ETAPA = [
+    "convocacao_entrevista", "resultado_entrevista", "data_entrevista",
+    "convocacao_cadastro", "data_convocacao_cadastro",
+  ];
+
   function importarCSV(tipo, text) {
     var parsed = parseCSV(text);
+    // Fichas que já existem (para PRESERVAR as etapas editadas no painel).
+    var existentes = {};
+    candidatos.forEach(function (c) { if (c.tipo === tipo) existentes[c.chave] = c; });
+
     var mapa = {};
     parsed.rows.forEach(function (row) {
       var c = linhaParaCandidato(tipo, row);
-      if (c) mapa[c.chave] = c; // deduplica por chave (mantém a última ocorrência)
+      if (!c) return;
+      var ex = existentes[c.chave];
+      if (ex) {
+        // Já existe: reimportar atualiza só a inscrição; as etapas do painel
+        // são mantidas com os valores atuais (não são sobrescritas pelo CSV).
+        CAMPOS_ETAPA.forEach(function (campo) { c[campo] = ex[campo] || null; });
+      }
+      mapa[c.chave] = c; // deduplica por chave (mantém a última ocorrência)
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
     if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
     return client.from(candTabela())
       .upsert(rows, { onConflict: "tipo,chave" })
       .then(function (resp) { if (resp.error) throw resp.error; return { total: rows.length }; });
+  }
+
+  // Salva uma etapa editada no painel (otimista: já atualiza a memória).
+  function atualizarEtapa(cand, campo, valor, elmInput) {
+    var anterior = cand[campo];
+    cand[campo] = valor || null;
+    var patch = { updated_at: new Date().toISOString() };
+    patch[campo] = valor || null;
+    if (elmInput) elmInput.classList.add("cand-edit--salvando");
+    client.from(candTabela()).update(patch).eq("id", cand.id).then(function (resp) {
+      if (elmInput) elmInput.classList.remove("cand-edit--salvando");
+      if (resp.error) {
+        cand[campo] = anterior; // reverte
+        if (elmInput) { elmInput.value = anterior || ""; elmInput.classList.add("cand-edit--erro"); }
+        var s = $("#cand-status");
+        if (s) s.textContent = "Não foi possível salvar a alteração: " + (resp.error.message || resp.error);
+      } else if (elmInput) {
+        elmInput.classList.remove("cand-edit--erro");
+        elmInput.classList.add("cand-edit--ok");
+        setTimeout(function () { elmInput.classList.remove("cand-edit--ok"); }, 900);
+      }
+    });
+  }
+
+  // Célula editável: <select> com opções fixas (+ o valor atual, se for outro).
+  function celulaSelect(cand, campo, opcoes) {
+    var td = el("td", { class: "tabela__td" });
+    var sel = el("select", { class: "cand-edit" });
+    sel.appendChild(el("option", { value: "", text: "—" }));
+    var atual = cand[campo] || "";
+    var lista = opcoes.slice();
+    if (atual && lista.indexOf(atual) === -1) lista.push(atual);
+    lista.forEach(function (o) {
+      var opt = el("option", { value: o, text: o });
+      if (atual === o) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.value = atual;
+    sel.addEventListener("change", function () { atualizarEtapa(cand, campo, sel.value, sel); });
+    td.appendChild(sel);
+    return td;
+  }
+
+  // Célula editável de texto livre (datas/observações — aceita "Já cadastrado" etc.).
+  function celulaTexto(cand, campo, placeholder) {
+    var td = el("td", { class: "tabela__td" });
+    var inp = el("input", { type: "text", class: "cand-edit cand-edit--texto", value: cand[campo] || "", placeholder: placeholder || "" });
+    inp.addEventListener("change", function () { atualizarEtapa(cand, campo, inp.value.trim(), inp); });
+    td.appendChild(inp);
+    return td;
   }
 
   function renderPainelCandidatos() {
@@ -873,7 +939,7 @@
 
     var cols = ["Nome", "E-mail"];
     if (candTipo === "interior") cols.push("Região");
-    cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
+    cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro", "Data da convocação"]);
 
     var tabela = el("table", { class: "tabela" });
     var trh = el("tr");
@@ -889,7 +955,7 @@
       tr.appendChild(el("td", { class: "tabela__td", text: c.nome || "—" }));
       tr.appendChild(el("td", { class: "tabela__td cand-email", text: c.email || "—" }));
       if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", text: c.regiao || "—" }));
-      tr.appendChild(el("td", { class: "tabela__td", text: c.convocacao_entrevista || "—" }));
+      tr.appendChild(celulaSelect(c, "convocacao_entrevista", ["Enviado"]));
 
       var tdRes = el("td", { class: "tabela__td" });
       if (ent) {
@@ -906,7 +972,8 @@
 
       var data = ent ? ent.data_entrevista : c.data_entrevista;
       tr.appendChild(el("td", { class: "tabela__td", text: data ? formatarData(data) : "—" }));
-      tr.appendChild(el("td", { class: "tabela__td", text: c.convocacao_cadastro || "—" }));
+      tr.appendChild(celulaSelect(c, "convocacao_cadastro", ["Enviado", "Não Enviado"]));
+      tr.appendChild(celulaTexto(c, "data_convocacao_cadastro", "dd/mm/aaaa"));
       tbody.appendChild(tr);
     });
     tabela.appendChild(tbody);
