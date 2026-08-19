@@ -2221,6 +2221,8 @@
       return;
     }
     configurarLogin();
+    var selo = $("#app-versao");
+    if (selo) selo.textContent = cfg.VERSAO ? "v" + cfg.VERSAO : "";
 
     client.auth.getSession().then(function (resp) {
       var session = resp.data && resp.data.session;

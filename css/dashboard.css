@@ -116,6 +116,12 @@ body.tela-cheia .dash {
   color: var(--cor-texto-suave);
 }
 
+.dash__versao {
+  font-size: 11px;
+  color: var(--cor-texto-suave);
+  opacity: 0.7;
+}
+
 .btn--pequeno {
   padding: 7px 14px;
   font-size: 13px;

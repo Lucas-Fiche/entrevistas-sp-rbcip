@@ -15,6 +15,11 @@
  * validar a experiência antes de conectar o banco.
  */
 window.SUPABASE_CONFIG = {
+  // Versão da publicação. Aparece no canto do painel e serve para conferir se o
+  // navegador está com a versão nova (e não com uma cópia velha em cache).
+  // Ao publicar mudanças, troque também o "?v=" dos arquivos nos .html.
+  VERSAO: "20260819a",
+
   SUPABASE_URL: "https://gnqzcmzyupetpvlhsfsu.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",
   // Nome da tabela onde as entrevistas serão gravadas.
