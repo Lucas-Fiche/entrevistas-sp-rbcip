@@ -831,6 +831,7 @@
   var candidatos = [];
   var candTipo = "capital"; // sub-filtro da tabela de candidatos
   var candMsg = "";
+  var candBusca = "";
 
   function normStr(s) {
     return String(s || "")
@@ -1488,16 +1489,18 @@
     painel.appendChild(filtro);
 
     // --- Tabela ---
-    var lista = candidatos.filter(function (c) { return c.tipo === candTipo; });
-    lista.sort(porOrdemPlanilha);
+    var doTipo = candidatos.filter(function (c) { return c.tipo === candTipo; });
+    doTipo.sort(porOrdemPlanilha);
 
-    if (!lista.length) {
+    if (!doTipo.length) {
       painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato importado ainda para " + candTipo + ". Envie o CSV de inscrição acima." }));
       return;
     }
 
     // --- Ação geral: convocar todos p/ entrevista (quem ainda não recebeu) ---
-    var pendEntr = lista.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
+    // Atenção: a convocação geral considera TODOS do tipo, não só os filtrados
+    // pela busca — o número no botão e a confirmação deixam isso explícito.
+    var pendEntr = doTipo.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
     var acoes = el("div", { class: "cand-acoes" });
     if (!ehAdmin()) acoes.classList.add("oculto");
     var btnGeral = el("button", {
@@ -1515,6 +1518,36 @@
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
     }
     painel.appendChild(acoes);
+
+    // --- Busca (nome, e-mail, CPF ou região) ---
+    var buscaWrap = el("div", { class: "painel__barra" });
+    var inpBusca = el("input", {
+      class: "painel__busca",
+      type: "search",
+      placeholder: "Buscar por nome, e-mail, CPF ou região…",
+      value: candBusca,
+    });
+    inpBusca.addEventListener("input", function () {
+      candBusca = inpBusca.value;
+      renderPainelCandidatos();
+      var novo = $("#painel-candidatos").querySelector(".painel__busca");
+      if (novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
+    });
+    buscaWrap.appendChild(inpBusca);
+    painel.appendChild(buscaWrap);
+
+    var termo = normStr(candBusca);
+    var termoCPF = soDigitos(candBusca);
+    var lista = !termo ? doTipo : doTipo.filter(function (c) {
+      var texto = [c.nome, c.email, c.regiao].some(function (v) { return normStr(v).indexOf(termo) !== -1; });
+      var porCPF = termoCPF.length >= 3 && soDigitos(c.cpf).indexOf(termoCPF) !== -1;
+      return texto || porCPF;
+    });
+
+    if (!lista.length) {
+      painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato encontrado para esta busca." }));
+      return;
+    }
 
     var cols = ["Nome", "E-mail", "CPF"];
     if (candTipo === "interior") cols.push("Região");
@@ -1614,8 +1647,8 @@
 
     painel.appendChild(el("p", {
       class: "cand-resumo",
-      text: lista.length + " candidatos · " + casados + " com entrevista casada automaticamente pelo sistema · " +
-        notaOrdem(lista),
+      text: lista.length + (termo ? " de " + doTipo.length : "") + " candidatos · " +
+        casados + " com entrevista casada automaticamente pelo sistema · " + notaOrdem(lista),
     }));
     var wrap = el("div", { class: "tabela-scroll" });
     wrap.appendChild(tabela);
