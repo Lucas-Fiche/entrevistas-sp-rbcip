@@ -886,12 +886,52 @@
     return { headers: headers, rows: rows };
   }
 
+  // Compacta o nome de uma coluna: sem acento, sem pontuação, sem espaços.
+  // "De qual região de SP sua residência está mais próxima? *" e
+  // "De qual regiao de SP sua residencia esta mais proxima?" viram a mesma coisa.
+  function normCol(s) {
+    return String(s || "")
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().replace(/[^a-z0-9]+/g, "");
+  }
+
+  // Procura o valor de uma coluna aceitando variações de cabeçalho, porque os
+  // arquivos da plataforma usam a pergunta inteira como nome da coluna (com
+  // asterisco, interrogação e acentos), enquanto as planilhas de controle usam
+  // nomes curtos. A busca vai do mais exato ao mais tolerante.
   function pegaCol(row, nomes) {
-    for (var i = 0; i < nomes.length; i++) {
+    var i;
+    // 1) nome exatamente igual
+    for (i = 0; i < nomes.length; i++) {
       if (row[nomes[i]] !== undefined && row[nomes[i]] !== "") return row[nomes[i]];
+    }
+    // 2) nome igual depois de compactar (acentos, "?", "*", espaços)
+    var idx = {};
+    Object.keys(row).forEach(function (k) { idx[normCol(k)] = row[k]; });
+    for (i = 0; i < nomes.length; i++) {
+      var alvo = normCol(nomes[i]);
+      if (alvo && idx[alvo] !== undefined && idx[alvo] !== "") return idx[alvo];
+    }
+    // 3) coluna que COMEÇA com o nome procurado ("Nome" acha "Nome completo")
+    var chaves = Object.keys(idx);
+    for (i = 0; i < nomes.length; i++) {
+      var pref = normCol(nomes[i]);
+      if (!pref) continue;
+      for (var j = 0; j < chaves.length; j++) {
+        if (chaves[j].indexOf(pref) === 0 && idx[chaves[j]]) return idx[chaves[j]];
+      }
     }
     return "";
   }
+
+  // Nomes que a REGIÃO pode ter: curto (planilha de controle) ou a pergunta
+  // inteira do formulário de inscrição (arquivo da plataforma).
+  var COLS_REGIAO = [
+    "Região",
+    "Regiao",
+    "De qual região de SP sua residência está mais próxima?",
+    "Região de atuação",
+  ];
 
   // Ordenação padrão das tabelas de controle: a MESMA ordem do arquivo CSV
   // (é a ordem em que as pessoas se inscreveram / entraram no projeto).
@@ -918,7 +958,7 @@
     var nome = pegaCol(row, ["Nome completo", "Nome"]);
     var email = pegaCol(row, ["E-mail", "Email"]);
     var cpf = pegaCol(row, ["CPF"]);
-    var regiao = pegaCol(row, ["Região", "Regiao"]);
+    var regiao = pegaCol(row, COLS_REGIAO);
     var emailN = normEmail(email);
     var chave = emailN || soDigitos(cpf) || normStr(nome);
     if (!chave) return null;
@@ -1013,6 +1053,9 @@
     "convocacao_entrevista", "data_convocacao_entrevista", "resultado_entrevista",
     "data_entrevista", "convocacao_cadastro", "data_convocacao_cadastro",
   ];
+  // Dados de identificação: um arquivo que não traga a coluna (ou traga vazia)
+  // nunca APAGA o que já está preenchido na ficha.
+  var CAMPOS_IDENTIDADE = ["nome", "email", "email_norm", "cpf", "regiao"];
 
   function importarCSV(tipo, text) {
     var parsed = parseCSV(text);
@@ -1031,6 +1074,7 @@
         // estão vazias (semeia o cenário atual da planilha), mas NÃO sobrescreve
         // etapas já definidas no painel/sistema.
         CAMPOS_ETAPA.forEach(function (campo) { c[campo] = ex[campo] || c[campo] || null; });
+        CAMPOS_IDENTIDADE.forEach(function (campo) { if (!c[campo] && ex[campo]) c[campo] = ex[campo]; });
         // O que foi corrigido à mão no painel PREVALECE sobre a planilha.
         Object.keys(c.editado).forEach(function (campo) {
           if (c.editado[campo] && campo !== "chave") c[campo] = ex[campo];
@@ -1611,7 +1655,7 @@
       email: email || null,
       email_norm: emailN || null,
       grupo: pegaCol(row, ["Grupo"]) || null,
-      regiao: pegaCol(row, ["Região", "Regiao"]) || null,
+      regiao: pegaCol(row, COLS_REGIAO) || null,
       supervisor: pegaCol(row, ["Supervisor"]) || null,
       status: pegaCol(row, ["Status"]) || null,
       cadastro_bolsista: pegaCol(row, ["Cadastro de Bolsista"]) || null,

@@ -71,7 +71,27 @@ ficha em vez de criar uma duplicada.
 
 ---
 
-## 4. Ordem das tabelas
+## 4. Importar os arquivos da plataforma
+
+A aba Candidatos aceita tanto a **planilha de controle** (com as colunas de
+convocação e resultado) quanto o **arquivo cru da plataforma**, que usa a
+pergunta inteira do formulário como nome da coluna. A leitura ignora acento,
+asterisco, interrogação e espaços a mais, e aceita nomes parciais — "Nome"
+encontra "Nome completo".
+
+A região do Interior é o caso mais chamativo: na planilha de controle ela se
+chama **"Região"**; no arquivo da plataforma, **"De qual região de SP sua
+residência está mais próxima? *"**. Os dois funcionam.
+
+O arquivo da plataforma **não traz** as colunas de convocação, resultado e datas
+— elas são do seu controle. Isso não é problema: a importação nunca apaga o que
+já está preenchido na ficha. Convocações registradas pelo sistema, resultados
+casados e correções manuais sobrevivem à reimportação; o mesmo vale para nome,
+e-mail, CPF e região quando o arquivo vier sem eles.
+
+---
+
+## 5. Ordem das tabelas
 
 As abas **Candidatos** e **Formação** são exibidas na mesma ordem do CSV
 importado — a ordem em que as pessoas se inscreveram ou entraram no projeto.
@@ -80,7 +100,7 @@ o rodapé de cada tabela mostra qual ordem está em uso.
 
 ---
 
-## 5. Largura da tela
+## 6. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A
