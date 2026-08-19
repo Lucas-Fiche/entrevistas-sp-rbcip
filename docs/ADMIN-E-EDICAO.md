@@ -65,9 +65,15 @@ Se quiser voltar atrás em uma ficha — deixar a planilha mandar de novo —, a
 edição e clique em **"Voltar a seguir a planilha"**.
 
 **Detalhe importante:** corrigir o e-mail **não muda a identidade** da ficha. A
-identificação usada na importação (a `chave`) continua sendo a original, então o
-CSV da plataforma, que ainda traz o e-mail antigo, continua encontrando a mesma
-ficha em vez de criar uma duplicada.
+identificação de cada pessoa é o **CPF**; a importação procura a ficha pelo CPF,
+depois pela identificação já gravada e só então pelo e-mail. Assim, um endereço
+corrigido — aqui ou na própria plataforma — continua caindo na mesma ficha, em
+vez de criar uma duplicada.
+
+> Se você já tem fichas duplicadas de antes desta correção (quando a identidade
+> era o e-mail), rode **`sql/duplicados.sql`**. Ele junta as fichas com o mesmo
+> CPF numa só, aproveitando o que estiver preenchido em cada uma, e guarda uma
+> cópia da tabela antes de mexer.
 
 ---
 

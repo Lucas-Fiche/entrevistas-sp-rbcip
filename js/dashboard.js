@@ -961,7 +961,11 @@
     var cpf = pegaCol(row, ["CPF"]);
     var regiao = pegaCol(row, COLS_REGIAO);
     var emailN = normEmail(email);
-    var chave = emailN || soDigitos(cpf) || normStr(nome);
+    // Identidade da ficha: CPF primeiro, porque é o único dado que não muda.
+    // Usar o e-mail como identidade fazia uma correção de endereço virar uma
+    // pessoa nova na próxima importação.
+    var cpfD = soDigitos(cpf);
+    var chave = (cpfD.length === 11 ? cpfD : "") || emailN || normStr(nome);
     if (!chave) return null;
     return {
       tipo: tipo,
@@ -1060,15 +1064,36 @@
 
   function importarCSV(tipo, text) {
     var parsed = parseCSV(text);
-    // Fichas que já existem (para PRESERVAR as etapas editadas no painel).
-    var existentes = {};
-    candidatos.forEach(function (c) { if (c.tipo === tipo) existentes[c.chave] = c; });
+    // Índices das fichas que já existem. Reconhecer a MESMA pessoa não pode
+    // depender só do e-mail: se o endereço mudou (corrigido aqui ou na
+    // plataforma), a ficha antiga precisa ser reencontrada pelo CPF — senão a
+    // importação cria uma segunda ficha para a mesma pessoa.
+    var porChave = {}, porCPF = {}, porEmail = {};
+    candidatos.forEach(function (c) {
+      if (c.tipo !== tipo) return;
+      porChave[c.chave] = c;
+      var d = soDigitos(c.cpf);
+      if (d.length === 11 && !porCPF[d]) porCPF[d] = c;
+      if (c.email_norm && !porEmail[c.email_norm]) porEmail[c.email_norm] = c;
+    });
+    // Nome NÃO entra nesta busca de propósito: dois homônimos seriam fundidos
+    // numa ficha só, o que é pior do que uma ficha duplicada.
+    function fichaExistente(c) {
+      var d = soDigitos(c.cpf);
+      if (d.length === 11 && porCPF[d]) return porCPF[d];
+      if (porChave[c.chave]) return porChave[c.chave];
+      if (c.email_norm && porEmail[c.email_norm]) return porEmail[c.email_norm];
+      return null;
+    }
 
     var mapa = {};
     parsed.rows.forEach(function (row, idx) {
       var c = linhaParaCandidato(tipo, row, idx);
       if (!c) return;
-      var ex = existentes[c.chave];
+      var ex = fichaExistente(c);
+      // Achou a ficha: mantém a identidade dela (a `chave` nunca muda), para o
+      // upsert atualizar a linha existente em vez de criar outra.
+      if (ex) c.chave = ex.chave;
       c.editado = (ex && ex.editado) || {};
       if (ex) {
         // Já existe: reimportar atualiza a inscrição e PREENCHE etapas que ainda
