@@ -75,7 +75,8 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
-│   └── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
+│   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
+│   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/
 │   ├── logo-rbcip.png    # Logo (barra superior)
 │   └── bandeira-sp.png   # Bandeira de SP (canto do mapa)
