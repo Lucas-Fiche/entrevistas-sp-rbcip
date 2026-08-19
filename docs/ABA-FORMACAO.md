@@ -30,6 +30,13 @@ pergunta **"CPF do Candidato"**, logo abaixo do nome. O campo aceita só número
 e se formata sozinho (`000.000.000-00`). É obrigatório — exceto quando a
 entrevista é marcada como *candidato faltante*, aí não faz sentido exigir.
 
+**E as entrevistas antigas?** As que foram feitas antes de a pergunta existir
+não têm CPF. Elas aparecem marcadas com **"sem CPF"** ao lado do nome nas abas
+*Entrevistas Capital* e *Entrevistas Interior*; é só abrir **Detalhes** e
+preencher no bloco **🪪 CPF do candidato**, no topo. Ao salvar, o vínculo com a
+inscrição e com a formação passa a valer na hora. Só administradores preenchem,
+e é preciso ter rodado o `sql/cpf-entrevista.sql`.
+
 **Ordem de casamento** (quando o sistema procura a entrevista de alguém):
 
 1. **CPF** (11 dígitos, comparados só pelos números);

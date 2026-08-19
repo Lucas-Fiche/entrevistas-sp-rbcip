@@ -499,6 +499,9 @@
       tipo: schema.id,
       perfil: "Avaliador (Entrevistador)",
       candidato: respostas.nome_candidato || null,
+      // Coluna própria (além do JSON): é a chave que liga a entrevista à
+      // inscrição e à formação, e permite corrigir/completar pelo painel.
+      cpf: respostas.cpf_candidato || null,
       data_entrevista: respostas.data_entrevista || null,
       entrevistador: respostas.nome_entrevistador || null,
       nao_compareceu: Boolean(respostas.nao_compareceu),

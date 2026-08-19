@@ -84,7 +84,13 @@
 
   // ---------- Colunas da tabela ----------
   var COLUNAS = [
-    { chave: "candidato", titulo: "Candidato", valor: function (r) { return r.candidato || "—"; } },
+    {
+      chave: "candidato", titulo: "Candidato",
+      valor: function (r) { return r.candidato || "—"; },
+      // Entrevistas anteriores à pergunta do CPF ficam marcadas, para localizar
+      // quais ainda precisam ser completadas em Detalhes.
+      aviso: function (r) { return cpfEntrevista(r) ? "" : "sem CPF"; },
+    },
     { chave: "data", titulo: "Data", valor: function (r) { return formatarData(r.data_entrevista); }, ord: function (r) { return r.data_entrevista || ""; } },
     { chave: "entrevistador", titulo: "Entrevistador", valor: function (r) { return r.entrevistador || "—"; } },
     { chave: "pontuacao", titulo: "Pontuação", num: true, valor: pontuacaoTexto, ord: function (r) { return r.pontuacao_total == null ? -1 : r.pontuacao_total; } },
@@ -101,11 +107,14 @@
 
   // ---------- Exportação (CSV / XLSX) ----------
   // IDs já cobertos por colunas fixas ou pelo Status (evita duplicar).
-  var SKIP_EXPORT = ["nome_candidato", "data_entrevista", "nome_entrevistador", "nao_compareceu", "nao_cumpre_requisitos", "recomendacao_final"];
+  var SKIP_EXPORT = ["nome_candidato", "cpf_candidato", "data_entrevista", "nome_entrevistador", "nao_compareceu", "nao_cumpre_requisitos", "recomendacao_final"];
 
   function colunasExport(tipo) {
     var cols = [
       { h: "Candidato", g: function (r) { return r.candidato || ""; } },
+      // Coluna própria: cobre também as entrevistas antigas, cujo CPF foi
+      // preenchido pelo painel e não está dentro do JSON de respostas.
+      { h: "CPF", g: function (r) { return cpfEntrevista(r); } },
       { h: "Data da entrevista", g: function (r) { return formatarData(r.data_entrevista); } },
       { h: "Entrevistador", g: function (r) { return r.entrevistador || ""; } },
       { h: "Pontuação", g: function (r) { return r.pontuacao_total == null ? "" : r.pontuacao_total; } },
@@ -508,6 +517,11 @@
         } else {
           td.textContent = c.valor(r);
         }
+        // Aviso discreto ao lado do valor (ex.: entrevista antiga sem CPF).
+        if (c.aviso) {
+          var texto = c.aviso(r);
+          if (texto) td.appendChild(el("span", { class: "sem-cpf", title: "Abra os Detalhes para informar o CPF", text: texto }));
+        }
         tr.appendChild(td);
       });
       var tdAcao = el("td", { class: "tabela__td" });
@@ -553,7 +567,8 @@
     var secaoAtual = null;
     var corpo = "";
     mapaPerguntas(r.tipo).forEach(function (p) {
-      var v = resp[p.id];
+      // O CPF pode estar só na coluna (entrevistas antigas, preenchidas no painel).
+      var v = p.id === "cpf_candidato" ? cpfEntrevista(r) : resp[p.id];
       if (v === undefined || v === "" || v === false) return;
       if (p.secao && p.secao !== secaoAtual) {
         secaoAtual = p.secao;
@@ -670,6 +685,90 @@
     wrap.appendChild(msg);
   }
 
+  // ---------- CPF do candidato (chave entre entrevista, inscrição e formação) ----------
+  // Entrevistas antigas foram feitas antes de a pergunta existir: o CPF delas é
+  // preenchido aqui, à mão. As novas já chegam com o campo preenchido.
+  function cpfEntrevista(r) {
+    return r.cpf || (r.respostas && r.respostas.cpf_candidato) || "";
+  }
+  function salvarCpfEntrevista(id, cpf) {
+    if (!client) return Promise.reject(new Error("Sessão indisponível. Entre novamente."));
+    return client
+      .from(cfg.TABELA || "entrevistas")
+      .update({ cpf: cpf })
+      .eq("id", id)
+      .then(function (resp) {
+        if (resp.error) throw resp.error;
+        return resp;
+      });
+  }
+
+  function renderCpfEntrevista(wrap, r, editando) {
+    wrap.innerHTML = "";
+    wrap.appendChild(el("div", { class: "ata__titulo", text: "🪪 CPF do candidato" }));
+    var atual = cpfEntrevista(r);
+
+    if (atual && !editando) {
+      var linha = el("div", { class: "ata__form" });
+      linha.appendChild(el("span", { class: "cpf-valor", text: formatarCPF(atual) }));
+      if (ehAdmin()) {
+        var btnEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Alterar" });
+        btnEd.addEventListener("click", function () { renderCpfEntrevista(wrap, r, true); });
+        linha.appendChild(btnEd);
+      }
+      wrap.appendChild(linha);
+      return;
+    }
+
+    if (!ehAdmin()) {
+      wrap.appendChild(el("p", { class: "ata__msg", text: "Não informado. Apenas administradores podem preencher." }));
+      return;
+    }
+
+    var input = el("input", {
+      class: "ata__input", type: "text", inputmode: "numeric", maxlength: "14",
+      placeholder: "000.000.000-00", value: atual ? formatarCPF(atual) : "",
+    });
+    input.addEventListener("input", function () { input.value = mascaraCPF(input.value); });
+    var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Salvar CPF" });
+    var msg = el("p", { class: "ata__msg", text: "Liga esta entrevista à inscrição e à formação do candidato." });
+
+    btn.addEventListener("click", function () {
+      var valor = input.value.trim();
+      if (soDigitos(valor).length !== 11) {
+        msg.textContent = "Informe o CPF completo (11 dígitos).";
+        msg.className = "ata__msg ata__msg--erro";
+        return;
+      }
+      btn.disabled = true; input.disabled = true; btn.textContent = "Salvando…";
+      salvarCpfEntrevista(r.id, valor)
+        .then(function () {
+          r.cpf = valor; // reflete na memória (mesma entrevista das tabelas)
+          if (r.respostas) r.respostas.cpf_candidato = valor;
+          renderCpfEntrevista(wrap, r, false);
+          // O casamento com as fichas muda: atualiza as abas de controle.
+          renderPainelCandidatos();
+          renderPainelFormacao();
+        })
+        .catch(function (e) {
+          btn.disabled = false; input.disabled = false; btn.textContent = "Salvar CPF";
+          msg.textContent = /row-level security|permission|denied/i.test(e.message || "")
+            ? "Sem permissão para gravar. Rode sql/cpf-entrevista.sql e confirme que você é administrador."
+            : "Não foi possível salvar: " + (e.message || e);
+          msg.className = "ata__msg ata__msg--erro";
+        });
+    });
+
+    wrap.appendChild(el("div", { class: "ata__form" }, [input, btn]));
+    wrap.appendChild(msg);
+  }
+
+  function blocoCpf(r) {
+    var wrap = el("div", { class: "ata" });
+    renderCpfEntrevista(wrap, r, false);
+    return wrap;
+  }
+
   function blocoAta(r) {
     var wrap = el("div", { class: "ata" });
     renderAta(wrap, r);
@@ -692,11 +791,15 @@
     topo.appendChild(btnPdf);
     alvo.appendChild(topo);
 
+    // CPF: sempre visível no topo (é a chave do sistema) e editável pelo admin.
+    alvo.appendChild(blocoCpf(r));
+
     var resp = r.respostas || {};
     var ordem = mapaPerguntas(r.tipo);
     var secaoAtual = null;
     var lista = el("dl", { class: "detalhe" });
     ordem.forEach(function (p) {
+      if (p.id === "cpf_candidato") return; // já aparece no bloco do topo
       var v = resp[p.id];
       if (v === undefined || v === "" || v === false) return; // pula vazios
       if (p.secao && p.secao !== secaoAtual) {
@@ -872,9 +975,7 @@
     var achadas = [];
     var cpf = soDigitos(cand.cpf);
     if (cpf.length === 11) {
-      achadas = doTipo.filter(function (r) {
-        return r.respostas && soDigitos(r.respostas.cpf_candidato) === cpf;
-      });
+      achadas = doTipo.filter(function (r) { return soDigitos(cpfEntrevista(r)) === cpf; });
     }
     if (!achadas.length && cand.email_norm) {
       achadas = doTipo.filter(function (r) {
@@ -1604,7 +1705,7 @@
     var cpf = soDigitos(f.cpf);
     var achadas = [];
     if (cpf.length === 11) {
-      achadas = linhas.filter(function (r) { return r.respostas && soDigitos(r.respostas.cpf_candidato) === cpf; });
+      achadas = linhas.filter(function (r) { return soDigitos(cpfEntrevista(r)) === cpf; });
     }
     if (!achadas.length && f.email_norm) {
       achadas = linhas.filter(function (r) {

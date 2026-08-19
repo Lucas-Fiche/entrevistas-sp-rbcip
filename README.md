@@ -74,7 +74,8 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── bounce.sql        # Coluna de falha de entrega de e-mail (bounce)
 │   ├── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
-│   └── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
+│   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
+│   └── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 ├── assets/
 │   ├── logo-rbcip.png    # Logo (barra superior)
 │   └── bandeira-sp.png   # Bandeira de SP (canto do mapa)
