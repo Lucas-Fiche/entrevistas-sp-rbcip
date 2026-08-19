@@ -91,7 +91,8 @@ function secaoIdentificacao(tipo) {
         id: "cpf_candidato",
         tipo: "cpf",
         label: "CPF do Candidato",
-        ajuda: "Somente números. Usado para vincular a entrevista ao cadastro e ao termo de bolsa.",
+        ajuda:
+          "Somente números. Utilizado exclusivamente para vincular a entrevista ao cadastro do candidato, com tratamento em conformidade com a LGPD.",
         obrigatorio: true,
         msgErro: "Informe o CPF completo (11 dígitos).",
       },
