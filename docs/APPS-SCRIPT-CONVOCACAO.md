@@ -53,6 +53,11 @@ function doPost(e) {
       return json({ ok: false, error: "Não autorizado (faça login no painel)." });
     }
 
+    // 1b) Verificação de entregas (bounces): devolve os e-mails que falharam.
+    if (body.acao === "bounces") {
+      return json({ ok: true, falhas: checarBounces(body.dias || 14) });
+    }
+
     // 2) Envia cada mensagem pelo Gmail.
     var mensagens = body.mensagens || [];
     var recebidas = mensagens.length;
@@ -95,6 +100,46 @@ function doPost(e) {
   } catch (err) {
     return json({ ok: false, error: String(err) });
   }
+}
+
+// Procura, na sua caixa, os avisos de FALHA de entrega (bounces) e devolve
+// { "email_minusculo": "motivo" } para o painel marcar os candidatos.
+function checarBounces(dias) {
+  var q = 'newer_than:' + (dias || 14) + 'd (from:mailer-daemon OR from:postmaster ' +
+          'OR subject:"Delivery Status Notification" OR subject:"Address not found" ' +
+          'OR subject:"Undelivered" OR subject:"failure")';
+  var threads = GmailApp.search(q, 0, 200);
+  var falhas = {};
+  for (var t = 0; t < threads.length; t++) {
+    var msgs = threads[t].getMessages();
+    for (var i = 0; i < msgs.length; i++) {
+      var corpo = "";
+      try { corpo = msgs[i].getPlainBody() || ""; } catch (e) { corpo = ""; }
+      var motivo = motivoBounce(corpo);
+      // Endereços mais confiáveis: linhas "Final-Recipient".
+      var achou = false;
+      var reFinal = /Final-Recipient:\s*rfc822;\s*<?([^\s<>]+@[^\s<>]+)/gi;
+      var m;
+      while ((m = reFinal.exec(corpo))) { falhas[limparEmail(m[1])] = motivo; achou = true; }
+      if (!achou) {
+        var todos = corpo.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+        for (var j = 0; j < todos.length; j++) falhas[limparEmail(todos[j])] = motivo;
+      }
+    }
+  }
+  return falhas;
+}
+function motivoBounce(corpo) {
+  var c = (corpo || "").toLowerCase();
+  if (c.indexOf("couldn't be found") !== -1 || c.indexOf("address not found") !== -1 ||
+      c.indexOf("no such user") !== -1 || c.indexOf("does not exist") !== -1 ||
+      c.indexOf("user unknown") !== -1) {
+    return "E-mail não existe";
+  }
+  return "Falha na entrega";
+}
+function limparEmail(s) {
+  return String(s || "").toLowerCase().replace(/[<>.,;]+$/, "").trim();
 }
 
 // Valida o token chamando o próprio Supabase.

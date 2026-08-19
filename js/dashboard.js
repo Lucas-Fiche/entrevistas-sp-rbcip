@@ -896,7 +896,8 @@
   }
 
   // Envia via Web App do Apps Script (que valida o login e manda pelo Gmail).
-  function enviarConvocacao(mensagens) {
+  // Chamada genérica ao Web App do Apps Script (envia o token de login junto).
+  function chamarBackend(extra) {
     var url = backendConvocacao();
     if (!url) {
       return Promise.reject(new Error("Envio ainda não configurado (veja docs/APPS-SCRIPT-CONVOCACAO.md)."));
@@ -904,18 +905,47 @@
     return client.auth.getSession().then(function (resp) {
       var token = resp.data && resp.data.session && resp.data.session.access_token;
       if (!token) throw new Error("Sessão expirada. Entre novamente.");
+      var payload = { token: token };
+      Object.keys(extra || {}).forEach(function (k) { payload[k] = extra[k]; });
       return fetch(url, {
         method: "POST",
         // text/plain evita o "preflight" de CORS com o Apps Script
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ token: token, mensagens: mensagens }),
+        body: JSON.stringify(payload),
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          if (!res || !res.ok) throw new Error((res && res.error) || "Falha no envio.");
+          if (!res || !res.ok) throw new Error((res && res.error) || "Falha no servidor.");
           return res;
         });
     });
+  }
+  function enviarConvocacao(mensagens) { return chamarBackend({ mensagens: mensagens }); }
+
+  // Pergunta ao Apps Script quais e-mails voltaram com falha de entrega (bounces).
+  function verificarEntregas(btn) {
+    if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Verificando…'; }
+    chamarBackend({ acao: "bounces", dias: 14 }).then(function (res) {
+      var falhas = res.falhas || {}; // { email_minusculo: "motivo" }
+      var marcados = [];
+      candidatos.forEach(function (c) {
+        var motivo = c.email_norm ? falhas[c.email_norm] : null;
+        if (motivo && c.email_bounce !== motivo) { c.email_bounce = motivo; marcados.push(c); }
+      });
+      if (!marcados.length) {
+        renderPainelCandidatos();
+        alert("Nenhuma falha de entrega nova encontrada.\n(As falhas podem levar alguns minutos para chegar após o envio.)");
+        return;
+      }
+      return Promise.all(marcados.map(function (c) {
+        return client.from(candTabela()).update({ email_bounce: c.email_bounce, updated_at: new Date().toISOString() }).eq("id", c.id);
+      })).then(function () {
+        renderPainelCandidatos();
+        alert(marcados.length + " e-mail(s) com falha de entrega marcados:\n\n" +
+          marcados.map(function (c) { return "✗ " + c.email + " — " + c.email_bounce; }).join("\n"));
+      });
+    }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível verificar entregas: " + (e.message || e)); });
   }
 
   function convocarEntrevistaTodos(btn) {
@@ -1078,6 +1108,9 @@
     if (!pendEntr) btnGeral.disabled = true;
     btnGeral.addEventListener("click", function () { convocarEntrevistaTodos(btnGeral); });
     acoes.appendChild(btnGeral);
+    var btnVerif = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "🔎 Verificar entregas" });
+    btnVerif.addEventListener("click", function () { verificarEntregas(btnVerif); });
+    acoes.appendChild(btnVerif);
     if (!backendConvocacao()) {
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
     }
@@ -1099,12 +1132,18 @@
       if (ent) casados++;
       var tr = el("tr", { class: "tabela__tr" });
       tr.appendChild(el("td", { class: "tabela__td cand-td-nome", text: c.nome || "—" }));
-      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: c.email || "—" }));
+      // E-mail (com aviso de falha de entrega, se houver).
+      var tdEmail = el("td", { class: "tabela__td cand-email", "data-label": "E-mail" });
+      tdEmail.appendChild(el("span", { text: c.email || "—" }));
+      if (c.email_bounce) tdEmail.appendChild(el("div", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+      tr.appendChild(tdEmail);
       if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: c.regiao || "—" }));
 
-      // Convocação entrevista: data do envio, ou "Enviado" (vindo da planilha), ou pendente.
+      // Convocação entrevista: falha de entrega tem prioridade; senão data/Enviado/pendente.
       var tdConvE = el("td", { class: "tabela__td", "data-label": "Convocação entrevista" });
-      if (c.data_convocacao_entrevista) {
+      if (c.email_bounce) {
+        tdConvE.appendChild(el("span", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+      } else if (c.data_convocacao_entrevista) {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
       } else if (c.convocacao_entrevista === "Enviado") {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));

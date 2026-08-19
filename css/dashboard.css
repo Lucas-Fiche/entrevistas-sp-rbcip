@@ -704,6 +704,7 @@ input[type="date"].viz-data {
 }
 .cand-enviado { color: var(--cor-sucesso); font-weight: 600; font-size: 13px; white-space: nowrap; }
 .cand-pendente { color: var(--cor-texto-suave); font-size: 13px; }
+.cand-bounce { color: #b3261e; font-weight: 600; font-size: 12px; margin-top: 2px; }
 
 .cand-vazio { color: var(--cor-texto-suave); padding: 20px 4px; }
 .cand-resumo { color: var(--cor-texto-suave); font-size: 13px; margin: 0 0 10px; }
