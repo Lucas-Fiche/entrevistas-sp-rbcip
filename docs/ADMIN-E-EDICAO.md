@@ -71,7 +71,16 @@ ficha em vez de criar uma duplicada.
 
 ---
 
-## 4. Largura da tela
+## 4. Ordem das tabelas
+
+As abas **Candidatos** e **Formação** são exibidas na mesma ordem do CSV
+importado — a ordem em que as pessoas se inscreveram ou entraram no projeto.
+Isso depende de rodar **`sql/ordem.sql`** e reimportar os arquivos uma vez;
+o rodapé de cada tabela mostra qual ordem está em uso.
+
+---
+
+## 5. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A

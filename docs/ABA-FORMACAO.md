@@ -82,6 +82,16 @@ vírgula ou ponto e vírgula — é detectado automaticamente.
 Reimportar **atualiza** as linhas existentes em vez de duplicar: a
 identificação é feita pelo CPF (sem CPF, pelo e-mail; sem e-mail, pelo nome).
 
+### Ordem da lista
+
+A tabela aparece na **mesma ordem do arquivo importado** — que é a ordem em que
+as pessoas entraram no projeto (nas inscrições, a ordem em que se cadastraram).
+Cada importação grava a posição de cada linha.
+
+Para isso funcionar, rode uma vez o **`sql/ordem.sql`** e reimporte os CSVs. Até
+lá, as fichas antigas não têm posição definida e ficam no fim da lista — o
+rodapé da tabela avisa quando é esse o caso.
+
 ---
 
 ## 3. O próximo passo (automação)

@@ -24,6 +24,10 @@ create table if not exists public.candidatos (
   -- a linha em vez de duplicar.
   chave                    text not null,
 
+  -- Posição da linha no CSV importado (1 = primeira). É a ordem em que as
+  -- pessoas se inscreveram — usada para exibir a tabela na ordem certa.
+  ordem                    integer,
+
   -- Identificação e casamento
   nome                     text,
   email                    text,
@@ -49,9 +53,11 @@ create table if not exists public.candidatos (
   entrevista_id            uuid
 );
 
--- Para bancos criados antes desta coluna existir.
+-- Para bancos criados antes destas colunas existirem.
 alter table public.candidatos
   add column if not exists editado jsonb not null default '{}'::jsonb;
+alter table public.candidatos
+  add column if not exists ordem integer;
 
 -- Uma linha por candidato dentro de cada tipo (permite upsert ao reimportar).
 create unique index if not exists candidatos_tipo_chave_uidx

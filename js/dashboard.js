@@ -790,8 +790,28 @@
     return "";
   }
 
+  // Ordenação padrão das tabelas de controle: a MESMA ordem do arquivo CSV
+  // (é a ordem em que as pessoas se inscreveram / entraram no projeto).
+  // Fichas antigas, importadas antes de existir a coluna `ordem`, ficam no fim
+  // em ordem alfabética até a próxima importação.
+  // Texto que explica, no rodapé da tabela, qual ordem está sendo usada.
+  function notaOrdem(lista) {
+    var semOrdem = lista.filter(function (x) { return x.ordem === null || x.ordem === undefined; }).length;
+    if (!semOrdem) return "na mesma ordem do arquivo importado.";
+    if (semOrdem === lista.length) return "reimporte o CSV para usar a ordem original da planilha.";
+    return semOrdem + " ficha(s) sem posição definida aparecem no fim — reimporte o CSV para corrigir.";
+  }
+
+  function porOrdemPlanilha(a, b) {
+    var oa = (a.ordem === null || a.ordem === undefined) ? Infinity : a.ordem;
+    var ob = (b.ordem === null || b.ordem === undefined) ? Infinity : b.ordem;
+    if (oa !== ob) return oa - ob;
+    return normStr(a.nome).localeCompare(normStr(b.nome));
+  }
+
   // Converte uma linha do CSV de inscrição numa ficha de candidato.
-  function linhaParaCandidato(tipo, row) {
+  // `idx` é a posição da linha no arquivo — é o que preserva a ordem original.
+  function linhaParaCandidato(tipo, row, idx) {
     var nome = pegaCol(row, ["Nome completo", "Nome"]);
     var email = pegaCol(row, ["E-mail", "Email"]);
     var cpf = pegaCol(row, ["CPF"]);
@@ -802,6 +822,7 @@
     return {
       tipo: tipo,
       chave: chave,
+      ordem: idx + 1,
       nome: nome || null,
       email: email || null,
       email_norm: emailN || null,
@@ -899,8 +920,8 @@
     candidatos.forEach(function (c) { if (c.tipo === tipo) existentes[c.chave] = c; });
 
     var mapa = {};
-    parsed.rows.forEach(function (row) {
-      var c = linhaParaCandidato(tipo, row);
+    parsed.rows.forEach(function (row, idx) {
+      var c = linhaParaCandidato(tipo, row, idx);
       if (!c) return;
       var ex = existentes[c.chave];
       c.editado = (ex && ex.editado) || {};
@@ -1323,7 +1344,7 @@
 
     // --- Tabela ---
     var lista = candidatos.filter(function (c) { return c.tipo === candTipo; });
-    lista.sort(function (a, b) { return normStr(a.nome).localeCompare(normStr(b.nome)); });
+    lista.sort(porOrdemPlanilha);
 
     if (!lista.length) {
       painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato importado ainda para " + candTipo + ". Envie o CSV de inscrição acima." }));
@@ -1448,7 +1469,8 @@
 
     painel.appendChild(el("p", {
       class: "cand-resumo",
-      text: lista.length + " candidatos · " + casados + " com entrevista casada automaticamente pelo sistema.",
+      text: lista.length + " candidatos · " + casados + " com entrevista casada automaticamente pelo sistema · " +
+        notaOrdem(lista),
     }));
     var wrap = el("div", { class: "tabela-scroll" });
     wrap.appendChild(tabela);
@@ -1470,7 +1492,7 @@
   // Converte uma linha do CSV de formação numa ficha de bolsista.
   // Os dois formatos (Capital e Interior) são lidos pelo mesmo mapeamento:
   // a Capital tem "Grupo" e um treinamento só; o Interior tem "Região" e dois.
-  function linhaParaFormacao(tipo, row) {
+  function linhaParaFormacao(tipo, row, idx) {
     var nome = pegaCol(row, ["Nome completo", "Nome"]);
     var cpf = pegaCol(row, ["CPF"]);
     var email = pegaCol(row, ["Email", "E-mail"]);
@@ -1481,6 +1503,7 @@
     return {
       tipo: tipo,
       chave: chave,
+      ordem: idx + 1,
       nome: nome || null,
       cpf: cpf || null,
       telefone: pegaCol(row, ["Telefone", "Celular"]) || null,
@@ -1506,8 +1529,8 @@
   function importarFormacaoCSV(tipo, text) {
     var parsed = parseCSV(text);
     var mapa = {};
-    parsed.rows.forEach(function (row) {
-      var f = linhaParaFormacao(tipo, row);
+    parsed.rows.forEach(function (row, idx) {
+      var f = linhaParaFormacao(tipo, row, idx);
       if (f) mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
@@ -1705,7 +1728,7 @@
       var porCPF = termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1;
       return texto || porCPF;
     });
-    lista = lista.slice().sort(function (a, b) { return normStr(a.nome).localeCompare(normStr(b.nome)); });
+    lista = lista.slice().sort(porOrdemPlanilha);
 
     if (!lista.length) {
       painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum bolsista encontrado para esta busca." }));
@@ -1781,7 +1804,8 @@
 
     painel.appendChild(el("p", {
       class: "cand-resumo",
-      text: lista.length + " bolsista(s) exibido(s) · " + casados + " com entrevista casada pelo CPF.",
+      text: lista.length + " bolsista(s) exibido(s) · " + casados + " com entrevista casada pelo CPF · " +
+        notaOrdem(lista),
     }));
     var wrap = el("div", { class: "tabela-scroll" });
     wrap.appendChild(tabela);

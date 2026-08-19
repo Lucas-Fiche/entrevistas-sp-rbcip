@@ -27,6 +27,10 @@ create table if not exists public.formacao (
   -- e-mail, no nome normalizado. Garante que reimportar ATUALIZE a linha.
   chave                     text not null,
 
+  -- Posição da linha no CSV importado (1 = primeira). É a ordem em que as
+  -- pessoas entraram no projeto — usada para exibir a tabela na ordem certa.
+  ordem                     integer,
+
   -- Identificação
   nome                      text,
   cpf                       text,
@@ -52,6 +56,10 @@ create table if not exists public.formacao (
   -- Linha original do CSV (para não perder nenhuma coluna da planilha)
   origem                    jsonb not null default '{}'::jsonb
 );
+
+-- Para bancos criados antes desta coluna existir.
+alter table public.formacao
+  add column if not exists ordem integer;
 
 -- Uma linha por bolsista dentro de cada tipo (permite upsert ao reimportar).
 create unique index if not exists formacao_tipo_chave_uidx
