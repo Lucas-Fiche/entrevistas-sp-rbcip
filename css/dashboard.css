@@ -780,6 +780,28 @@ input[type="date"].viz-data {
   .tabela--cand .btn { white-space: normal; }
 }
 
+/* ---------- Formação (bolsistas) ---------- */
+/* Reaproveita a tabela de candidatos (inclusive o modo cartão no celular). */
+.tabela--form .tabela__td { vertical-align: top; }
+.tabela--form .cand-td-nome { min-width: 170px; }
+.form-etapa { display: inline-flex; flex-direction: column; gap: 2px; }
+.form-data {
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+.form-termo {
+  color: var(--cor-primaria);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.form-termo:hover { text-decoration: underline; }
+.stats--form { margin-bottom: 18px; }
+@media (max-width: 760px) {
+  .tabela--form .cand-td-nome { min-width: 0; }
+  .tabela--form .form-data { margin-top: 0; }
+}
+
 /* Células editáveis das etapas */
 .cand-edit {
   font-family: inherit;

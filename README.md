@@ -67,13 +67,19 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── dashboard.js      # Login, tabelas, filtros, gráficos, mapa, exportação
 │   └── export.js         # Geração de CSV e XLSX no navegador (sem biblioteca)
 ├── sql/
-│   ├── schema.sql        # Cria a tabela + segurança (RLS) + permissões
-│   └── view_respostas.sql# VIEW que mostra as respostas em colunas (opcional)
+│   ├── schema.sql        # Cria a tabela de entrevistas + segurança (RLS) + permissões
+│   ├── view_respostas.sql# VIEW que mostra as respostas em colunas (opcional)
+│   ├── candidatos.sql    # Tabela de candidatos (aba Candidatos: inscrição → convocações)
+│   ├── convocacao.sql    # Coluna da data de convocação para entrevista
+│   ├── bounce.sql        # Coluna de falha de entrega de e-mail (bounce)
+│   └── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 ├── assets/
 │   ├── logo-rbcip.png    # Logo (barra superior)
 │   └── bandeira-sp.png   # Bandeira de SP (canto do mapa)
 └── docs/
-    └── GUIA-ENTREVISTADORES.md  # Guia simples para quem faz as entrevistas
+    ├── GUIA-ENTREVISTADORES.md    # Guia simples para quem faz as entrevistas
+    ├── APPS-SCRIPT-CONVOCACAO.md  # Envio automático dos e-mails de convocação
+    └── ABA-FORMACAO.md            # Aba Formação + o CPF como chave do sistema
 ```
 
 ---

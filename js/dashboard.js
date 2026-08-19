@@ -312,6 +312,7 @@
       linhas = resp.data || [];
       renderTudo();
       carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
+      carregarFormacao();   // idem para o painel de formação (bolsistas)
     }
 
     buscarEntrevistas().then(function (resp) {
@@ -765,11 +766,18 @@
     return "tag";
   }
 
-  // Casa uma ficha de candidato com uma entrevista: 1º por e-mail (cid), 2º por nome.
+  // Casa uma ficha de candidato com uma entrevista.
+  // Ordem: 1º CPF (chave-mestra, preenchida na entrevista), 2º e-mail (cid), 3º nome.
   function casarEntrevista(cand) {
     var doTipo = linhas.filter(function (r) { return r.tipo === cand.tipo; });
     var achadas = [];
-    if (cand.email_norm) {
+    var cpf = soDigitos(cand.cpf);
+    if (cpf.length === 11) {
+      achadas = doTipo.filter(function (r) {
+        return r.respostas && soDigitos(r.respostas.cpf_candidato) === cpf;
+      });
+    }
+    if (!achadas.length && cand.email_norm) {
       achadas = doTipo.filter(function (r) {
         return r.respostas && normEmail(r.respostas.cid) && normEmail(r.respostas.cid) === cand.email_norm;
       });
@@ -1201,6 +1209,329 @@
     painel.appendChild(wrap);
   }
 
+  // ============================================================
+  //  Formação (bolsistas em treinamento/trabalho)
+  //  Espelha as planilhas formacao_capital / formacao_interior e liga cada
+  //  bolsista à entrevista feita no sistema pelo CPF (chave-mestra).
+  // ============================================================
+  var formacao = [];
+  var formTipo = "capital";
+  var formMsg = "";
+  var formBusca = "";
+
+  function formTabela() { return cfg.FORMACAO_TABELA || "formacao"; }
+
+  // Converte uma linha do CSV de formação numa ficha de bolsista.
+  // Os dois formatos (Capital e Interior) são lidos pelo mesmo mapeamento:
+  // a Capital tem "Grupo" e um treinamento só; o Interior tem "Região" e dois.
+  function linhaParaFormacao(tipo, row) {
+    var nome = pegaCol(row, ["Nome completo", "Nome"]);
+    var cpf = pegaCol(row, ["CPF"]);
+    var email = pegaCol(row, ["Email", "E-mail"]);
+    var emailN = normEmail(email);
+    var cpfD = soDigitos(cpf);
+    var chave = (cpfD.length === 11 ? cpfD : "") || emailN || normStr(nome);
+    if (!chave) return null;
+    return {
+      tipo: tipo,
+      chave: chave,
+      nome: nome || null,
+      cpf: cpf || null,
+      telefone: pegaCol(row, ["Telefone", "Celular"]) || null,
+      email: email || null,
+      email_norm: emailN || null,
+      grupo: pegaCol(row, ["Grupo"]) || null,
+      regiao: pegaCol(row, ["Região", "Regiao"]) || null,
+      supervisor: pegaCol(row, ["Supervisor"]) || null,
+      status: pegaCol(row, ["Status"]) || null,
+      cadastro_bolsista: pegaCol(row, ["Cadastro de Bolsista"]) || null,
+      treinamento_online: pegaCol(row, ["Treinamento Online"]) || null,
+      data_treinamento_online: pegaCol(row, ["Data do Treinamento Online"]) || null,
+      // Na Capital a coluna se chama "Treinamento Presencial/Online" (é o único).
+      treinamento_presencial: pegaCol(row, ["Treinamento Presencial", "Treinamento Presencial/Online"]) || null,
+      data_treinamento_presencial: pegaCol(row, ["Data do Treinamento Presencial"]) || null,
+      termo_bolsa: pegaCol(row, ["Termo de Bolsa"]) || null,
+      termo_link: pegaCol(row, ["Documento do Termo de Bolsa"]) || null,
+      origem: row,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  function importarFormacaoCSV(tipo, text) {
+    var parsed = parseCSV(text);
+    var mapa = {};
+    parsed.rows.forEach(function (row) {
+      var f = linhaParaFormacao(tipo, row);
+      if (f) mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
+    });
+    var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
+    if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
+    return client.from(formTabela())
+      .upsert(rows, { onConflict: "tipo,chave" })
+      .then(function (resp) { if (resp.error) throw resp.error; return { total: rows.length }; });
+  }
+
+  function carregarFormacao() {
+    if (!client) return;
+    client.from(formTabela()).select("*").then(function (resp) {
+      if (resp.error) {
+        var s = $("#form-status");
+        if (s) {
+          s.textContent = /does not exist|relation/i.test(resp.error.message || "")
+            ? "Tabela ainda não criada — rode sql/formacao.sql no Supabase."
+            : "Não foi possível carregar a formação: " + (resp.error.message || resp.error);
+        }
+        return;
+      }
+      formacao = resp.data || [];
+      var badge = $("#cont-formacao");
+      if (badge) badge.textContent = formacao.length;
+      renderPainelFormacao();
+    });
+  }
+
+  // Status Ativo/Inativo: usa o da planilha; se vier vazio, deriva do termo de
+  // bolsa (só é ativo quem já tem o documento emitido).
+  function statusFormacao(f) {
+    if (f.status) return f.status;
+    return f.termo_link ? "Ativo" : "Inativo";
+  }
+  function statusClasseFormacao(st) {
+    return normStr(st) === "ativo" ? "tag tag--verde-forte" : "tag tag--cinza";
+  }
+  function ehRealizado(v) { return normStr(v) === "realizado"; }
+  function formatarCPF(v) {
+    var d = soDigitos(v);
+    if (d.length !== 11) return v || "—";
+    return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
+  }
+
+  // Célula de etapa (Realizado / Não Realizado), com data quando houver.
+  function celulaEtapa(rotulo, valor, data) {
+    var td = el("td", { class: "tabela__td", "data-label": rotulo });
+    var caixa = el("span", { class: "form-etapa" });
+    if (!valor) {
+      caixa.appendChild(el("span", { class: "cand-pendente", text: "—" }));
+    } else if (ehRealizado(valor)) {
+      caixa.appendChild(el("span", { class: "cand-enviado", text: "✓ Realizado" }));
+      if (data) caixa.appendChild(el("span", { class: "form-data", text: data }));
+    } else {
+      caixa.appendChild(el("span", { class: "cand-pendente", text: valor }));
+    }
+    td.appendChild(caixa);
+    return td;
+  }
+
+  // Entrevista feita no sistema para este bolsista (casa pelo CPF; sem CPF, pelo nome).
+  function entrevistaDoBolsista(f) {
+    var cpf = soDigitos(f.cpf);
+    var achadas = [];
+    if (cpf.length === 11) {
+      achadas = linhas.filter(function (r) { return r.respostas && soDigitos(r.respostas.cpf_candidato) === cpf; });
+    }
+    if (!achadas.length && f.email_norm) {
+      achadas = linhas.filter(function (r) {
+        return r.respostas && normEmail(r.respostas.cid) === f.email_norm;
+      });
+    }
+    if (!achadas.length && f.nome) {
+      var alvo = normStr(f.nome);
+      achadas = linhas.filter(function (r) { return normStr(r.candidato) === alvo; });
+    }
+    if (!achadas.length) return null;
+    achadas.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
+    return achadas[0];
+  }
+
+  function renderPainelFormacao() {
+    var painel = $("#painel-formacao");
+    if (!painel) return;
+    painel.innerHTML = "";
+
+    // --- Barra de importação ---
+    var barra = el("div", { class: "cand-importar" });
+    barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar formação:" }));
+    var selTipo = el("select", { class: "viz-select" });
+    selTipo.appendChild(el("option", { value: "capital", text: "Capital" }));
+    selTipo.appendChild(el("option", { value: "interior", text: "Interior" }));
+    selTipo.value = formTipo;
+    var file = el("input", { type: "file", accept: ".csv,text/csv", class: "cand-file" });
+    var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Enviar CSV" });
+    var status = el("span", { class: "cand-status", id: "form-status", text: formMsg });
+    btn.addEventListener("click", function () {
+      var f = file.files && file.files[0];
+      if (!f) { status.textContent = "Escolha um arquivo CSV primeiro."; return; }
+      var tipo = selTipo.value;
+      btn.disabled = true; status.textContent = "Lendo arquivo…";
+      var reader = new FileReader();
+      reader.onload = function () {
+        importarFormacaoCSV(tipo, String(reader.result)).then(function (r) {
+          formMsg = "✓ " + r.total + " bolsistas importados/atualizados (" + tipo + ").";
+          formTipo = tipo;
+          carregarFormacao();
+        }).catch(function (e) {
+          btn.disabled = false;
+          var s = $("#form-status");
+          if (s) s.textContent = "Erro ao importar: " + (e.message || e);
+        });
+      };
+      reader.onerror = function () { btn.disabled = false; status.textContent = "Não foi possível ler o arquivo."; };
+      reader.readAsText(f, "utf-8");
+    });
+    barra.appendChild(selTipo);
+    barra.appendChild(file);
+    barra.appendChild(btn);
+    barra.appendChild(status);
+    painel.appendChild(barra);
+
+    // --- Sub-filtro Capital / Interior ---
+    var filtro = el("div", { class: "cand-filtro" });
+    ["capital", "interior"].forEach(function (t) {
+      var n = formacao.filter(function (f) { return f.tipo === t; }).length;
+      var b = el("button", {
+        class: "cand-tab" + (formTipo === t ? " cand-tab--ativa" : ""),
+        type: "button",
+        text: (t === "capital" ? "Capital" : "Interior") + " (" + n + ")",
+      });
+      b.addEventListener("click", function () { formTipo = t; renderPainelFormacao(); });
+      filtro.appendChild(b);
+    });
+    painel.appendChild(filtro);
+
+    var doTipo = formacao.filter(function (f) { return f.tipo === formTipo; });
+    if (!doTipo.length) {
+      painel.appendChild(el("p", {
+        class: "cand-vazio",
+        text: "Nenhum bolsista importado ainda para " + formTipo + ". Envie o CSV de formação acima.",
+      }));
+      return;
+    }
+
+    // --- Resumo (Ativos, termo emitido, treinamento pendente…) ---
+    var ativos = doTipo.filter(function (f) { return normStr(statusFormacao(f)) === "ativo"; }).length;
+    var comTermo = doTipo.filter(function (f) { return !!f.termo_link; }).length;
+    var semCadastro = doTipo.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
+    var semTreino = doTipo.filter(function (f) {
+      return !ehRealizado(f.treinamento_presencial) && !ehRealizado(f.treinamento_online);
+    }).length;
+    var stats = el("div", { class: "stats stats--form" }, [
+      statCard("Bolsistas", doTipo.length),
+      statCard("Ativos", ativos),
+      statCard("Termo emitido", comTermo),
+      statCard("Cadastro pendente", semCadastro),
+      statCard("Sem treinamento", semTreino),
+    ]);
+    painel.appendChild(stats);
+
+    // --- Busca ---
+    var buscaWrap = el("div", { class: "painel__barra" });
+    var inp = el("input", {
+      class: "painel__busca",
+      type: "search",
+      placeholder: "Buscar por nome, CPF, e-mail, supervisor ou região…",
+      value: formBusca,
+    });
+    inp.addEventListener("input", function () {
+      formBusca = inp.value;
+      renderPainelFormacao();
+      var novo = $("#painel-formacao").querySelector(".painel__busca");
+      if (novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
+    });
+    buscaWrap.appendChild(inp);
+    painel.appendChild(buscaWrap);
+
+    var termo = normStr(formBusca);
+    var termoCPF = soDigitos(formBusca);
+    var lista = !termo ? doTipo : doTipo.filter(function (f) {
+      var texto = [f.nome, f.email, f.supervisor, f.regiao, f.grupo].some(function (v) {
+        return normStr(v).indexOf(termo) !== -1;
+      });
+      var porCPF = termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1;
+      return texto || porCPF;
+    });
+    lista = lista.slice().sort(function (a, b) { return normStr(a.nome).localeCompare(normStr(b.nome)); });
+
+    if (!lista.length) {
+      painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum bolsista encontrado para esta busca." }));
+      return;
+    }
+
+    // --- Tabela ---
+    var cols = ["Nome", "Status"];
+    cols.push(formTipo === "capital" ? "Grupo" : "Região");
+    cols = cols.concat(["CPF", "Telefone", "E-mail", "Supervisor", "Cadastro"]);
+    if (formTipo === "interior") cols.push("Treino online");
+    cols.push(formTipo === "capital" ? "Treinamento" : "Treino presencial");
+    cols.push("Termo de bolsa");
+
+    var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
+    var trh = el("tr");
+    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
+    var thead = el("thead"); thead.appendChild(trh); tabela.appendChild(thead);
+
+    var tbody = el("tbody");
+    var casados = 0;
+    lista.forEach(function (f) {
+      var ent = entrevistaDoBolsista(f);
+      if (ent) casados++;
+      var tr = el("tr", { class: "tabela__tr" });
+
+      var tdNome = el("td", { class: "tabela__td cand-td-nome" });
+      tdNome.appendChild(el("span", { text: f.nome || "—" }));
+      if (ent) tdNome.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "entrevista no sistema" }));
+      tr.appendChild(tdNome);
+
+      var st = statusFormacao(f);
+      var tdSt = el("td", { class: "tabela__td", "data-label": "Status" });
+      tdSt.appendChild(el("span", { class: statusClasseFormacao(st), text: st }));
+      tr.appendChild(tdSt);
+
+      if (formTipo === "capital") {
+        tr.appendChild(el("td", { class: "tabela__td", "data-label": "Grupo", text: f.grupo || "—" }));
+      } else {
+        tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: f.regiao || "—" }));
+      }
+
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "CPF", text: formatarCPF(f.cpf) }));
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Telefone", text: f.telefone || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: f.email || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: f.supervisor || "—" }));
+      tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
+
+      if (formTipo === "interior") {
+        tr.appendChild(celulaEtapa("Treino online", f.treinamento_online, f.data_treinamento_online));
+      }
+      tr.appendChild(celulaEtapa(
+        formTipo === "capital" ? "Treinamento" : "Treino presencial",
+        f.treinamento_presencial,
+        f.data_treinamento_presencial
+      ));
+
+      // Termo de bolsa: link do documento quando existe (é o que define "Ativo").
+      var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });
+      if (f.termo_link) {
+        tdTermo.appendChild(el("a", {
+          class: "form-termo", href: f.termo_link, target: "_blank", rel: "noopener",
+          text: "📄 " + (f.termo_bolsa || "Emitido"),
+        }));
+      } else {
+        tdTermo.appendChild(el("span", { class: "cand-pendente", text: f.termo_bolsa || "Não emitido" }));
+      }
+      tr.appendChild(tdTermo);
+
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+
+    painel.appendChild(el("p", {
+      class: "cand-resumo",
+      text: lista.length + " bolsista(s) exibido(s) · " + casados + " com entrevista casada pelo CPF.",
+    }));
+    var wrap = el("div", { class: "tabela-scroll" });
+    wrap.appendChild(tabela);
+    painel.appendChild(wrap);
+  }
+
   // ---------- Abas ----------
   function configurarAbas() {
     Array.prototype.forEach.call(document.querySelectorAll(".aba"), function (aba) {
@@ -1211,6 +1542,7 @@
         mostrar($("#painel-capital"), alvo === "capital");
         mostrar($("#painel-interior"), alvo === "interior");
         mostrar($("#painel-candidatos"), alvo === "candidatos");
+        mostrar($("#painel-formacao"), alvo === "formacao");
         mostrar($("#painel-dados"), alvo === "dados");
       });
     });
@@ -1593,6 +1925,7 @@
     renderPainelTabela("capital");
     renderPainelTabela("interior");
     renderPainelCandidatos();
+    renderPainelFormacao();
     renderDados();
   }
 

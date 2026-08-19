@@ -83,7 +83,7 @@
 
     wrap.appendChild(renderControle(p));
     if (p.aviso) wrap.appendChild(renderAvisoCondicional(p));
-    wrap.appendChild(el("div", { class: "pergunta__msg-erro", text: "Este campo é obrigatório." }));
+    wrap.appendChild(el("div", { class: "pergunta__msg-erro", text: p.msgErro || "Este campo é obrigatório." }));
     return wrap;
   }
 
@@ -109,6 +109,8 @@
     switch (p.tipo) {
       case "texto":
         return el("input", { type: "text", id: "campo_" + p.id, name: p.id });
+      case "cpf":
+        return renderCPF(p);
       case "data":
         return el("input", { type: "date", id: "campo_" + p.id, name: p.id, max: hojeISO() });
       case "textarea":
@@ -124,6 +126,28 @@
       default:
         return el("div");
     }
+  }
+
+  // Campo de CPF: aceita só números e vai formatando (000.000.000-00).
+  function renderCPF(p) {
+    var input = el("input", {
+      type: "text",
+      id: "campo_" + p.id,
+      name: p.id,
+      inputmode: "numeric",
+      autocomplete: "off",
+      maxlength: "14",
+      placeholder: "000.000.000-00",
+    });
+    input.addEventListener("input", function () {
+      var d = input.value.replace(/\D/g, "").slice(0, 11);
+      var fmt = d;
+      if (d.length > 9) fmt = d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
+      else if (d.length > 6) fmt = d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6);
+      else if (d.length > 3) fmt = d.slice(0, 3) + "." + d.slice(3);
+      input.value = fmt;
+    });
+    return input;
   }
 
   function renderSelect(p) {
@@ -428,6 +452,8 @@
 
       var valor = lerValor(form, p);
       if (valor === "" || valor === null) invalidos.push(p);
+      // CPF incompleto conta como não preenchido (é a chave de ligação do sistema).
+      else if (p.tipo === "cpf" && String(valor).replace(/\D/g, "").length !== 11) invalidos.push(p);
     });
 
     invalidos.forEach(function (p) {
@@ -741,7 +767,7 @@
 
       if (invalidos.length > 0) {
         erroGeral.textContent =
-          "Existem " + invalidos.length + " campo(s) obrigatório(s) não preenchido(s). Verifique os itens destacados.";
+          "Existem " + invalidos.length + " campo(s) obrigatório(s) não preenchido(s) ou incompleto(s). Verifique os itens destacados.";
         erroGeral.classList.remove("oculto");
         var primeiro = form.querySelector(".pergunta--erro");
         if (primeiro) primeiro.scrollIntoView({ behavior: "smooth", block: "center" });

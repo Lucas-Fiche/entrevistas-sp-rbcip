@@ -11,6 +11,7 @@
  *
  * Tipos de pergunta suportados:
  *   - "texto"     : campo de uma linha
+ *   - "cpf"       : campo de CPF (só números, formatado automaticamente)
  *   - "data"      : campo de data
  *   - "textarea"  : campo de múltiplas linhas
  *   - "radio"     : escolha única entre opcoes[]
@@ -82,6 +83,18 @@ function secaoIdentificacao(tipo) {
     chave: "identificacao",
     perguntas: [
       { id: "nome_candidato", tipo: "texto", label: "Nome do Candidato", obrigatorio: true },
+      {
+        // Chave que liga a entrevista à inscrição, ao cadastro de bolsista e ao
+        // termo de bolsa. É o único dado que se mantém igual em todas as etapas
+        // (o e-mail muda/vem com erro de digitação; o nome vem escrito de formas
+        // diferentes). Peça ao candidato no início da entrevista.
+        id: "cpf_candidato",
+        tipo: "cpf",
+        label: "CPF do Candidato",
+        ajuda: "Somente números. Usado para vincular a entrevista ao cadastro e ao termo de bolsa.",
+        obrigatorio: true,
+        msgErro: "Informe o CPF completo (11 dígitos).",
+      },
       {
         id: "data_entrevista",
         tipo: "data",

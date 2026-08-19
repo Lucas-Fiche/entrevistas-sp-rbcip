@@ -30,6 +30,7 @@ select
   e.ata_link,
 
   -- Identificação (perguntas extras)
+  e.respostas->>'cpf_candidato'           as cpf_candidato,        -- chave que liga inscrição → entrevista → formação
   e.respostas->>'sipe_inscricao'          as sipe_inscricao,       -- Sim/Não
   e.respostas->>'indicacao'               as indicacao,            -- Sim/Não (foi indicado?)
   e.respostas->>'indicacao_nome'          as indicacao_nome,       -- nome de quem indicou (se Sim)
