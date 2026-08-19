@@ -75,9 +75,16 @@
 
 /* ---------- Estrutura do dashboard ---------- */
 .dash {
-  max-width: 1100px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 24px 16px 80px;
+}
+
+/* Modo "tela cheia": as tabelas usam toda a largura do notebook. */
+body.tela-cheia .dash {
+  max-width: none;
+  padding-left: 28px;
+  padding-right: 28px;
 }
 
 .dash__topo {
@@ -801,6 +808,98 @@ input[type="date"].viz-data {
   .tabela--form .cand-td-nome { min-width: 0; }
   .tabela--form .form-data { margin-top: 0; }
 }
+
+/* Colunas curtas que não devem quebrar em várias linhas (CPF, telefone, datas) */
+.col-firme { white-space: nowrap; }
+@media (max-width: 760px) {
+  .col-firme { white-space: normal; }
+}
+
+/* ---------- Perfil (admin × somente leitura) ---------- */
+.selo-perfil {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eceff1;
+  color: var(--cor-texto-suave);
+}
+.selo-perfil--admin {
+  background: var(--cor-primaria);
+  color: #fff;
+}
+.cand-leitura {
+  border: 1px solid var(--cor-borda);
+  border-left: 4px solid var(--cor-primaria);
+  border-radius: var(--raio);
+  background: var(--cor-branco);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+.cand-leitura__titulo { margin: 0 0 4px; font-weight: 600; font-size: 15px; }
+.cand-leitura__texto { margin: 0; font-size: 14px; color: var(--cor-texto-suave); }
+
+.cand-editado {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cor-primaria);
+  white-space: nowrap;
+}
+.cand-td-editar { white-space: nowrap; }
+
+/* ---------- Formulário de edição da ficha (modal) ---------- */
+.edicao { margin-top: 8px; }
+.edicao__campo { margin-bottom: 14px; }
+.edicao__rot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.edicao__trava {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--cor-primaria);
+}
+.edicao__entrada {
+  width: 100%;
+  font-family: inherit;
+  font-size: 15px;
+  padding: 9px 11px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: var(--cor-branco);
+}
+.edicao__entrada:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+.edicao__dica {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+.edicao__acoes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--cor-borda);
+}
+.edicao__msg {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--cor-texto-suave);
+}
+.edicao__msg--erro { color: var(--cor-erro); font-weight: 600; }
 
 /* Células editáveis das etapas */
 .cand-edit {

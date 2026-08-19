@@ -41,9 +41,17 @@ create table if not exists public.candidatos (
   convocacao_cadastro      text,   -- "Enviado" / "Não Enviado"
   data_convocacao_cadastro text,
 
+  -- Campos corrigidos à mão no painel (ex.: {"email": true}).
+  -- A importação de CSV NÃO sobrescreve o que está marcado aqui.
+  editado                  jsonb not null default '{}'::jsonb,
+
   -- Entrevista casada (referência à tabela entrevistas), quando houver
   entrevista_id            uuid
 );
+
+-- Para bancos criados antes desta coluna existir.
+alter table public.candidatos
+  add column if not exists editado jsonb not null default '{}'::jsonb;
 
 -- Uma linha por candidato dentro de cada tipo (permite upsert ao reimportar).
 create unique index if not exists candidatos_tipo_chave_uidx
@@ -55,6 +63,10 @@ create index if not exists candidatos_tipo_idx on public.candidatos (tipo);
 
 -- ------------------------------------------------------------
 --  Row Level Security — SOMENTE usuários autenticados
+--
+--  OBS: se você já rodou `sql/admin.sql` (super admin), rode-o DE NOVO depois
+--  deste arquivo — ele restringe a ESCRITA aos administradores, e as políticas
+--  abaixo devolvem a escrita para qualquer usuário logado.
 -- ------------------------------------------------------------
 alter table public.candidatos enable row level security;
 

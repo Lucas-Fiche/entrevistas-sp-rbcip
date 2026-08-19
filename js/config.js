@@ -38,4 +38,11 @@ window.SUPABASE_CONFIG = {
   // troque apenas CADASTRO_LINK_INTERIOR.
   CADASTRO_LINK_CAPITAL: "https://docs.google.com/forms/d/e/1FAIpQLSekgW71d-1miBB0k7wFivFaomvPzbla30KHg3lQV74AaRW9Zg/viewform?usp=header",
   CADASTRO_LINK_INTERIOR: "https://docs.google.com/forms/d/e/1FAIpQLSekgW71d-1miBB0k7wFivFaomvPzbla30KHg3lQV74AaRW9Zg/viewform?usp=header",
+
+  // ---- Administradores (quem pode editar dados e enviar convocações) ----
+  // Esta lista é só o "plano B" da interface. A regra que vale de verdade está
+  // no banco, na tabela `app_admins` (criada por sql/admin.sql): o painel lê
+  // essa tabela ao entrar e usa a lista abaixo apenas se ela não existir.
+  // Com a lista vazia E sem a tabela, todo mundo que faz login pode editar.
+  ADMIN_EMAILS: ["lucas@rbcip.org"],
 };

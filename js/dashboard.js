@@ -76,6 +76,8 @@
   var cfg = window.SUPABASE_CONFIG || {};
   var client = null;
   var linhas = [];
+  var usuarioEmail = "";
+  var admin = true; // definido no login (ver resolverAdmin)
   // Ordenação padrão: por data da entrevista, mais recente no topo (desempate por horário de registro).
   var ordenacao = { capital: { col: "data", asc: false }, interior: { col: "data", asc: false } };
   var busca = { capital: "", interior: "" };
@@ -239,8 +241,58 @@
   function entrarDashboard(session) {
     mostrar($("#login"), false);
     mostrar($("#dashboard"), true);
-    $("#usuario-email").textContent = (session && session.user && session.user.email) || "";
-    carregarDados();
+    usuarioEmail = (session && session.user && session.user.email) || "";
+    $("#usuario-email").textContent = usuarioEmail;
+    resolverAdmin().then(function () {
+      marcarSeloAdmin();
+      carregarDados();
+    });
+  }
+
+  // ---------- Permissão de edição (super admin) ----------
+  // A regra que vale é a tabela `app_admins` no banco (sql/admin.sql). Se ela
+  // ainda não existir, cai na lista de js/config.js; se as duas faltarem, todo
+  // usuário logado edita (comportamento antigo, para não travar o sistema).
+  function resolverAdmin() {
+    if (!client) { admin = true; return Promise.resolve(); }
+    return client.from("app_admins").select("email").then(function (resp) {
+      if (resp.error || !resp.data) return listaConfig();
+      var lista = resp.data.map(function (a) { return normEmail(a.email); });
+      admin = lista.indexOf(normEmail(usuarioEmail)) !== -1;
+    }).catch(listaConfig);
+
+    function listaConfig() {
+      var lista = (cfg.ADMIN_EMAILS || []).map(normEmail);
+      admin = !lista.length || lista.indexOf(normEmail(usuarioEmail)) !== -1;
+    }
+  }
+  function ehAdmin() { return admin; }
+
+  function marcarSeloAdmin() {
+    var alvo = $("#usuario-email");
+    if (!alvo || !alvo.parentNode) return;
+    var selo = $("#selo-perfil");
+    if (!selo) {
+      selo = el("span", { id: "selo-perfil", class: "selo-perfil" });
+      alvo.parentNode.insertBefore(selo, alvo.nextSibling);
+    }
+    selo.textContent = ehAdmin() ? "admin" : "somente leitura";
+    selo.className = "selo-perfil" + (ehAdmin() ? " selo-perfil--admin" : "");
+  }
+
+  // Aviso para quem não pode editar — diz também COMO liberar o acesso.
+  function avisoSomenteLeitura() {
+    var caixa = el("div", { class: "cand-leitura" });
+    caixa.appendChild(el("p", {
+      class: "cand-leitura__titulo",
+      text: "Modo somente leitura — " + (usuarioEmail || "este usuário") + " não é administrador.",
+    }));
+    caixa.appendChild(el("p", {
+      class: "cand-leitura__texto",
+      text: "Importar planilhas, editar fichas e enviar convocações são ações restritas aos administradores. " +
+        "Para liberar este e-mail, inclua-o na tabela app_admins do Supabase (veja sql/admin.sql).",
+    }));
+    return caixa;
   }
 
   function configurarLogin() {
@@ -278,6 +330,32 @@
       });
     });
     $("#btn-atualizar").addEventListener("click", carregarDados);
+    configurarLargura();
+  }
+
+  // ---------- Largura da tela (padrão × tela cheia) ----------
+  // Em notebooks, as tabelas grandes ficam melhores usando a tela inteira.
+  // A escolha fica salva no navegador de quem usa.
+  var CHAVE_LARGURA = "rbcip_dash_largura";
+  function aplicarLargura(cheia) {
+    document.body.classList.toggle("tela-cheia", cheia);
+    var btn = $("#btn-largura");
+    if (btn) {
+      btn.textContent = cheia ? "⛶ Largura padrão" : "⛶ Tela cheia";
+      btn.setAttribute("aria-pressed", cheia ? "true" : "false");
+    }
+  }
+  function configurarLargura() {
+    var salvo = false;
+    try { salvo = localStorage.getItem(CHAVE_LARGURA) === "cheia"; } catch (e) { salvo = false; }
+    aplicarLargura(salvo);
+    var btn = $("#btn-largura");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var cheia = !document.body.classList.contains("tela-cheia");
+      aplicarLargura(cheia);
+      try { localStorage.setItem(CHAVE_LARGURA, cheia ? "cheia" : "padrao"); } catch (e) { /* sem localStorage */ }
+    });
   }
 
   // ---------- Carregar dados ----------
@@ -825,11 +903,16 @@
       var c = linhaParaCandidato(tipo, row);
       if (!c) return;
       var ex = existentes[c.chave];
+      c.editado = (ex && ex.editado) || {};
       if (ex) {
         // Já existe: reimportar atualiza a inscrição e PREENCHE etapas que ainda
         // estão vazias (semeia o cenário atual da planilha), mas NÃO sobrescreve
         // etapas já definidas no painel/sistema.
         CAMPOS_ETAPA.forEach(function (campo) { c[campo] = ex[campo] || c[campo] || null; });
+        // O que foi corrigido à mão no painel PREVALECE sobre a planilha.
+        Object.keys(c.editado).forEach(function (campo) {
+          if (c.editado[campo] && campo !== "chave") c[campo] = ex[campo];
+        });
       }
       mapa[c.chave] = c; // deduplica por chave (mantém a última ocorrência)
     });
@@ -859,6 +942,146 @@
         elmInput.classList.add("cand-edit--ok");
         setTimeout(function () { elmInput.classList.remove("cand-edit--ok"); }, 900);
       }
+    });
+  }
+
+  // ---------- Edição da ficha do candidato (só admin) ----------
+  // Campos editáveis no painel. O que for salvo aqui fica "travado": a próxima
+  // importação de CSV não sobrescreve.
+  var RESULTADOS = ["SELECIONADO", "SELECIONADO COM RESSALVA", "REPROVADO", "NÃO COMPARECEU"];
+  var ENVIO_OPCOES = ["Enviado", "Não Enviado"];
+
+  function camposEdicao(cand) {
+    var campos = [
+      { id: "nome", rot: "Nome" },
+      { id: "email", rot: "E-mail" },
+      { id: "cpf", rot: "CPF", cpf: true, dica: "Chave que liga a inscrição, a entrevista e a formação." },
+    ];
+    if (cand.tipo === "interior") campos.push({ id: "regiao", rot: "Região" });
+    return campos.concat([
+      { id: "convocacao_entrevista", rot: "Convocação entrevista", opcoes: ENVIO_OPCOES },
+      { id: "data_convocacao_entrevista", rot: "Data da convocação", dica: "dd/mm/aaaa" },
+      { id: "resultado_entrevista", rot: "Resultado da entrevista", opcoes: RESULTADOS,
+        dica: "Só é usado quando não há entrevista casada no sistema." },
+      { id: "data_entrevista", rot: "Data da entrevista", dica: "dd/mm/aaaa" },
+      { id: "convocacao_cadastro", rot: "Convocação cadastro", opcoes: ENVIO_OPCOES },
+      { id: "data_convocacao_cadastro", rot: "Data da convocação de cadastro", dica: "dd/mm/aaaa" },
+      { id: "email_bounce", rot: "Falha de entrega", opcoes: ["E-mail não existe", "Falha na entrega"],
+        dica: "Deixe em branco para limpar a marcação de e-mail inválido." },
+    ]);
+  }
+
+  function abrirEdicaoCandidato(cand) {
+    if (!ehAdmin()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Editar ficha — " + (cand.nome || "(sem nome)") }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: (cand.tipo === "capital" ? "Capital" : "Interior") +
+        " · o que você salvar aqui passa a valer sobre a planilha nas próximas importações.",
+    }));
+
+    var travas = cand.editado || {};
+    var form = el("form", { class: "edicao" });
+    var entradas = {};
+
+    camposEdicao(cand).forEach(function (c) {
+      var linha = el("div", { class: "edicao__campo" });
+      var rot = el("label", { class: "edicao__rot", for: "ed_" + c.id, text: c.rot });
+      if (travas[c.id]) rot.appendChild(el("span", { class: "edicao__trava", text: "✎ editado" }));
+      linha.appendChild(rot);
+
+      var entrada;
+      if (c.opcoes) {
+        entrada = el("select", { class: "edicao__entrada", id: "ed_" + c.id });
+        entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
+        c.opcoes.forEach(function (o) { entrada.appendChild(el("option", { value: o, text: o })); });
+        // Valor fora da lista (veio da planilha): entra como opção extra.
+        if (cand[c.id] && c.opcoes.indexOf(cand[c.id]) === -1) {
+          entrada.appendChild(el("option", { value: cand[c.id], text: cand[c.id] }));
+        }
+        entrada.value = cand[c.id] || "";
+      } else if (c.cpf) {
+        entrada = el("input", {
+          class: "edicao__entrada", type: "text", id: "ed_" + c.id, inputmode: "numeric",
+          maxlength: "14", placeholder: "000.000.000-00", value: cand.cpf ? formatarCPF(cand.cpf) : "",
+        });
+        entrada.addEventListener("input", function () { entrada.value = mascaraCPF(entrada.value); });
+      } else {
+        entrada = el("input", { class: "edicao__entrada", type: "text", id: "ed_" + c.id, value: cand[c.id] || "" });
+      }
+      linha.appendChild(entrada);
+      if (c.dica) linha.appendChild(el("p", { class: "edicao__dica", text: c.dica }));
+      entradas[c.id] = entrada;
+      form.appendChild(linha);
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var acoes = el("div", { class: "edicao__acoes" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar alterações" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    acoes.appendChild(salvar);
+    acoes.appendChild(cancelar);
+    if (Object.keys(travas).length) {
+      var destravar = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "Voltar a seguir a planilha",
+      });
+      destravar.addEventListener("click", function () {
+        if (!confirm("Destravar todos os campos? A próxima importação de CSV voltará a sobrescrever esta ficha.")) return;
+        salvarEdicaoCandidato(cand, {}, {}, msg, salvar, true);
+      });
+      acoes.appendChild(destravar);
+    }
+    form.appendChild(acoes);
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var patch = {};
+      var novasTravas = {};
+      camposEdicao(cand).forEach(function (c) {
+        var valor = entradas[c.id].value.trim();
+        var atual = cand[c.id] || "";
+        // No CPF, o que importa são os dígitos (a máscara não conta como mudança).
+        var mudou = c.cpf ? soDigitos(valor) !== soDigitos(atual) : valor !== atual;
+        if (mudou) {
+          patch[c.id] = valor || null;
+          novasTravas[c.id] = true;
+        }
+      });
+      if (!Object.keys(patch).length) { msg.textContent = "Nada foi alterado."; return; }
+      // E-mail alterado: atualiza também a forma normalizada (usada no casamento
+      // e nas falhas de entrega). A `chave` NÃO muda, para a reimportação do CSV
+      // continuar encontrando esta mesma ficha.
+      if (patch.email !== undefined) patch.email_norm = normEmail(patch.email) || null;
+      salvarEdicaoCandidato(cand, patch, novasTravas, msg, salvar, false);
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+  }
+
+  function salvarEdicaoCandidato(cand, patch, novasTravas, msg, botao, limparTravas) {
+    var travas = limparTravas ? {} : Object.assign({}, cand.editado || {}, novasTravas);
+    var envio = Object.assign({}, patch, { editado: travas, updated_at: new Date().toISOString() });
+    botao.disabled = true;
+    msg.className = "edicao__msg";
+    msg.textContent = "Salvando…";
+    client.from(candTabela()).update(envio).eq("id", cand.id).then(function (resp) {
+      botao.disabled = false;
+      if (resp.error) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = /row-level security|permission/i.test(resp.error.message || "")
+          ? "Sem permissão para editar. Só administradores podem alterar dados."
+          : "Não foi possível salvar: " + (resp.error.message || resp.error);
+        return;
+      }
+      Object.keys(patch).forEach(function (k) { cand[k] = patch[k]; });
+      cand.editado = travas;
+      fecharModal();
+      renderPainelCandidatos();
     });
   }
 
@@ -1046,7 +1269,9 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    // --- Barra de importação ---
+    if (!ehAdmin()) painel.appendChild(avisoSomenteLeitura());
+
+    // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
     barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar inscrições:" }));
     var selTipo = el("select", { class: "viz-select", id: "cand-imp-tipo" });
@@ -1080,7 +1305,7 @@
     barra.appendChild(file);
     barra.appendChild(btn);
     barra.appendChild(status);
-    painel.appendChild(barra);
+    if (ehAdmin()) painel.appendChild(barra);
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });
@@ -1108,6 +1333,7 @@
     // --- Ação geral: convocar todos p/ entrevista (quem ainda não recebeu) ---
     var pendEntr = lista.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
     var acoes = el("div", { class: "cand-acoes" });
+    if (!ehAdmin()) acoes.classList.add("oculto");
     var btnGeral = el("button", {
       class: "btn btn--pequeno",
       type: "button",
@@ -1124,9 +1350,10 @@
     }
     painel.appendChild(acoes);
 
-    var cols = ["Nome", "E-mail"];
+    var cols = ["Nome", "E-mail", "CPF"];
     if (candTipo === "interior") cols.push("Região");
     cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
+    if (ehAdmin()) cols.push("Editar");
 
     var tabela = el("table", { class: "tabela tabela--cand" });
     var trh = el("tr");
@@ -1139,12 +1366,23 @@
       var ent = casarEntrevista(c);
       if (ent) casados++;
       var tr = el("tr", { class: "tabela__tr" });
-      tr.appendChild(el("td", { class: "tabela__td cand-td-nome", text: c.nome || "—" }));
+      var editados = Object.keys(c.editado || {}).length;
+      var tdNome = el("td", { class: "tabela__td cand-td-nome" });
+      tdNome.appendChild(el("span", { text: c.nome || "—" }));
+      if (editados) {
+        tdNome.appendChild(el("span", {
+          class: "cand-editado",
+          title: editados + " campo(s) editado(s) no sistema — a planilha não sobrescreve",
+          text: "✎ editado",
+        }));
+      }
+      tr.appendChild(tdNome);
       // E-mail (com aviso de falha de entrega, se houver).
       var tdEmail = el("td", { class: "tabela__td cand-email", "data-label": "E-mail" });
       tdEmail.appendChild(el("span", { text: c.email || "—" }));
       if (c.email_bounce) tdEmail.appendChild(el("div", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
       tr.appendChild(tdEmail);
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(c.cpf) }));
       if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: c.regiao || "—" }));
 
       // Convocação entrevista: falha de entrega tem prioridade; senão data/Enviado/pendente.
@@ -1179,7 +1417,7 @@
       tr.appendChild(tdRes);
 
       var data = ent ? ent.data_entrevista : c.data_entrevista;
-      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Data entrevista", text: data ? formatarData(data) : "—" }));
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Data entrevista", text: data ? formatarData(data) : "—" }));
 
       // Convocação cadastro: já enviada (data/status), ou botão (só p/ selecionados), ou —.
       var tdConvC = el("td", { class: "tabela__td", "data-label": "Convocação cadastro" });
@@ -1196,6 +1434,14 @@
         tdConvC.appendChild(el("span", { class: "cand-pendente", text: "—" }));
       }
       tr.appendChild(tdConvC);
+
+      if (ehAdmin()) {
+        var tdEd = el("td", { class: "tabela__td cand-td-editar", "data-label": "Editar" });
+        var btnEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✎ Editar" });
+        btnEd.addEventListener("click", function () { abrirEdicaoCandidato(c); });
+        tdEd.appendChild(btnEd);
+        tr.appendChild(tdEd);
+      }
       tbody.appendChild(tr);
     });
     tabela.appendChild(tbody);
@@ -1305,6 +1551,14 @@
     if (d.length !== 11) return v || "—";
     return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
   }
+  // Máscara aplicada enquanto se digita o CPF (000.000.000-00).
+  function mascaraCPF(v) {
+    var d = soDigitos(v).slice(0, 11);
+    if (d.length > 9) return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
+    if (d.length > 6) return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6);
+    if (d.length > 3) return d.slice(0, 3) + "." + d.slice(3);
+    return d;
+  }
 
   // Célula de etapa (Realizado / Não Realizado), com data quando houver.
   function celulaEtapa(rotulo, valor, data) {
@@ -1348,7 +1602,9 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    // --- Barra de importação ---
+    if (!ehAdmin()) painel.appendChild(avisoSomenteLeitura());
+
+    // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
     barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar formação:" }));
     var selTipo = el("select", { class: "viz-select" });
@@ -1382,7 +1638,7 @@
     barra.appendChild(file);
     barra.appendChild(btn);
     barra.appendChild(status);
-    painel.appendChild(barra);
+    if (ehAdmin()) painel.appendChild(barra);
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });
@@ -1492,8 +1748,8 @@
         tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: f.regiao || "—" }));
       }
 
-      tr.appendChild(el("td", { class: "tabela__td", "data-label": "CPF", text: formatarCPF(f.cpf) }));
-      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Telefone", text: f.telefone || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(f.cpf) }));
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Telefone", text: f.telefone || "—" }));
       tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: f.email || "—" }));
       tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: f.supervisor || "—" }));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
