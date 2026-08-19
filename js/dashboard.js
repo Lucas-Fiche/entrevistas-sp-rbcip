@@ -398,8 +398,11 @@
       }
       linhas = resp.data || [];
       renderTudo();
-      carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
-      carregarFormacao();   // idem para o painel de formação (bolsistas)
+      // Histórico primeiro: os painéis mostram a data da última importação.
+      carregarImportacoes().then(function () {
+        carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
+        carregarFormacao();   // idem para o painel de formação (bolsistas)
+      });
     }
 
     buscarEntrevistas().then(function (resp) {
@@ -1062,8 +1065,108 @@
   // nunca APAGA o que já está preenchido na ficha.
   var CAMPOS_IDENTIDADE = ["nome", "email", "email_norm", "cpf", "regiao"];
 
-  function importarCSV(tipo, text) {
+  // ---------- Registro das importações (auditoria) ----------
+  var importacoes = [];
+
+  function carregarImportacoes() {
+    if (!client) return Promise.resolve();
+    try {
+      return client.from("importacoes").select("*").then(function (resp) {
+        // Tabela ainda não criada (sql/importacoes.sql): segue sem histórico.
+        importacoes = (!resp.error && resp.data) ? resp.data : [];
+      }).catch(function () { importacoes = []; });
+    } catch (e) {
+      importacoes = [];
+      return Promise.resolve();
+    }
+  }
+
+  function ultimaImportacao(aba, tipo) {
+    var lista = importacoes.filter(function (i) { return i.aba === aba && i.tipo === tipo; });
+    lista.sort(function (a, b) { return (b.criado_em || "").localeCompare(a.criado_em || ""); });
+    return lista[0] || null;
+  }
+
+  function registrarImportacao(dados) {
+    if (!client) return Promise.resolve();
+    var reg = {
+      usuario: usuarioEmail || null,
+      aba: dados.aba, tipo: dados.tipo, arquivo: dados.arquivo || null,
+      linhas: dados.linhas, criadas: dados.criadas, atualizadas: dados.atualizadas,
+    };
+    // O histórico é opcional: nada aqui — nem a tabela faltando, nem uma falha
+    // de rede — pode impedir que a importação seja concluída.
+    try {
+      return client.from("importacoes").insert(reg).then(function (resp) {
+        if (!resp.error) importacoes.push(Object.assign({ criado_em: new Date().toISOString() }, reg));
+      }).catch(function () { /* segue sem registrar */ });
+    } catch (e) {
+      return Promise.resolve();
+    }
+  }
+
+  // Bloco "Última importação: …" com histórico recolhível.
+  function blocoUltimaImportacao(aba, tipo) {
+    var ult = ultimaImportacao(aba, tipo);
+    var wrap = el("div", { class: "imp-info" });
+    if (!ult) {
+      wrap.appendChild(el("span", { class: "imp-info__texto", text: "Nenhuma importação registrada ainda para " + tipo + "." }));
+      return wrap;
+    }
+    wrap.appendChild(el("span", {
+      class: "imp-info__texto",
+      text: "Última importação: " + formatarDataHora(ult.criado_em) +
+        (ult.arquivo ? " · " + ult.arquivo : "") +
+        " · " + (ult.linhas || 0) + " linha(s): " + (ult.criadas || 0) + " nova(s), " + (ult.atualizadas || 0) + " atualizada(s)" +
+        (ult.usuario ? " · por " + ult.usuario : ""),
+    }));
+
+    var historico = importacoes.filter(function (i) { return i.aba === aba && i.tipo === tipo; });
+    if (historico.length > 1) {
+      var link = el("button", { class: "imp-info__link", type: "button", text: "ver histórico" });
+      var lista = el("ul", { class: "imp-hist oculto" });
+      historico.sort(function (a, b) { return (b.criado_em || "").localeCompare(a.criado_em || ""); });
+      historico.slice(0, 10).forEach(function (i) {
+        lista.appendChild(el("li", {
+          text: formatarDataHora(i.criado_em) + " · " + (i.arquivo || "(sem nome)") +
+            " · " + (i.linhas || 0) + " linha(s), " + (i.criadas || 0) + " nova(s), " + (i.atualizadas || 0) + " atualizada(s)",
+        }));
+      });
+      link.addEventListener("click", function () {
+        var aberto = !lista.classList.contains("oculto");
+        lista.classList.toggle("oculto", aberto);
+        link.textContent = aberto ? "ver histórico" : "esconder histórico";
+      });
+      wrap.appendChild(link);
+      wrap.appendChild(lista);
+    }
+    return wrap;
+  }
+
+  // Upsert que sobrevive a colunas ainda não criadas no banco: se o Supabase
+  // reclamar de uma coluna nova, reenvia sem ela em vez de perder a importação.
+  function upsertResiliente(tabela, rows, opcionais) {
+    return client.from(tabela).upsert(rows, { onConflict: "tipo,chave" }).then(function (resp) {
+      if (!resp.error) return resp;
+      var msg = String(resp.error.message || "");
+      var faltando = opcionais.filter(function (campo) { return msg.indexOf(campo) !== -1; });
+      if (!faltando.length) throw resp.error;
+      var limpas = rows.map(function (r) {
+        var copia = {};
+        Object.keys(r).forEach(function (k) { if (faltando.indexOf(k) === -1) copia[k] = r[k]; });
+        return copia;
+      });
+      return client.from(tabela).upsert(limpas, { onConflict: "tipo,chave" }).then(function (r2) {
+        if (r2.error) throw r2.error;
+        return r2;
+      });
+    });
+  }
+
+  function importarCSV(tipo, text, arquivo) {
     var parsed = parseCSV(text);
+    var agora = new Date().toISOString();
+    var criadas = 0, atualizadas = 0;
     // Índices das fichas que já existem. Reconhecer a MESMA pessoa não pode
     // depender só do e-mail: se o endereço mudou (corrigido aqui ou na
     // plataforma), a ficha antiga precisa ser reencontrada pelo CPF — senão a
@@ -1094,6 +1197,8 @@
       // Achou a ficha: mantém a identidade dela (a `chave` nunca muda), para o
       // upsert atualizar a linha existente em vez de criar outra.
       if (ex) c.chave = ex.chave;
+      if (ex) atualizadas++; else criadas++;
+      c.importado_em = agora;
       c.editado = (ex && ex.editado) || {};
       if (ex) {
         // Já existe: reimportar atualiza a inscrição e PREENCHE etapas que ainda
@@ -1110,9 +1215,14 @@
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
     if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
-    return client.from(candTabela())
-      .upsert(rows, { onConflict: "tipo,chave" })
-      .then(function (resp) { if (resp.error) throw resp.error; return { total: rows.length }; });
+    return upsertResiliente(candTabela(), rows, ["importado_em", "ordem", "editado"])
+      .then(function () {
+        return registrarImportacao({
+          aba: "candidatos", tipo: tipo, arquivo: arquivo,
+          linhas: rows.length, criadas: criadas, atualizadas: atualizadas,
+        });
+      })
+      .then(function () { return { total: rows.length, criadas: criadas, atualizadas: atualizadas }; });
   }
 
   // Salva uma etapa editada no painel (otimista: já atualiza a memória).
@@ -1532,8 +1642,9 @@
       btn.disabled = true; status.textContent = "Lendo arquivo…";
       var reader = new FileReader();
       reader.onload = function () {
-        importarCSV(tipo, String(reader.result)).then(function (r) {
-          candMsg = "✓ " + r.total + " candidatos importados/atualizados (" + tipo + ").";
+        importarCSV(tipo, String(reader.result), f.name).then(function (r) {
+          candMsg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
+            r.criadas + " nova(s), " + r.atualizadas + " atualizada(s).";
           candTipo = tipo;
           carregarCandidatos();
         }).catch(function (e) {
@@ -1550,6 +1661,7 @@
     barra.appendChild(btn);
     barra.appendChild(status);
     if (ehAdmin()) painel.appendChild(barra);
+    painel.appendChild(blocoUltimaImportacao("candidatos", candTipo));
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });
@@ -1796,18 +1908,31 @@
     };
   }
 
-  function importarFormacaoCSV(tipo, text) {
+  function importarFormacaoCSV(tipo, text, arquivo) {
     var parsed = parseCSV(text);
+    var agora = new Date().toISOString();
+    var jaExistem = {};
+    formacao.forEach(function (f) { if (f.tipo === tipo) jaExistem[f.chave] = true; });
+
     var mapa = {};
+    var criadas = 0, atualizadas = 0;
     parsed.rows.forEach(function (row, idx) {
       var f = linhaParaFormacao(tipo, row, idx);
-      if (f) mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
+      if (!f) return;
+      if (!mapa[f.chave]) { if (jaExistem[f.chave]) atualizadas++; else criadas++; }
+      f.importado_em = agora;
+      mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
     if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
-    return client.from(formTabela())
-      .upsert(rows, { onConflict: "tipo,chave" })
-      .then(function (resp) { if (resp.error) throw resp.error; return { total: rows.length }; });
+    return upsertResiliente(formTabela(), rows, ["importado_em", "ordem"])
+      .then(function () {
+        return registrarImportacao({
+          aba: "formacao", tipo: tipo, arquivo: arquivo,
+          linhas: rows.length, criadas: criadas, atualizadas: atualizadas,
+        });
+      })
+      .then(function () { return { total: rows.length, criadas: criadas, atualizadas: atualizadas }; });
   }
 
   function carregarFormacao() {
@@ -1914,8 +2039,9 @@
       btn.disabled = true; status.textContent = "Lendo arquivo…";
       var reader = new FileReader();
       reader.onload = function () {
-        importarFormacaoCSV(tipo, String(reader.result)).then(function (r) {
-          formMsg = "✓ " + r.total + " bolsistas importados/atualizados (" + tipo + ").";
+        importarFormacaoCSV(tipo, String(reader.result), f.name).then(function (r) {
+          formMsg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
+            r.criadas + " nova(s), " + r.atualizadas + " atualizada(s).";
           formTipo = tipo;
           carregarFormacao();
         }).catch(function (e) {
@@ -1932,6 +2058,7 @@
     barra.appendChild(btn);
     barra.appendChild(status);
     if (ehAdmin()) painel.appendChild(barra);
+    painel.appendChild(blocoUltimaImportacao("formacao", formTipo));
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });

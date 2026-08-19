@@ -89,6 +89,18 @@ A região do Interior é o caso mais chamativo: na planilha de controle ela se
 chama **"Região"**; no arquivo da plataforma, **"De qual região de SP sua
 residência está mais próxima? *"**. Os dois funcionam.
 
+### Registro das importações
+
+Abaixo da barra de importação, cada aba mostra **quando foi a última
+importação**, qual arquivo foi enviado, quantas linhas ele tinha, quantas fichas
+nasceram, quantas foram atualizadas e quem enviou. O link *ver histórico* abre
+as dez últimas.
+
+Isso vive na tabela `importacoes` e cada ficha guarda também a data em que uma
+importação a tocou pela última vez (`importado_em`) — útil para achar quem
+parou de aparecer nos arquivos novos. Depende de rodar `sql/importacoes.sql`;
+sem ele, a importação continua funcionando, apenas sem histórico.
+
 O arquivo da plataforma **não traz** as colunas de convocação, resultado e datas
 — elas são do seu controle. Isso não é problema: a importação nunca apaga o que
 já está preenchido na ficha. Convocações registradas pelo sistema, resultados

@@ -695,6 +695,27 @@ input[type="date"].viz-data {
 .cand-file { font-family: inherit; font-size: 13px; max-width: 100%; }
 .cand-status { font-size: 13px; color: var(--cor-texto-suave); }
 
+/* Data/resumo da última importação de CSV */
+.imp-info {
+  margin: -4px 0 14px;
+  font-size: 12.5px;
+  color: var(--cor-texto-suave);
+}
+.imp-info__link {
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--cor-primaria);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 0 0 8px;
+}
+.imp-hist {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  line-height: 1.7;
+}
+
 .cand-filtro { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
 .cand-tab {
   font-family: inherit;
