@@ -1121,7 +1121,7 @@
   function camposEdicao(cand) {
     var campos = [
       { id: "nome", rot: "Nome" },
-      { id: "email", rot: "E-mail" },
+      { id: "email", rot: "E-mail", dica: "Trocar o e-mail limpa a marca de falha de entrega e libera o reenvio." },
       { id: "cpf", rot: "CPF", cpf: true, dica: "Chave que liga a inscrição, a entrevista e a formação." },
     ];
     if (cand.tipo === "interior") campos.push({ id: "regiao", rot: "Região" });
@@ -1222,7 +1222,13 @@
       // E-mail alterado: atualiza também a forma normalizada (usada no casamento
       // e nas falhas de entrega). A `chave` NÃO muda, para a reimportação do CSV
       // continuar encontrando esta mesma ficha.
-      if (patch.email !== undefined) patch.email_norm = normEmail(patch.email) || null;
+      if (patch.email !== undefined) {
+        patch.email_norm = normEmail(patch.email) || null;
+        // A marca de falha de entrega era do endereço ANTIGO. Ao trocar o
+        // e-mail, ela deixa de fazer sentido e sai junto — a não ser que você
+        // tenha escolhido uma falha no próprio formulário.
+        if (patch.email_bounce === undefined && cand.email_bounce) patch.email_bounce = null;
+      }
       salvarEdicaoCandidato(cand, patch, novasTravas, msg, salvar, false);
     });
 
@@ -1374,10 +1380,50 @@
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
 
+  // Envio individual da convocação de ENTREVISTA. Serve para reenviar depois de
+  // corrigir um e-mail que voltou com falha de entrega: quando o envio dá certo,
+  // a marca de falha é apagada e a data é atualizada — fica registrado que
+  // desta vez funcionou.
+  function convocarEntrevistaIndividual(cand, btn) {
+    if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
+    var reenvio = !!cand.email_bounce;
+    if (!confirm((reenvio ? "REENVIAR" : "Enviar") + " a convocação de ENTREVISTA para " +
+      (cand.nome || "") + " (" + cand.email + ")?")) return;
+
+    carregandoConvocacao(btn, true);
+    enviarConvocacao([emailConvocacaoEntrevista(cand)]).then(function (res) {
+      var enviados = (res && typeof res.enviados === "number") ? res.enviados : 1;
+      if (enviados <= 0) {
+        renderPainelCandidatos();
+        alert("Nenhum e-mail foi enviado — nada foi marcado.\n" + diagnosticoEnvio(res));
+        return;
+      }
+      var hoje = hojeBR();
+      var patch = {
+        data_convocacao_entrevista: hoje,
+        convocacao_entrevista: "Enviado",
+        email_bounce: null, // deu certo com o endereço atual
+        updated_at: new Date().toISOString(),
+      };
+      cand.data_convocacao_entrevista = hoje;
+      cand.convocacao_entrevista = "Enviado";
+      cand.email_bounce = null;
+      return client.from(candTabela()).update(patch).eq("id", cand.id).then(function () {
+        renderPainelCandidatos();
+        alert("Convocação de entrevista enviada.\n\n" + resumoEnvio(res, enviados, 1) +
+          "\n\nA marca de falha de entrega foi removida. Se este endereço também " +
+          "falhar, use \"Verificar entregas\" daqui a alguns minutos.");
+      });
+    }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
   function convocarCadastro(cand, btn) {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
-    if (!confirm("Enviar convocação de CADASTRO para " + (cand.nome || "") + " (" + cand.email + ")?")) return;
+    var reenvioCad = !!cand.email_bounce;
+    if (!confirm((reenvioCad ? "REENVIAR" : "Enviar") + " a convocação de CADASTRO para " +
+      (cand.nome || "") + " (" + cand.email + ")?")) return;
 
     carregandoConvocacao(btn, true);
     enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function (res) {
@@ -1391,8 +1437,14 @@
       var hoje = hojeBR();
       cand.data_convocacao_cadastro = hoje;
       cand.convocacao_cadastro = "Enviado";
+      cand.email_bounce = null; // deu certo com o endereço atual
       return client.from(candTabela())
-        .update({ data_convocacao_cadastro: hoje, convocacao_cadastro: "Enviado", updated_at: new Date().toISOString() })
+        .update({
+          data_convocacao_cadastro: hoje,
+          convocacao_cadastro: "Enviado",
+          email_bounce: null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", cand.id)
         .then(function () {
           renderPainelCandidatos();
@@ -1587,7 +1639,14 @@
       // Convocação entrevista: falha de entrega tem prioridade; senão data/Enviado/pendente.
       var tdConvE = el("td", { class: "tabela__td", "data-label": "Convocação entrevista" });
       if (c.email_bounce) {
+        // Falhou: mostra o motivo e, para o admin, o botão de reenviar (útil
+        // depois de corrigir o e-mail em "Editar").
         tdConvE.appendChild(el("span", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+        if (ehAdmin() && c.email) {
+          var btnRe = el("button", { class: "btn btn--secundario btn--pequeno cand-reenviar", type: "button", text: "✉ Reenviar" });
+          btnRe.addEventListener("click", function () { convocarEntrevistaIndividual(c, btnRe); });
+          tdConvE.appendChild(btnRe);
+        }
       } else if (c.data_convocacao_entrevista) {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
       } else if (c.convocacao_entrevista === "Enviado") {
@@ -1621,10 +1680,18 @@
       // Convocação cadastro: já enviada (data/status), ou botão (só p/ selecionados), ou —.
       var tdConvC = el("td", { class: "tabela__td", "data-label": "Convocação cadastro" });
       var selecionado = res.toUpperCase().indexOf("SELECIONADO") === 0;
-      if (c.data_convocacao_cadastro) {
-        tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado em " + c.data_convocacao_cadastro }));
-      } else if (c.convocacao_cadastro === "Enviado") {
-        tdConvC.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
+      var cadastroEnviado = !!(c.data_convocacao_cadastro || c.convocacao_cadastro === "Enviado");
+      if (cadastroEnviado) {
+        tdConvC.appendChild(el("span", {
+          class: "cand-enviado",
+          text: c.data_convocacao_cadastro ? "✓ Enviado em " + c.data_convocacao_cadastro : "✓ Enviado",
+        }));
+        // Se o e-mail voltou com falha, esse "enviado" não chegou: permite reenviar.
+        if (c.email_bounce && ehAdmin() && c.email) {
+          var btnReCad = el("button", { class: "btn btn--secundario btn--pequeno cand-reenviar", type: "button", text: "✉ Reenviar" });
+          btnReCad.addEventListener("click", function () { convocarCadastro(c, btnReCad); });
+          tdConvC.appendChild(btnReCad);
+        }
       } else if (selecionado) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
         btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
