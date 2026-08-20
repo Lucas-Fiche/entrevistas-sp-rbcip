@@ -258,6 +258,33 @@ body.tela-cheia .dash {
   font-weight: 600;
   white-space: nowrap;
 }
+
+/* Marcador de resultado com o ícone da origem do dado dentro dele.
+ * Formato mais retangular (cantos levemente arredondados) em vez de pílula. */
+.tag--com-icone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.2px;
+}
+.tag__icone {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  opacity: 0.85;
+}
+/* No celular o marcador pode quebrar em duas linhas em vez de vazar da célula
+ * (ex.: "SELECIONADO COM RESSALVA"). */
+@media (max-width: 760px) {
+  .tag--com-icone {
+    white-space: normal;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .tag--com-icone .tag__icone { margin-top: 1px; }
+}
 .tag--verde-forte { background: #188038; color: #fff; }
 .tag--verde { background: #d6efd9; color: #1b6b2e; }
 .tag--verde-claro { background: #eef7ea; color: #5f8b3a; }
@@ -384,8 +411,9 @@ input[type="date"].viz-data {
   /* Cabeçalho: título em cima, usuário/botões embaixo */
   .dash__topo { flex-direction: column; align-items: stretch; gap: 10px; }
   .dash__usuario { justify-content: flex-start; }
-  /* e-mail em sua própria linha para os 3 botões ficarem juntos */
-  .dash__usuario > span { flex-basis: 100%; }
+  /* e-mail em sua própria linha para os 3 botões ficarem juntos.
+   * Só o e-mail: a versão e o selo de perfil ficam do tamanho do texto. */
+  .dash__usuario > #usuario-email { flex-basis: 100%; }
 
   /* Filtros: cada grupo ocupa a linha inteira; campos se ajustam */
   .viz-filtros { gap: 12px; }
@@ -791,6 +819,33 @@ input[type="date"].viz-data {
 }
 .cand-fonte--sistema { color: var(--cor-primaria); font-weight: 600; }
 
+/* Legenda dos ícones de origem, ao lado do resumo da tabela */
+.legenda-fontes {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--cor-borda);
+}
+.legenda-fontes__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--cor-texto-suave);
+}
+.legenda-fontes .tag__icone { opacity: 1; color: var(--cor-primaria); }
+@media (max-width: 760px) {
+  .legenda-fontes {
+    display: flex;
+    margin: 8px 0 0;
+    padding: 8px 0 0;
+    border-left: none;
+    border-top: 1px solid var(--cor-borda);
+    flex-wrap: wrap;
+  }
+}
+
 .tabela-scroll { overflow-x: auto; }
 
 /* Tabela de candidatos — colunas confortáveis no desktop… */
@@ -887,6 +942,10 @@ input[type="date"].viz-data {
 
 /* ---------- Perfil (admin × somente leitura) ---------- */
 .selo-perfil {
+  /* No celular a barra do usuário vira coluna: sem isto o selo estica na
+   * largura toda em vez de ficar do tamanho do texto. */
+  align-self: flex-start;
+  flex: 0 0 auto;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;

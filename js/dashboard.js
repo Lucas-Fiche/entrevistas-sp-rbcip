@@ -1014,6 +1014,46 @@
     var e = ent === undefined ? casarEntrevista(c) : ent;
     return e ? resultadoSistema(e) : (c.resultado_entrevista || "");
   }
+  // ---------- Marcador de resultado com a origem do dado ----------
+  // Ícones que dizem DE ONDE veio o resultado, dentro do próprio marcador:
+  //   • monitor  = entrevista preenchida no sistema;
+  //   • planilha = valor que veio da importação de CSV.
+  var ICONES_FONTE = {
+    sistema:
+      '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+      '<rect x="1.6" y="2.4" width="12.8" height="8.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M5.6 13.6h4.8M8 11v2.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+      "</svg>",
+    planilha:
+      '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+      '<rect x="1.8" y="2.2" width="12.4" height="11.6" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M1.8 6.1h12.4M6.4 6.1v7.7" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      "</svg>",
+  };
+  var ROTULO_FONTE = {
+    sistema: "resultado da entrevista feita no sistema",
+    planilha: "resultado importado da planilha",
+  };
+
+  function tagResultado(res, fonte) {
+    var tag = el("span", { class: resultadoClasse(res) + " tag--com-icone", title: ROTULO_FONTE[fonte] || "" });
+    tag.innerHTML = ICONES_FONTE[fonte] || "";
+    tag.appendChild(el("span", { text: res || "—" }));
+    return tag;
+  }
+
+  // Legenda dos ícones, exibida junto do resumo da tabela.
+  function legendaFontes() {
+    var wrap = el("span", { class: "legenda-fontes" });
+    ["sistema", "planilha"].forEach(function (f) {
+      var item = el("span", { class: "legenda-fontes__item", title: ROTULO_FONTE[f] });
+      item.innerHTML = ICONES_FONTE[f];
+      item.appendChild(el("span", { text: f === "sistema" ? "entrevista no sistema" : "importado da planilha" }));
+      wrap.appendChild(item);
+    });
+    return wrap;
+  }
+
   // Nome de região para exibir em tabela (sem o sufixo "(região)").
   function regiaoCurta(r) {
     return String(r || "").replace(/\s*\(região\)$/i, "").trim() || "—";
@@ -1903,15 +1943,9 @@
       var res = resultadoDoCandidato(c, ent);
       var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
       if (ent) {
-        tdRes.appendChild(el("span", { class: "cand-val" }, [
-          el("span", { class: resultadoClasse(res), text: res || "—" }),
-          el("span", { class: "cand-fonte cand-fonte--sistema", text: "sistema" }),
-        ]));
+        tdRes.appendChild(tagResultado(res, "sistema"));
       } else if (c.resultado_entrevista) {
-        tdRes.appendChild(el("span", { class: "cand-val" }, [
-          el("span", { class: resultadoClasse(res), text: c.resultado_entrevista }),
-          el("span", { class: "cand-fonte", text: "planilha" }),
-        ]));
+        tdRes.appendChild(tagResultado(c.resultado_entrevista, "planilha"));
       } else {
         tdRes.textContent = "—";
       }
@@ -1955,11 +1989,13 @@
     });
     tabela.appendChild(tbody);
 
-    painel.appendChild(el("p", {
-      class: "cand-resumo",
+    var resumo = el("p", { class: "cand-resumo" });
+    resumo.appendChild(el("span", {
       text: lista.length + (termo ? " de " + doTipo.length : "") + " candidatos · " +
         casados + " com entrevista casada automaticamente pelo sistema · " + notaOrdem(lista),
     }));
+    resumo.appendChild(legendaFontes());
+    painel.appendChild(resumo);
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
