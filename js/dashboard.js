@@ -2214,6 +2214,32 @@
     if (st === "Desligado") return "tag tag--vermelho";
     return "tag tag--cinza";
   }
+
+  // Cada situação com o seu ícone: dá para ler a coluna inteira de relance,
+  // sem depender só da cor.
+  var ICONES_SITUACAO = {
+    "Ativo":
+      '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M5.2 8.2l1.9 1.9 3.7-4" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+      'stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    "Aguardando termo":
+      '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M8 4.4V8l2.6 1.6" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+      'stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    "Desligado":
+      '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true">' +
+      '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+      '<path d="M5.4 8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  };
+
+  function tagSituacao(st, titulo) {
+    var tag = el("span", { class: situacaoClasse(st) + " tag--com-icone", title: titulo || "" });
+    tag.innerHTML = ICONES_SITUACAO[st] || "";
+    tag.appendChild(el("span", { text: st }));
+    return tag;
+  }
   function ehRealizado(v) { return normStr(v) === "realizado"; }
   function formatarCPF(v) {
     var d = soDigitos(v);
@@ -2349,6 +2375,55 @@
       alert("Não foi possível sincronizar: " + (e.message || e) +
         "\n\nConfira se os IDs das planilhas estão preenchidos no Apps Script e se ele foi publicado em nova versão.");
     });
+  }
+
+  // ---------- Exportar a planilha de formação ----------
+  // Reproduz o layout da planilha de controle (inclusive a coluna "Nome"
+  // repetida) para o arquivo cair direto no seu fluxo, e acrescenta ao final o
+  // que só existe no sistema: facilitador e desligamento.
+  function planilhaFormacao(tipo) {
+    var lista = formacao.filter(function (f) { return f.tipo === tipo; }).sort(porOrdemPlanilha);
+    if (!lista.length) return null;
+
+    var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome", "Nome",
+      "CPF", "Telefone", "Email", "Cadastro de Bolsista", "Supervisor"];
+    if (tipo === "capital") {
+      cabecalho.push("Treinamento Presencial/Online", "Data do Treinamento Presencial");
+    } else {
+      cabecalho.push("Treinamento Online", "Data do Treinamento Online",
+        "Treinamento Presencial", "Data do Treinamento Presencial");
+    }
+    cabecalho.push("Termo de Bolsa", "Documento do Termo de Bolsa",
+      "Facilitador", "Desligado em", "Motivo do desligamento");
+
+    var aoa = [cabecalho];
+    lista.forEach(function (f) {
+      var linha = [
+        situacaoFormacao(f),
+        (tipo === "capital" ? f.grupo : f.regiao) || "",
+        f.nome || "", f.nome || "",
+        f.cpf || "", f.telefone || "", f.email || "",
+        f.cadastro_bolsista || "", supervisorDe(f) || "",
+      ];
+      if (tipo === "capital") {
+        linha.push(f.treinamento_presencial || f.treinamento_online || "",
+          f.data_treinamento_presencial || f.data_treinamento_online || "");
+      } else {
+        linha.push(f.treinamento_online || "", f.data_treinamento_online || "",
+          f.treinamento_presencial || "", f.data_treinamento_presencial || "");
+      }
+      linha.push(f.termo_link ? "Emitido" : (f.termo_bolsa || "Não Emitido"), f.termo_link || "",
+        f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "");
+      aoa.push(linha);
+    });
+    return aoa;
+  }
+
+  function exportarFormacao(tipo) {
+    var aoa = planilhaFormacao(tipo);
+    if (!aoa) { alert("Não há bolsistas para exportar em " + tipo + "."); return; }
+    var hoje = new Date().toISOString().slice(0, 10);
+    window.Exportador.csv("formacao_" + tipo + "_" + hoje + ".csv", aoa);
   }
 
   // ---------- Completar a ficha com o que o sistema já sabe ----------
@@ -2700,6 +2775,12 @@
       });
       btnSinc.addEventListener("click", function () { sincronizarFormacao(btnSinc); });
       acoesForm.appendChild(btnSinc);
+      var btnExpF = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
+        title: "Planilha de formação de " + formTipo + ", no mesmo layout do seu controle",
+      });
+      btnExpF.addEventListener("click", function () { exportarFormacao(formTipo); });
+      acoesForm.appendChild(btnExpF);
       var faltando = doTipo.filter(function (f) { return !f.cpf || !f.telefone || !f.email; }).length;
       if (faltando) {
         var btnCompl = el("button", {
@@ -2774,7 +2855,9 @@
 
       var st = situacaoFormacao(f);
       var tdSt = el("td", { class: "tabela__td", "data-label": "Status" });
-      tdSt.appendChild(el("span", { class: situacaoClasse(st), text: st, title: f.desligado_motivo || "" }));
+      tdSt.appendChild(tagSituacao(st, f.desligado_em
+        ? "Desligado em " + f.desligado_em + (f.desligado_motivo ? " — " + f.desligado_motivo : "")
+        : (st === "Ativo" ? "Termo de bolsa emitido" : "Ainda sem termo de bolsa")));
       tr.appendChild(tdSt);
 
       if (formTipo === "capital") {
