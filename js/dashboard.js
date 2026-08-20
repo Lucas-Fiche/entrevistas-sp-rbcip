@@ -3316,7 +3316,7 @@
 
     bloco.appendChild(el("div", { class: "stats" }, [
       statCard("Inscritos", lista.length),
-      statCard("Convocados", convocados),
+      statCard("Convocados p/ entrevista", convocados),
       statCard("Entrevistados", compareceram),
       statCard("Selecionados", selecionados),
       statCard("Taxa de seleção", pct(selecionados, compareceram)),
