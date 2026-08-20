@@ -36,12 +36,20 @@ var SUPABASE_ANON_KEY = "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_";
 // >>> COLOQUE AQUI o e-mail que deve receber o RECIBO de cada envio. <<<
 var EMAIL_RECIBO = "lucas@rbcip.org";
 
-// ===== Planilhas lidas pela aba Formação =====
-// Os IDs ficam SÓ AQUI, na sua conta Google — nunca no repositório do sistema.
-// O ID é o trecho da URL entre /d/ e /edit.
-var PLANILHA_CADASTROS = "";        // Cadastro de Bolsistas Geral (respostas) — CPF na coluna K
-var PLANILHA_TERMOS_CAPITAL = "";   // Controle TB Entrevistadores_SP_Capital  — CPF na R, link na AL
-var PLANILHA_TERMOS_INTERIOR = "";  // Controle TB Entrevistadores_SP_Interior — CPF na R, link na AL
+// ===== Planilha-ponte lida pela aba Formação =====
+// O script lê UMA planilha só: a "ponte", que você cria e alimenta com
+// IMPORTRANGE a partir das planilhas oficiais. Assim o script nunca depende do
+// layout delas, e enxerga apenas CPF e link do termo.
+// O ID é o trecho da URL entre /d/ e /edit. Fica SÓ AQUI, nunca no repositório.
+var PLANILHA_PONTE = "";
+
+// Abas da ponte. Em todas, a linha 1 é cabeçalho.
+//   cadastros       -> coluna A: CPF de quem preencheu o Cadastro de Bolsista
+//   termos_capital  -> coluna A: CPF   |   coluna B: link do termo
+//   termos_interior -> idem
+var ABA_CADASTROS = "cadastros";
+var ABA_TERMOS_CAPITAL = "termos_capital";
+var ABA_TERMOS_INTERIOR = "termos_interior";
 
 // Health-check simples (abrir a URL no navegador deve mostrar {"ok":true}).
 function doGet() {
@@ -157,34 +165,37 @@ function limparEmail(s) {
   return String(s || "").toLowerCase().replace(/[<>.,;]+$/, "").trim();
 }
 
-// ===== Leitura das planilhas da aba Formação =====
-// Devolve { cadastros: [cpf…], termos: { capital: {cpf: link}, interior: {…} } }.
-// Só CPF trafega — nenhum nome, telefone ou endereço sai das planilhas.
+// ===== Leitura da planilha-ponte =====
+// Devolve { cadastros: [cpf…], termos: { capital: {cpf: link}, interior: {…} },
+//           lidos: {…} }. `lidos` diz quantas linhas vieram de cada aba — é o
+// que permite perceber na hora se uma aba veio vazia ou apontando para o lugar
+// errado, em vez de descobrir isso pelos dados errados no painel.
 function dadosFormacao() {
+  if (!PLANILHA_PONTE) throw new Error("Preencha PLANILHA_PONTE no script.");
+  var ss = SpreadsheetApp.openById(PLANILHA_PONTE);
+  var cad = cpfsDaAba(ss, ABA_CADASTROS);
+  var cap = linksDaAba(ss, ABA_TERMOS_CAPITAL);
+  var inte = linksDaAba(ss, ABA_TERMOS_INTERIOR);
   return {
-    cadastros: cpfsDaColuna(PLANILHA_CADASTROS, "K"),
-    termos: {
-      capital: linksPorCpf(PLANILHA_TERMOS_CAPITAL, "R", "AL"),
-      interior: linksPorCpf(PLANILHA_TERMOS_INTERIOR, "R", "AL"),
+    cadastros: cad,
+    termos: { capital: cap, interior: inte },
+    lidos: {
+      cadastros: cad.length,
+      termos_capital: Object.keys(cap).length,
+      termos_interior: Object.keys(inte).length,
     },
   };
 }
 
-// "K" -> 11, "AL" -> 38
-function colunaParaIndice(letra) {
-  var n = 0, s = String(letra).toUpperCase();
-  for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
-  return n;
-}
 function apenasDigitos(v) { return String(v == null ? "" : v).replace(/\D/g, ""); }
 
-// Lista os CPFs de uma coluna (quem preencheu o formulário de cadastro).
-function cpfsDaColuna(id, colCpf) {
-  if (!id) return [];
-  var sh = SpreadsheetApp.openById(id).getSheets()[0];
+// Aba com uma coluna de CPF (coluna A).
+function cpfsDaAba(ss, nome) {
+  var sh = ss.getSheetByName(nome);
+  if (!sh) throw new Error('Aba "' + nome + '" não existe na planilha-ponte.');
   var ult = sh.getLastRow();
   if (ult < 2) return [];
-  var vals = sh.getRange(2, colunaParaIndice(colCpf), ult - 1, 1).getValues();
+  var vals = sh.getRange(2, 1, ult - 1, 1).getValues();
   var out = [];
   for (var i = 0; i < vals.length; i++) {
     var cpf = apenasDigitos(vals[i][0]);
@@ -193,29 +204,18 @@ function cpfsDaColuna(id, colCpf) {
   return out;
 }
 
-// Mapa CPF -> link do termo de bolsa.
-function linksPorCpf(id, colCpf, colLink) {
-  if (!id) return {};
-  var sh = SpreadsheetApp.openById(id).getSheets()[0];
+// Aba com CPF na coluna A e link do termo na coluna B.
+function linksDaAba(ss, nome) {
+  var sh = ss.getSheetByName(nome);
+  if (!sh) throw new Error('Aba "' + nome + '" não existe na planilha-ponte.');
   var ult = sh.getLastRow();
   if (ult < 2) return {};
-  var cc = colunaParaIndice(colCpf), cl = colunaParaIndice(colLink);
-  var ini = Math.min(cc, cl), fim = Math.max(cc, cl);
-  var faixa = sh.getRange(2, ini, ult - 1, fim - ini + 1);
-  var vals = faixa.getValues();
-  var ricos = null; // só carrega se precisar (link escondido atrás de texto)
+  var vals = sh.getRange(2, 1, ult - 1, 2).getValues();
   var mapa = {};
   for (var i = 0; i < vals.length; i++) {
-    var cpf = apenasDigitos(vals[i][cc - ini]);
-    if (cpf.length !== 11) continue;
-    var link = String(vals[i][cl - ini] || "").trim();
-    if (!/^https?:\/\//i.test(link)) {
-      // A célula pode ter um hiperlink com texto por cima ("Ver termo").
-      if (!ricos) ricos = faixa.getRichTextValues();
-      var url = ricos[i][cl - ini] ? ricos[i][cl - ini].getLinkUrl() : null;
-      link = url || "";
-    }
-    if (/^https?:\/\//i.test(link)) mapa[cpf] = link;
+    var cpf = apenasDigitos(vals[i][0]);
+    var link = String(vals[i][1] || "").trim();
+    if (cpf.length === 11 && /^https?:\/\//i.test(link)) mapa[cpf] = link;
   }
   return mapa;
 }

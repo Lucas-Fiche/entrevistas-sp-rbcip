@@ -2313,13 +2313,18 @@
         }
       });
 
-      var totalTermos = Object.keys(termos.capital || {}).length + Object.keys(termos.interior || {}).length;
-      var resumo = "Planilhas lidas:\n" +
-        "· " + totalCad + " cadastro(s) de bolsista preenchido(s)\n" +
-        "· " + totalTermos + " termo(s) de bolsa emitido(s)\n\n" +
+      // O que veio de CADA aba da ponte: se uma delas vier vazia ou com número
+      // estranho, o problema aparece aqui e não nos dados do painel.
+      var lidos = dados.lidos || {};
+      var resumo = "Planilha-ponte lida:\n" +
+        "· aba cadastros: " + (lidos.cadastros !== undefined ? lidos.cadastros : totalCad) + " CPF(s)\n" +
+        "· aba termos_capital: " + (lidos.termos_capital !== undefined ? lidos.termos_capital : Object.keys(termos.capital || {}).length) + " termo(s)\n" +
+        "· aba termos_interior: " + (lidos.termos_interior !== undefined ? lidos.termos_interior : Object.keys(termos.interior || {}).length) + " termo(s)\n\n" +
         "Fichas atualizadas: " + mudancas.length + "\n" +
         "Ainda sem termo: " + semTermo +
-        (semCpf ? "\nSem CPF na ficha (não dá para casar): " + semCpf : "");
+        (semCpf ? "\nSem CPF na ficha (não dá para casar): " + semCpf : "") +
+        "\n\nSe algum número acima parecer errado, confira o IMPORTRANGE da aba " +
+        "correspondente antes de confiar no resultado.";
 
       if (!mudancas.length) {
         renderPainelFormacao();
@@ -2343,6 +2348,79 @@
       renderPainelFormacao();
       alert("Não foi possível sincronizar: " + (e.message || e) +
         "\n\nConfira se os IDs das planilhas estão preenchidos no Apps Script e se ele foi publicado em nova versão.");
+    });
+  }
+
+  // ---------- Completar a ficha com o que o sistema já sabe ----------
+  // Fichas que vieram da planilha costumam estar sem CPF, telefone ou e-mail
+  // porque a busca por nome do Sheets falhou. Esses dados existem na inscrição
+  // do candidato: aqui eles são copiados para a ficha, sem sobrescrever nada
+  // que já esteja preenchido.
+  function fichaDoCandidato(f) {
+    var cpf = soDigitos(f.cpf);
+    if (cpf.length === 11) {
+      var porCpf = candidatos.filter(function (c) { return soDigitos(c.cpf) === cpf; })[0];
+      if (porCpf) return porCpf;
+    }
+    if (f.email_norm) {
+      var porEmail = candidatos.filter(function (c) { return c.email_norm === f.email_norm; })[0];
+      if (porEmail) return porEmail;
+    }
+    if (f.nome) {
+      var alvo = normStr(f.nome);
+      var porNome = candidatos.filter(function (c) { return normStr(c.nome) === alvo; });
+      if (porNome.length === 1) return porNome[0]; // nome ambíguo não serve
+    }
+    return null;
+  }
+
+  function completarPelaInscricao(btn) {
+    var lista = formacao.filter(function (f) { return f.tipo === formTipo; });
+    var mudancas = [], semFicha = [];
+    lista.forEach(function (f) {
+      var falta = !f.cpf || !f.telefone || !f.email;
+      if (!falta) return;
+      var cand = fichaDoCandidato(f);
+      if (!cand) { semFicha.push(f.nome || "(sem nome)"); return; }
+      var patch = {};
+      if (!f.cpf && cand.cpf) patch.cpf = cand.cpf;
+      if (!f.email && cand.email) { patch.email = cand.email; patch.email_norm = cand.email_norm || normEmail(cand.email); }
+      if (!f.telefone) {
+        var tel = telefoneDaInscricao(cand.inscricao);
+        if (tel) patch.telefone = tel;
+      }
+      if (!f.regiao && cand.regiao) patch.regiao = cand.regiao;
+      if (!f.candidato_id && cand.id) patch.candidato_id = cand.id;
+      if (Object.keys(patch).length) {
+        Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+        patch.updated_at = new Date().toISOString();
+        mudancas.push({ ficha: f, patch: patch });
+      }
+    });
+
+    if (!mudancas.length) {
+      alert("Nenhuma ficha para completar em " + formTipo + "." +
+        (semFicha.length ? "\n\nSem inscrição correspondente: " + semFicha.length +
+          "\n· " + semFicha.slice(0, 10).join("\n· ") : ""));
+      return;
+    }
+    if (!confirm("Completar " + mudancas.length + " ficha(s) com CPF, telefone e e-mail da inscrição?")) return;
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Completando…'; }
+
+    Promise.all(mudancas.map(function (m) {
+      return client.from(formTabela()).update(m.patch).eq("id", m.ficha.id);
+    })).then(function (resps) {
+      var erro = resps.filter(function (r) { return r && r.error; })[0];
+      return carregarFormacao().then(function () {
+        alert(erro
+          ? "Completado em parte. Erro: " + (erro.error.message || erro.error)
+          : mudancas.length + " ficha(s) completada(s) com os dados da inscrição." +
+            (semFicha.length ? "\n\nSem inscrição correspondente: " + semFicha.length +
+              "\n· " + semFicha.slice(0, 10).join("\n· ") : ""));
+      });
+    }).catch(function (e) {
+      renderPainelFormacao();
+      alert("Não foi possível completar: " + (e.message || e));
     });
   }
 
@@ -2622,6 +2700,16 @@
       });
       btnSinc.addEventListener("click", function () { sincronizarFormacao(btnSinc); });
       acoesForm.appendChild(btnSinc);
+      var faltando = doTipo.filter(function (f) { return !f.cpf || !f.telefone || !f.email; }).length;
+      if (faltando) {
+        var btnCompl = el("button", {
+          class: "btn btn--secundario btn--pequeno", type: "button",
+          text: "🧩 Completar pela inscrição (" + faltando + ")",
+          title: "Preenche CPF, telefone e e-mail que faltam usando os dados da inscrição",
+        });
+        btnCompl.addEventListener("click", function () { completarPelaInscricao(btnCompl); });
+        acoesForm.appendChild(btnCompl);
+      }
       painel.appendChild(acoesForm);
     }
 
