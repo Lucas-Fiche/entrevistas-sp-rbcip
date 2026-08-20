@@ -1596,8 +1596,20 @@
     if (res && res.erros && res.erros.length) {
       linhas.push("Falhas:\n   " + res.erros.join("\n   "));
     }
-    if (res && res.recibo) linhas.push("Recibo: " + res.recibo);
+    if (res && res.recibo) linhas.push("Recibo: " + reciboCurto(res.recibo));
     return linhas.join("\n");
+  }
+
+  // O recibo é um extra: quando ele falha, os e-mails já foram enviados. Traduz
+  // o erro técnico do Apps Script para algo curto e acionável.
+  function reciboCurto(txt) {
+    var t = String(txt || "");
+    if (/script\.send_mail|MailApp/i.test(t)) {
+      return "não enviado — no Apps Script, troque MailApp.sendEmail por GmailApp.sendEmail " +
+        "na parte do recibo e publique uma nova versão (docs/APPS-SCRIPT-CONVOCACAO.md). " +
+        "As convocações acima saíram normalmente.";
+    }
+    return t.length > 160 ? t.slice(0, 160) + "…" : t;
   }
 
   // Resumo de diagnóstico da resposta do backend (para os avisos de falha).

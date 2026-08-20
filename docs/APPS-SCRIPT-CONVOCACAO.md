@@ -83,7 +83,10 @@ function doPost(e) {
       if (!paraRecibo) {
         recibo = "sem endereço definido (preencha EMAIL_RECIBO no script)";
       } else {
-        MailApp.sendEmail(
+        // GmailApp (e não MailApp): usa a MESMA permissão já autorizada para
+        // enviar as convocações. Com MailApp o Google pede uma permissão extra
+        // (script.send_mail) e o recibo falha mesmo com os e-mails saindo.
+        GmailApp.sendEmail(
           paraRecibo,
           "RBCIP — convocacoes: recebidas " + recebidas + ", enviadas " + enviados,
           "Recebidas: " + recebidas + "\nEnviadas: " + enviados +
@@ -210,6 +213,28 @@ Para confirmar:
 
 Se o painel disser "0 e-mails enviados", o problema é no script (autorização do
 Gmail ou token) — reimplante uma **nova versão** e teste de novo.
+
+---
+
+## "Os e-mails saíram, mas o recibo deu erro de permissão"
+
+Se o aviso na tela mostrar algo como *"Você não tem permissão para chamar
+MailApp.sendEmail. Permissões necessárias: .../auth/script.send_mail"*, o envio
+das convocações **funcionou** — só o recibo falhou.
+
+A causa é que `MailApp` e `GmailApp` pedem permissões diferentes, e você
+autorizou apenas a do Gmail. A correção é usar `GmailApp` também no recibo,
+como está no código acima. Se o seu script ainda tiver `MailApp.sendEmail` na
+parte do recibo:
+
+1. Abra o projeto em <https://script.google.com>.
+2. Troque `MailApp.sendEmail(` por `GmailApp.sendEmail(` (só na parte do recibo).
+3. Salve e **Implantar → Gerenciar implantações → editar (lápis) → Versão: Nova
+   versão → Implantar**. Sem a nova versão, o Web App continua rodando o código
+   antigo.
+
+Não é preciso reautorizar nada: o `GmailApp` já está liberado desde a primeira
+autorização.
 
 ---
 
