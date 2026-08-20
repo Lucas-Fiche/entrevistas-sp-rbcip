@@ -1092,9 +1092,10 @@
 
   function candTabela() { return cfg.CANDIDATOS_TABELA || "candidatos"; }
 
+  // Devolve a promessa: quem chama precisa saber quando os dados chegaram.
   function carregarCandidatos() {
-    if (!client) return;
-    client.from(candTabela()).select("*").then(function (resp) {
+    if (!client) return Promise.resolve();
+    return client.from(candTabela()).select("*").then(function (resp) {
       if (resp.error) {
         var s = $("#cand-status");
         if (s) s.textContent = "Não foi possível carregar candidatos: " + (resp.error.message || resp.error);
@@ -2148,8 +2149,8 @@
   }
 
   function carregarFormacao() {
-    if (!client) return;
-    client.from(formTabela()).select("*").then(function (resp) {
+    if (!client) return Promise.resolve();
+    return client.from(formTabela()).select("*").then(function (resp) {
       if (resp.error) {
         var s = $("#form-status");
         if (s) {
@@ -2263,6 +2264,86 @@
     if (!achadas.length) return null;
     achadas.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
     return achadas[0];
+  }
+
+  // ---------- Sincronização com as planilhas (cadastro e termos) ----------
+  // O Apps Script lê as três planilhas e devolve só CPFs e links; o casamento
+  // com as fichas acontece aqui, por CPF.
+  //
+  // Regra de segurança: nada é APAGADO por sincronização. Se uma planilha vier
+  // vazia (ID errado, permissão, aba trocada), o pior que acontece é nada mudar
+  // — nunca marcar todo mundo como pendente ou remover um termo já emitido.
+  function sincronizarFormacao(btn) {
+    if (!backendConvocacao()) { alert("Sincronização ainda não configurada. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sincronizando…'; }
+
+    chamarBackend({ acao: "sincronizar" }).then(function (res) {
+      var dados = res.dados || {};
+      var cadastros = {};
+      (dados.cadastros || []).forEach(function (c) { cadastros[soDigitos(c)] = true; });
+      var termos = dados.termos || {};
+      var totalCad = Object.keys(cadastros).length;
+
+      var mudancas = [];
+      var semCpf = 0, semTermo = 0;
+      formacao.forEach(function (f) {
+        var cpf = soDigitos(f.cpf);
+        if (cpf.length !== 11) { semCpf++; return; }
+        var patch = {};
+
+        // Preencheu o formulário de cadastro de bolsista?
+        if (totalCad && cadastros[cpf] && !ehRealizado(f.cadastro_bolsista)) {
+          patch.cadastro_bolsista = "Realizado";
+        }
+
+        // Termo de bolsa emitido?
+        var mapa = termos[f.tipo] || {};
+        var link = mapa[cpf];
+        if (link && link !== f.termo_link) {
+          patch.termo_link = link;
+          patch.termo_bolsa = "Emitido";
+        } else if (!link && !f.termo_link) {
+          semTermo++;
+        }
+
+        if (Object.keys(patch).length) {
+          Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+          patch.updated_at = new Date().toISOString();
+          mudancas.push({ ficha: f, patch: patch });
+        }
+      });
+
+      var totalTermos = Object.keys(termos.capital || {}).length + Object.keys(termos.interior || {}).length;
+      var resumo = "Planilhas lidas:\n" +
+        "· " + totalCad + " cadastro(s) de bolsista preenchido(s)\n" +
+        "· " + totalTermos + " termo(s) de bolsa emitido(s)\n\n" +
+        "Fichas atualizadas: " + mudancas.length + "\n" +
+        "Ainda sem termo: " + semTermo +
+        (semCpf ? "\nSem CPF na ficha (não dá para casar): " + semCpf : "");
+
+      if (!mudancas.length) {
+        renderPainelFormacao();
+        alert("Nada mudou desde a última sincronização.\n\n" + resumo);
+        return;
+      }
+      return Promise.all(mudancas.map(function (m) {
+        return client.from(formTabela()).update(m.patch).eq("id", m.ficha.id);
+      })).then(function (resps) {
+        var erro = resps.filter(function (r) { return r && r.error; })[0];
+        return carregarFormacao().then(function () {
+          if (erro) {
+            alert("Sincronizado em parte — algumas fichas não puderam ser gravadas:\n" +
+              (erro.error.message || erro.error));
+            return;
+          }
+          alert("Sincronização concluída.\n\n" + resumo);
+        });
+      });
+    }).catch(function (e) {
+      renderPainelFormacao();
+      alert("Não foi possível sincronizar: " + (e.message || e) +
+        "\n\nConfira se os IDs das planilhas estão preenchidos no Apps Script e se ele foi publicado em nova versão.");
+    });
   }
 
   // ---------- Edição da ficha de formação (só admin) ----------
@@ -2535,6 +2616,12 @@
       });
       btnSup.addEventListener("click", function () { abrirSupervisores(formTipo); });
       acoesForm.appendChild(btnSup);
+      var btnSinc = el("button", {
+        class: "btn btn--pequeno", type: "button", text: "🔄 Sincronizar planilhas",
+        title: "Lê o cadastro de bolsista e os termos de bolsa, e atualiza as fichas pelo CPF",
+      });
+      btnSinc.addEventListener("click", function () { sincronizarFormacao(btnSinc); });
+      acoesForm.appendChild(btnSinc);
       painel.appendChild(acoesForm);
     }
 

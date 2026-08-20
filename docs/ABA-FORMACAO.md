@@ -89,6 +89,29 @@ vírgula ou ponto e vírgula — é detectado automaticamente.
 Reimportar **atualiza** as linhas existentes em vez de duplicar: a
 identificação é feita pelo CPF (sem CPF, pelo e-mail; sem e-mail, pelo nome).
 
+### Sincronizar com as planilhas
+
+O botão **🔄 Sincronizar planilhas** lê, pelo Apps Script, o formulário de
+*Cadastro de Bolsista* e as duas planilhas de *Controle TB*, e atualiza as
+fichas casando por **CPF**:
+
+- quem aparece no formulário de cadastro passa a **Cadastro: Realizado**;
+- quem tem link de termo na planilha de controle recebe o link, o termo vira
+  **Emitido** e a situação passa a **Ativo**.
+
+Das planilhas trafegam apenas **CPF e link do termo** — nenhum nome, telefone
+ou endereço sai delas. Os IDs das planilhas ficam só no Apps Script, na sua
+conta Google, nunca no repositório do sistema.
+
+**Nada é apagado por sincronização.** Se uma planilha vier vazia (ID errado,
+permissão, aba trocada), o pior que acontece é nada mudar — o sistema nunca
+marca todo mundo como pendente nem remove um termo já emitido. Se um termo
+precisar ser retirado, isso é feito à mão na edição da ficha.
+
+Ao final aparece um resumo: quantos cadastros e termos foram lidos, quantas
+fichas mudaram, quantas seguem sem termo e quantas não têm CPF (essas não têm
+como ser casadas — preencha o CPF na ficha).
+
 ### Ordem da lista
 
 A tabela aparece na **mesma ordem do arquivo importado** — que é a ordem em que
