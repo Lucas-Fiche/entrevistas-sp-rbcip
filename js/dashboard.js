@@ -1008,6 +1008,16 @@
   function jaConvocadoCadastro(c) {
     return !!(c.data_convocacao_cadastro || c.convocacao_cadastro === "Enviado");
   }
+  // Resultado que vale para a ficha: a entrevista casada no sistema tem
+  // prioridade; sem ela, o que veio da planilha.
+  function resultadoDoCandidato(c, ent) {
+    var e = ent === undefined ? casarEntrevista(c) : ent;
+    return e ? resultadoSistema(e) : (c.resultado_entrevista || "");
+  }
+  // Nome de região para exibir em tabela (sem o sufixo "(região)").
+  function regiaoCurta(r) {
+    return String(r || "").replace(/\s*\(região\)$/i, "").trim() || "—";
+  }
   function resultadoClasse(res) {
     if (res === "SELECIONADO") return "tag tag--verde-forte";
     if (res === "SELECIONADO COM RESSALVA") return "tag tag--verde-claro";
@@ -1054,6 +1064,7 @@
       var badge = $("#cont-candidatos");
       if (badge) badge.textContent = candidatos.length;
       renderPainelCandidatos();
+      renderDados(); // o funil da aba de dados vem daqui
     });
   }
 
@@ -1245,6 +1256,77 @@
         setTimeout(function () { elmInput.classList.remove("cand-edit--ok"); }, 900);
       }
     });
+  }
+
+  // ---------- Exportar a planilha de candidatos ----------
+  // Devolve a planilha COMPLETA: as 5 colunas de controle já preenchidas pelo
+  // sistema, seguidas de todas as colunas originais da inscrição (guardadas na
+  // coluna `inscricao` desde a importação). Correções feitas no painel entram
+  // no lugar dos valores originais.
+  var COLS_CONTROLE = [
+    "Convocação para Entrevista",
+    "Resultado",
+    "Data da Entrevista",
+    "Convocação para Cadastro",
+    "Data do Envio para Convocação para Cadastro",
+  ];
+
+  function statusConvocacaoEntrevista(c) {
+    if (c.email_bounce) return "E-mail não encontrado";
+    if (jaConvocadoEntrevista(c)) return "Enviado";
+    return "Não Enviado";
+  }
+
+  function planilhaCandidatos(tipo) {
+    var lista = candidatos.filter(function (c) { return c.tipo === tipo; }).sort(porOrdemPlanilha);
+    if (!lista.length) return null;
+
+    // Colunas originais: união das chaves das inscrições, na ordem em que
+    // apareceram, sem repetir as de controle.
+    var colsOriginais = [];
+    var vistas = {};
+    COLS_CONTROLE.forEach(function (h) { vistas[normCol(h)] = true; });
+    vistas[normCol("Resultado Entrevista")] = true; // variante do arquivo da Capital
+    lista.forEach(function (c) {
+      Object.keys(c.inscricao || {}).forEach(function (k) {
+        var n = normCol(k);
+        if (!n || vistas[n]) return;
+        vistas[n] = true;
+        colsOriginais.push(k);
+      });
+    });
+
+    var aoa = [COLS_CONTROLE.concat(colsOriginais)];
+    lista.forEach(function (c) {
+      var ent = casarEntrevista(c);
+      var data = ent ? formatarData(ent.data_entrevista) : (c.data_entrevista || "");
+      var linha = [
+        statusConvocacaoEntrevista(c),
+        resultadoDoCandidato(c, ent),
+        data === "—" ? "" : data,
+        jaConvocadoCadastro(c) ? "Enviado" : "Não Enviado",
+        c.data_convocacao_cadastro || "",
+      ];
+      var orig = c.inscricao || {};
+      colsOriginais.forEach(function (k) {
+        var n = normCol(k);
+        // O que foi corrigido no painel prevalece sobre o valor original.
+        if (n === normCol("Nome completo") || n === normCol("Nome")) linha.push(c.nome || orig[k] || "");
+        else if (n === normCol("E-mail") || n === normCol("Email")) linha.push(c.email || orig[k] || "");
+        else if (n === normCol("CPF")) linha.push(c.cpf || orig[k] || "");
+        else if (COLS_REGIAO.some(function (r) { return normCol(r) === n; })) linha.push(c.regiao || orig[k] || "");
+        else linha.push(orig[k] !== undefined ? orig[k] : "");
+      });
+      aoa.push(linha);
+    });
+    return aoa;
+  }
+
+  function exportarCandidatos(tipo) {
+    var aoa = planilhaCandidatos(tipo);
+    if (!aoa) { alert("Não há candidatos para exportar em " + tipo + "."); return; }
+    var hoje = new Date().toISOString().slice(0, 10);
+    window.Exportador.csv("candidatos_" + tipo + "_" + hoje + ".csv", aoa);
   }
 
   // ---------- Edição da ficha do candidato (só admin) ----------
@@ -1715,6 +1797,12 @@
     var btnVerif = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "🔎 Verificar entregas" });
     btnVerif.addEventListener("click", function () { verificarEntregas(btnVerif); });
     acoes.appendChild(btnVerif);
+    var btnExp = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
+      title: "Planilha completa de " + candTipo + ": colunas de controle preenchidas + todas as colunas da inscrição",
+    });
+    btnExp.addEventListener("click", function () { exportarCandidatos(candTipo); });
+    acoes.appendChild(btnExp);
     if (!backendConvocacao()) {
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
     }
@@ -1778,12 +1866,18 @@
       }
       tr.appendChild(tdNome);
       // E-mail (com aviso de falha de entrega, se houver).
-      var tdEmail = el("td", { class: "tabela__td cand-email", "data-label": "E-mail" });
+      var tdEmail = el("td", { class: "tabela__td cand-email", "data-label": "E-mail", title: c.email || "" });
       tdEmail.appendChild(el("span", { text: c.email || "—" }));
       if (c.email_bounce) tdEmail.appendChild(el("div", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
       tr.appendChild(tdEmail);
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(c.cpf) }));
-      if (candTipo === "interior") tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: c.regiao || "—" }));
+      if (candTipo === "interior") {
+        // "(região)" é redundante numa coluna chamada Região e rouba largura.
+        tr.appendChild(el("td", {
+          class: "tabela__td", "data-label": "Região", title: c.regiao || "",
+          text: regiaoCurta(c.regiao),
+        }));
+      }
 
       // Convocação entrevista: falha de entrega tem prioridade; senão data/Enviado/pendente.
       var tdConvE = el("td", { class: "tabela__td", "data-label": "Convocação entrevista" });
@@ -1806,7 +1900,7 @@
       tr.appendChild(tdConvE);
 
       // Resultado: prioriza a entrevista casada (sistema); senão o valor da planilha.
-      var res = ent ? resultadoSistema(ent) : (c.resultado_entrevista || "");
+      var res = resultadoDoCandidato(c, ent);
       var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
       if (ent) {
         tdRes.appendChild(el("span", { class: "cand-val" }, [
@@ -1866,7 +1960,7 @@
       text: lista.length + (termo ? " de " + doTipo.length : "") + " candidatos · " +
         casados + " com entrevista casada automaticamente pelo sistema · " + notaOrdem(lista),
     }));
-    var wrap = el("div", { class: "tabela-scroll" });
+    var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
   }
@@ -2177,7 +2271,9 @@
       if (formTipo === "capital") {
         tr.appendChild(el("td", { class: "tabela__td", "data-label": "Grupo", text: f.grupo || "—" }));
       } else {
-        tr.appendChild(el("td", { class: "tabela__td", "data-label": "Região", text: f.regiao || "—" }));
+        tr.appendChild(el("td", {
+          class: "tabela__td", "data-label": "Região", title: f.regiao || "", text: regiaoCurta(f.regiao),
+        }));
       }
 
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(f.cpf) }));
@@ -2216,7 +2312,7 @@
       text: lista.length + " bolsista(s) exibido(s) · " + casados + " com entrevista casada pelo CPF · " +
         notaOrdem(lista),
     }));
-    var wrap = el("div", { class: "tabela-scroll" });
+    var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
   }
@@ -2457,6 +2553,76 @@
     return mapa;
   }
 
+  // ---------- Funil do processo (dados da aba Candidatos) ----------
+  // Segue os filtros de Tipo e Região da tela. O filtro de PERÍODO não se
+  // aplica: as inscrições não têm data — ele vale só para as entrevistas.
+  function candidatosDaViz() {
+    var lista = candidatos.slice();
+    if (vizTipo !== "todos") lista = lista.filter(function (c) { return c.tipo === vizTipo; });
+    if (vizRegiao) lista = lista.filter(function (c) { return c.regiao === vizRegiao; });
+    return lista;
+  }
+
+  function blocoFunilCandidatos() {
+    var bloco = el("section", { class: "viz-secao" });
+    var lista = candidatosDaViz();
+    if (!lista.length) return bloco; // sem inscrições importadas, nada a mostrar
+
+    bloco.appendChild(el("h2", { class: "viz-secao__titulo", text: "Funil do processo (inscrições)" }));
+
+    var resultados = lista.map(function (c) { return resultadoDoCandidato(c); });
+    var convocados = lista.filter(jaConvocadoEntrevista).length;
+    var compareceram = resultados.filter(function (r) { return r && r !== "NÃO COMPARECEU"; }).length;
+    var faltaram = resultados.filter(function (r) { return r === "NÃO COMPARECEU"; }).length;
+    var selecionados = resultados.filter(function (r) { return r.indexOf("SELECIONADO") === 0; }).length;
+    var reprovados = resultados.filter(function (r) { return r === "REPROVADO"; }).length;
+    var cadastro = lista.filter(jaConvocadoCadastro).length;
+    var semEmail = lista.filter(function (c) { return !!c.email_bounce; }).length;
+    var aguardando = convocados - compareceram - faltaram;
+
+    function pct(parte, todo) { return todo ? Math.round((parte / todo) * 100) + "%" : "—"; }
+
+    bloco.appendChild(el("div", { class: "stats" }, [
+      statCard("Inscritos", lista.length),
+      statCard("Convocados", convocados),
+      statCard("Entrevistados", compareceram),
+      statCard("Selecionados", selecionados),
+      statCard("Taxa de seleção", pct(selecionados, compareceram)),
+    ]));
+
+    var grid = el("div", { class: "graficos" });
+    grid.appendChild(graficoBarras("Etapas do processo", [
+      { label: "Inscritos", valor: lista.length },
+      { label: "Convocados", valor: convocados },
+      { label: "Entrevistados", valor: compareceram },
+      { label: "Selecionados", valor: selecionados },
+      { label: "Convocados p/ cadastro", valor: cadastro },
+    ]));
+
+    var perdas = [
+      { label: "Aguardando entrevista", valor: Math.max(0, aguardando) },
+      { label: "Não compareceram", valor: faltaram },
+      { label: "Reprovados", valor: reprovados },
+      { label: "E-mail inválido", valor: semEmail },
+      { label: "Ainda não convocados", valor: lista.length - convocados },
+    ].filter(function (d) { return d.valor > 0; });
+    if (perdas.length) grid.appendChild(graficoBarras("Onde os candidatos estão parados", perdas));
+
+    // Inscritos por região (só faz sentido no Interior, que tem região).
+    var porRegiao = contarPor(lista, function (c) { return c.regiao; });
+    var regioes = Object.keys(porRegiao)
+      .map(function (nome) { return { label: nome.replace(/ \(região\)$/, ""), valor: porRegiao[nome] }; })
+      .sort(function (a, b) { return b.valor - a.valor; });
+    if (regioes.length > 1) grid.appendChild(graficoBarras("Inscritos por região (interior)", regioes));
+
+    bloco.appendChild(grid);
+    bloco.appendChild(el("p", {
+      class: "viz-secao__nota",
+      text: "Fonte: aba Candidatos. O filtro de período não se aplica aqui — as inscrições não têm data.",
+    }));
+    return bloco;
+  }
+
   function renderDados() {
     var painel = $("#painel-dados");
     painel.innerHTML = "";
@@ -2524,6 +2690,9 @@
     }
 
     painel.appendChild(barra);
+
+    // ----- Funil do processo (fonte: aba Candidatos) -----
+    painel.appendChild(blocoFunilCandidatos());
 
     var lista = filtrarViz();
     var avaliados = lista.filter(function (r) { return !r.nao_compareceu && !r.nao_cumpre_requisitos; });

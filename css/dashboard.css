@@ -324,6 +324,23 @@ input[type="date"].viz-data {
   border-color: var(--cor-primaria);
 }
 
+/* Seções da aba Visualização de dados (funil de candidatos × entrevistas) */
+.viz-secao {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.viz-secao__titulo {
+  font-size: 17px;
+  margin: 4px 0 16px;
+  color: var(--cor-primaria);
+}
+.viz-secao__nota {
+  margin: 4px 0 18px;
+  font-size: 12.5px;
+  color: var(--cor-texto-suave);
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -779,7 +796,13 @@ input[type="date"].viz-data {
 /* Tabela de candidatos — colunas confortáveis no desktop… */
 .tabela--cand { width: 100%; }
 .tabela--cand .cand-td-nome { min-width: 150px; }
-.tabela--cand .cand-email { min-width: 190px; word-break: break-word; }
+/* E-mail em uma linha só: partir o endereço no meio atrapalha a leitura e a
+ * cópia. Quando a soma das colunas passa da tela, quem rola é o cartão da
+ * tabela (overflow-x), como já acontece nas abas de entrevistas. */
+.tabela--cand .cand-email {
+  white-space: nowrap;
+  font-size: 13.5px;
+}
 
 /* …e cada linha vira um CARTÃO em telas estreitas (tablet/celular). */
 @media (max-width: 760px) {

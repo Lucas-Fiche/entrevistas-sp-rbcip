@@ -89,6 +89,24 @@ A região do Interior é o caso mais chamativo: na planilha de controle ela se
 chama **"Região"**; no arquivo da plataforma, **"De qual região de SP sua
 residência está mais próxima? *"**. Os dois funcionam.
 
+### Exportar a planilha de candidatos
+
+O botão **⬇ Baixar CSV**, na aba Candidatos, gera a planilha completa da região
+selecionada (Capital ou Interior): as cinco colunas de controle já preenchidas
+pelo sistema — *Convocação para Entrevista, Resultado, Data da Entrevista,
+Convocação para Cadastro, Data do Envio para Convocação para Cadastro* —
+seguidas de **todas** as colunas originais da inscrição, na ordem em que vieram
+da plataforma.
+
+Os dados vêm do banco, não do arquivo que você enviou: o resultado é o da
+entrevista casada no sistema, e nome, e-mail, CPF e região saem com as
+correções feitas no painel. Um e-mail marcado como inválido aparece como
+*E-mail não encontrado* na coluna de convocação, como na sua planilha de
+controle.
+
+O arquivo sai com separador `;` e BOM (abre direto no Excel em português) e
+pode ser reimportado pelo próprio sistema.
+
 ### Registro das importações
 
 Abaixo da barra de importação, cada aba mostra **quando foi a última
