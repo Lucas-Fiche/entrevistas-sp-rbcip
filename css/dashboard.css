@@ -954,6 +954,39 @@ input[type="date"].viz-data {
   .tabela--cand .btn { white-space: normal; }
 }
 
+/* ---------- Marcador de grupo (Capital) ---------- */
+.grupo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: var(--cor-branco);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--cor-texto);
+  white-space: nowrap;
+}
+.grupo-tag__cor {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border-radius: 50%;
+  background: var(--cor-texto-suave);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22);
+}
+.grupo-tag--verde    .grupo-tag__cor { background: #1b7a3d; }
+.grupo-tag--amarelo  .grupo-tag__cor { background: #e8b400; }
+.grupo-tag--vermelho .grupo-tag__cor { background: #c0362b; }
+.grupo-tag--branco   .grupo-tag__cor { background: #ffffff; }
+.grupo-tag--azul     .grupo-tag__cor { background: #1a73a8; }
+.grupo-tag--roxo     .grupo-tag__cor { background: #6b3fa0; }
+.grupo-tag--laranja  .grupo-tag__cor { background: #e07b20; }
+.grupo-tag--rosa     .grupo-tag__cor { background: #d8577f; }
+.grupo-tag--cinza    .grupo-tag__cor { background: #9aa7b1; }
+.grupo-tag--preto    .grupo-tag__cor { background: #2b3138; }
+
 /* ---------- Formação (bolsistas) ---------- */
 /* Reaproveita a tabela de candidatos (inclusive o modo cartão no celular). */
 .tabela--form .tabela__td { vertical-align: top; }

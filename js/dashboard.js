@@ -346,6 +346,27 @@
   // Em notebooks, as tabelas grandes ficam melhores usando a tela inteira.
   // A escolha fica salva no navegador de quem usa.
   var CHAVE_LARGURA = "rbcip_dash_largura";
+  var abaAtiva = "candidatos";
+  // A Formação tem muitas colunas: nasce em tela cheia. As demais nascem na
+  // largura padrão. A preferência é guardada POR ABA — clicar no botão vale
+  // para a aba em que você está, e é lembrada na próxima visita.
+  var LARGURA_PADRAO_DA_ABA = { formacao: "cheia" };
+
+  function preferenciasLargura() {
+    var bruto = null;
+    try { bruto = localStorage.getItem(CHAVE_LARGURA); } catch (e) { bruto = null; }
+    if (!bruto) return {};
+    // Formato antigo: uma string valendo para o painel inteiro.
+    if (bruto === "cheia" || bruto === "padrao") {
+      return { candidatos: bruto, capital: bruto, interior: bruto, dados: bruto };
+    }
+    try { return JSON.parse(bruto) || {}; } catch (e) { return {}; }
+  }
+  function larguraDaAba(aba) {
+    var prefs = preferenciasLargura();
+    var escolha = prefs[aba] || LARGURA_PADRAO_DA_ABA[aba] || "padrao";
+    return escolha === "cheia";
+  }
   function aplicarLargura(cheia) {
     document.body.classList.toggle("tela-cheia", cheia);
     var btn = $("#btn-largura");
@@ -354,16 +375,20 @@
       btn.setAttribute("aria-pressed", cheia ? "true" : "false");
     }
   }
+  function aplicarLarguraDaAba(aba) {
+    abaAtiva = aba || abaAtiva;
+    aplicarLargura(larguraDaAba(abaAtiva));
+  }
   function configurarLargura() {
-    var salvo = false;
-    try { salvo = localStorage.getItem(CHAVE_LARGURA) === "cheia"; } catch (e) { salvo = false; }
-    aplicarLargura(salvo);
+    aplicarLarguraDaAba(abaAtiva);
     var btn = $("#btn-largura");
     if (!btn) return;
     btn.addEventListener("click", function () {
       var cheia = !document.body.classList.contains("tela-cheia");
       aplicarLargura(cheia);
-      try { localStorage.setItem(CHAVE_LARGURA, cheia ? "cheia" : "padrao"); } catch (e) { /* sem localStorage */ }
+      var prefs = preferenciasLargura();
+      prefs[abaAtiva] = cheia ? "cheia" : "padrao";
+      try { localStorage.setItem(CHAVE_LARGURA, JSON.stringify(prefs)); } catch (e) { /* sem localStorage */ }
     });
   }
 
@@ -2234,6 +2259,19 @@
       '<path d="M5.4 8h5.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
   };
 
+  // Marcador do grupo com a bolinha na cor do próprio grupo. A bolinha (em vez
+  // de pintar o fundo) mantém o texto legível inclusive no grupo Branco, e
+  // grupos novos entram sozinhos com uma cor neutra até ganharem estilo.
+  var CORES_GRUPO = ["verde", "amarelo", "vermelho", "branco", "azul", "roxo", "laranja", "rosa", "cinza", "preto"];
+  function tagGrupo(nome) {
+    if (!nome) return el("span", { class: "cand-pendente", text: "—" });
+    var cor = CORES_GRUPO.filter(function (c) { return normStr(nome).indexOf(c) !== -1; })[0] || "neutro";
+    var tag = el("span", { class: "grupo-tag grupo-tag--" + cor, title: "Grupo " + nome });
+    tag.appendChild(el("span", { class: "grupo-tag__cor" }));
+    tag.appendChild(el("span", { text: nome }));
+    return tag;
+  }
+
   function tagSituacao(st, titulo) {
     var tag = el("span", { class: situacaoClasse(st) + " tag--com-icone", title: titulo || "" });
     tag.innerHTML = ICONES_SITUACAO[st] || "";
@@ -2861,7 +2899,9 @@
       tr.appendChild(tdSt);
 
       if (formTipo === "capital") {
-        tr.appendChild(el("td", { class: "tabela__td", "data-label": "Grupo", text: f.grupo || "—" }));
+        var tdGrupo = el("td", { class: "tabela__td", "data-label": "Grupo" });
+        tdGrupo.appendChild(tagGrupo(f.grupo));
+        tr.appendChild(tdGrupo);
       } else {
         tr.appendChild(el("td", {
           class: "tabela__td", "data-label": "Região", title: f.regiao || "", text: regiaoCurta(f.regiao),
@@ -2928,6 +2968,7 @@
         mostrar($("#painel-candidatos"), alvo === "candidatos");
         mostrar($("#painel-formacao"), alvo === "formacao");
         mostrar($("#painel-dados"), alvo === "dados");
+        aplicarLarguraDaAba(alvo);
       });
     });
   }
