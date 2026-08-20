@@ -398,8 +398,8 @@
       }
       linhas = resp.data || [];
       renderTudo();
-      // Histórico primeiro: os painéis mostram a data da última importação.
-      carregarImportacoes().then(function () {
+      // Histórico e supervisores primeiro: os painéis dependem dos dois.
+      Promise.all([carregarImportacoes(), carregarSupervisores()]).then(function () {
         carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
         carregarFormacao();   // idem para o painel de formação (bolsistas)
       });
@@ -1675,6 +1675,58 @@
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
 
+  // Telefone da inscrição: a plataforma guarda DDD e número em colunas separadas.
+  function telefoneDaInscricao(row) {
+    var ddd = soDigitos(pegaCol(row || {}, ["Telefone (que tenha WhatsApp) - DDD", "DDD"]));
+    var num = soDigitos(pegaCol(row || {}, [
+      "Telefone (que tenha WhatsApp) - Número", "Telefone (que tenha WhatsApp) - Numero", "Celular", "Telefone",
+    ]));
+    if (!num) return "";
+    if (num.length > 9 && !ddd) { ddd = num.slice(0, 2); num = num.slice(2); }
+    var meio = num.length > 8 ? num.slice(0, 5) : num.slice(0, 4);
+    var fim = num.length > 8 ? num.slice(5) : num.slice(4);
+    return (ddd ? "(" + ddd + ") " : "") + meio + (fim ? "-" + fim : "");
+  }
+
+  // ---------- Entrada na aba Formação ----------
+  // Ao convocar para o cadastro de bolsista, a pessoa passa a ser acompanhada
+  // na Formação. Nome, CPF, telefone e e-mail já são nossos desde a inscrição —
+  // não há nada para buscar em planilha nenhuma.
+  function garantirFichaFormacao(cand) {
+    if (!client) return Promise.resolve();
+    var cpfD = soDigitos(cand.cpf);
+    var chave = (cpfD.length === 11 ? cpfD : "") || normEmail(cand.email) || normStr(cand.nome);
+    if (!chave) return Promise.resolve();
+    // Já acompanhada? Não mexe — preserva grupo, treinamento e o que mais houver.
+    var existe = formacao.some(function (f) { return f.tipo === cand.tipo && f.chave === chave; });
+    if (existe) return Promise.resolve();
+
+    var maiorOrdem = formacao.reduce(function (m, f) {
+      return f.tipo === cand.tipo ? Math.max(m, f.ordem || 0) : m;
+    }, 0);
+    var ficha = {
+      tipo: cand.tipo,
+      chave: chave,
+      ordem: maiorOrdem + 1,
+      nome: cand.nome || null,
+      cpf: cand.cpf || null,
+      telefone: telefoneDaInscricao(cand.inscricao) || null,
+      email: cand.email || null,
+      email_norm: cand.email_norm || normEmail(cand.email) || null,
+      regiao: cand.tipo === "interior" ? (cand.regiao || null) : null,
+      candidato_id: cand.id || null,
+      origem: { criado_por: "convocação de cadastro", em: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    };
+    return upsertResiliente(formTabela(), [ficha], ["candidato_id", "ordem", "importado_em"])
+      .then(function () { return carregarFormacao(); })
+      .catch(function (e) {
+        // A convocação já foi enviada: uma falha aqui não pode virar erro geral.
+        var s = $("#form-status");
+        if (s) s.textContent = "Não foi possível abrir a ficha de formação: " + (e.message || e);
+      });
+  }
+
   function convocarCadastro(cand, btn) {
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
@@ -1703,9 +1755,11 @@
           updated_at: new Date().toISOString(),
         })
         .eq("id", cand.id)
+        .then(function () { return garantirFichaFormacao(cand); })
         .then(function () {
           renderPainelCandidatos();
-          alert("Convocação de cadastro concluída.\n\n" + resumoEnvio(res, enviados, 1));
+          alert("Convocação de cadastro concluída.\n\n" + resumoEnvio(res, enviados, 1) +
+            "\n\n" + (cand.nome || "A pessoa") + " passou a ser acompanhada na aba Formação.");
         });
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
@@ -2056,6 +2110,15 @@
     var jaExistem = {};
     formacao.forEach(function (f) { if (f.tipo === tipo) jaExistem[f.chave] = true; });
 
+    // Campos que a pessoa preenche no painel: uma reimportação não pode
+    // desfazer o que foi definido aqui dentro.
+    var CAMPOS_MANUAIS = [
+      "grupo", "treinamento_online", "data_treinamento_online",
+      "treinamento_presencial", "data_treinamento_presencial",
+    ];
+    var porChave = {};
+    formacao.forEach(function (x) { if (x.tipo === tipo) porChave[x.chave] = x; });
+
     var mapa = {};
     var criadas = 0, atualizadas = 0;
     parsed.rows.forEach(function (row, idx) {
@@ -2063,6 +2126,13 @@
       if (!f) return;
       if (!mapa[f.chave]) { if (jaExistem[f.chave]) atualizadas++; else criadas++; }
       f.importado_em = agora;
+      var ex = porChave[f.chave];
+      if (ex) {
+        CAMPOS_MANUAIS.forEach(function (campo) { if (ex[campo]) f[campo] = ex[campo]; });
+        // Identificação e termo: arquivo sem a coluna não apaga o que existe.
+        ["nome", "cpf", "telefone", "email", "email_norm", "regiao", "termo_link", "termo_bolsa"]
+          .forEach(function (campo) { if (!f[campo] && ex[campo]) f[campo] = ex[campo]; });
+      }
       mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
@@ -2096,14 +2166,52 @@
     });
   }
 
-  // Status Ativo/Inativo: usa o da planilha; se vier vazio, deriva do termo de
-  // bolsa (só é ativo quem já tem o documento emitido).
-  function statusFormacao(f) {
-    if (f.status) return f.status;
-    return f.termo_link ? "Ativo" : "Inativo";
+  // ---------- Supervisores (por grupo na Capital, por região no Interior) ----------
+  var supervisores = [];
+
+  function carregarSupervisores() {
+    if (!client) return Promise.resolve();
+    try {
+      return client.from("supervisores").select("*").then(function (resp) {
+        supervisores = (!resp.error && resp.data) ? resp.data : [];
+      }).catch(function () { supervisores = []; });
+    } catch (e) { supervisores = []; return Promise.resolve(); }
   }
-  function statusClasseFormacao(st) {
-    return normStr(st) === "ativo" ? "tag tag--verde-forte" : "tag tag--cinza";
+
+  // A "chave" do bolsista: o grupo na Capital, a região no Interior.
+  function chaveSupervisao(f) {
+    return (f.tipo === "capital" ? f.grupo : f.regiao) || "";
+  }
+  // Supervisor deduzido da tabela; se ainda não houver cadastro, mostra o que
+  // veio da planilha para não perder a informação.
+  function supervisorDe(f) {
+    var chave = normStr(chaveSupervisao(f));
+    if (chave) {
+      var achado = supervisores.filter(function (s) {
+        return s.tipo === f.tipo && s.ativo !== false && normStr(s.chave) === chave;
+      })[0];
+      if (achado) return achado.nome;
+    }
+    return f.supervisor || "";
+  }
+  function chavesSupervisao(tipo) {
+    return supervisores.filter(function (s) { return s.tipo === tipo; })
+      .map(function (s) { return s.chave; })
+      .sort(function (a, b) { return normStr(a).localeCompare(normStr(b)); });
+  }
+
+  // ---------- Situação do bolsista ----------
+  // Calculada, nunca digitada: desligamento vence tudo; depois o termo de bolsa
+  // decide entre ativo e ainda em preparação.
+  function situacaoFormacao(f) {
+    if (f.desligado_em) return "Desligado";
+    if (f.termo_link) return "Ativo";
+    return "Aguardando termo";
+  }
+  function situacaoClasse(st) {
+    if (st === "Ativo") return "tag tag--verde-forte";
+    if (st === "Desligado") return "tag tag--vermelho";
+    return "tag tag--cinza";
   }
   function ehRealizado(v) { return normStr(v) === "realizado"; }
   function formatarCPF(v) {
@@ -2155,6 +2263,181 @@
     if (!achadas.length) return null;
     achadas.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
     return achadas[0];
+  }
+
+  // ---------- Edição da ficha de formação (só admin) ----------
+  var OPCOES_TREINO = ["Realizado", "Não Realizado"];
+
+  function camposFormacao(f) {
+    var campos = [];
+    if (f.tipo === "capital") {
+      campos.push({ id: "grupo", rot: "Grupo", opcoes: chavesSupervisao("capital"),
+        dica: "Define o supervisor automaticamente." });
+    } else {
+      campos.push({ id: "regiao", rot: "Região", opcoes: chavesSupervisao("interior"),
+        dica: "Define o supervisor automaticamente." });
+    }
+    campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
+    campos.push({ id: "treinamento_online", rot: "Treinamento online", opcoes: OPCOES_TREINO });
+    campos.push({ id: "data_treinamento_online", rot: "Data do treinamento", dica: "dd/mm/aaaa" });
+    campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
+    if (f.tipo === "interior") {
+      campos.push({ id: "treinamento_presencial", rot: "Treinamento presencial (histórico)", opcoes: OPCOES_TREINO });
+      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento presencial" });
+    }
+    campos.push({ id: "termo_link", rot: "Link do termo de bolsa",
+      dica: "Preenchido pela planilha de termos. Ter link = bolsista ativo." });
+    campos.push({ id: "desligado_em", rot: "Desligado em", dica: "dd/mm/aaaa — preencher só em caso de saída." });
+    campos.push({ id: "desligado_motivo", rot: "Motivo do desligamento" });
+    return campos;
+  }
+
+  function abrirEdicaoFormacao(f) {
+    if (!ehAdmin()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: (f.nome || "(sem nome)") }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: (f.tipo === "capital" ? "Capital" : "Interior") + " · " + formatarCPF(f.cpf) +
+        " · situação: " + situacaoFormacao(f) + " (calculada pelo termo e pelo desligamento)",
+    }));
+
+    var form = el("form", { class: "edicao" });
+    var entradas = {};
+    camposFormacao(f).forEach(function (c) {
+      var linha = el("div", { class: "edicao__campo" });
+      linha.appendChild(el("label", { class: "edicao__rot", for: "fm_" + c.id, text: c.rot }));
+      var entrada;
+      if (c.opcoes) {
+        entrada = el("select", { class: "edicao__entrada", id: "fm_" + c.id });
+        entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
+        c.opcoes.forEach(function (o) { entrada.appendChild(el("option", { value: o, text: o })); });
+        if (f[c.id] && c.opcoes.indexOf(f[c.id]) === -1) {
+          entrada.appendChild(el("option", { value: f[c.id], text: f[c.id] }));
+        }
+        entrada.value = f[c.id] || "";
+      } else {
+        entrada = el("input", { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: f[c.id] || "" });
+      }
+      linha.appendChild(entrada);
+      if (c.dica) linha.appendChild(el("p", { class: "edicao__dica", text: c.dica }));
+      entradas[c.id] = entrada;
+      form.appendChild(linha);
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar alterações" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var patch = {};
+      camposFormacao(f).forEach(function (c) {
+        var valor = entradas[c.id].value.trim();
+        if (valor !== (f[c.id] || "")) patch[c.id] = valor || null;
+      });
+      if (!Object.keys(patch).length) { msg.textContent = "Nada foi alterado."; return; }
+      patch.updated_at = new Date().toISOString();
+      salvar.disabled = true;
+      msg.className = "edicao__msg";
+      msg.textContent = "Salvando…";
+      client.from(formTabela()).update(patch).eq("id", f.id).then(function (resp) {
+        salvar.disabled = false;
+        if (resp.error) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = /row-level security|permission/i.test(resp.error.message || "")
+            ? "Sem permissão para editar. Só administradores podem alterar dados."
+            : "Não foi possível salvar: " + (resp.error.message || resp.error);
+          return;
+        }
+        Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+        fecharModal();
+        renderPainelFormacao();
+      });
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+  }
+
+  // ---------- Quem supervisiona cada grupo / região ----------
+  function abrirSupervisores(tipo) {
+    if (!ehAdmin()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Supervisores — " + (tipo === "capital" ? "Capital" : "Interior") }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: tipo === "capital"
+        ? "Cada grupo tem um supervisor. Trocar aqui muda o supervisor de todos os bolsistas do grupo."
+        : "Cada região tem um supervisor. Trocar aqui muda o supervisor de todos os bolsistas da região.",
+    }));
+
+    var lista = supervisores.filter(function (s) { return s.tipo === tipo; })
+      .sort(function (a, b) { return normStr(a.chave).localeCompare(normStr(b.chave)); });
+
+    var form = el("form", { class: "edicao" });
+    var entradas = [];
+    lista.forEach(function (s) {
+      var linha = el("div", { class: "edicao__campo" });
+      linha.appendChild(el("label", { class: "edicao__rot", text: s.chave }));
+      var entrada = el("input", { class: "edicao__entrada", type: "text", value: s.nome || "" });
+      linha.appendChild(entrada);
+      entradas.push({ reg: s, entrada: entrada });
+      form.appendChild(linha);
+    });
+
+    // Novo grupo/região
+    var nova = el("div", { class: "edicao__campo edicao__campo--novo" });
+    nova.appendChild(el("label", { class: "edicao__rot", text: tipo === "capital" ? "Novo grupo" : "Nova região" }));
+    var chaveNova = el("input", { class: "edicao__entrada", type: "text", placeholder: tipo === "capital" ? "ex.: Azul" : "ex.: Marília" });
+    var nomeNovo = el("input", { class: "edicao__entrada", type: "text", placeholder: "nome do supervisor" });
+    nova.appendChild(chaveNova);
+    nova.appendChild(nomeNovo);
+    form.appendChild(nova);
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var tarefas = [];
+      entradas.forEach(function (item) {
+        var novo = item.entrada.value.trim();
+        if (novo !== (item.reg.nome || "")) {
+          tarefas.push(client.from("supervisores").update({ nome: novo }).eq("id", item.reg.id));
+        }
+      });
+      var ch = chaveNova.value.trim(), nm = nomeNovo.value.trim();
+      if (ch && nm) tarefas.push(client.from("supervisores").insert({ tipo: tipo, chave: ch, nome: nm }));
+      if (!tarefas.length) { msg.textContent = "Nada foi alterado."; return; }
+      salvar.disabled = true;
+      msg.textContent = "Salvando…";
+      Promise.all(tarefas).then(function (resps) {
+        var erro = resps.filter(function (r) { return r && r.error; })[0];
+        salvar.disabled = false;
+        if (erro) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = "Não foi possível salvar: " + (erro.error.message || erro.error);
+          return;
+        }
+        carregarSupervisores().then(function () {
+          fecharModal();
+          renderPainelFormacao();
+        });
+      });
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
   }
 
   function renderPainelFormacao() {
@@ -2226,7 +2509,8 @@
     }
 
     // --- Resumo (Ativos, termo emitido, treinamento pendente…) ---
-    var ativos = doTipo.filter(function (f) { return normStr(statusFormacao(f)) === "ativo"; }).length;
+    var ativos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Ativo"; }).length;
+    var desligados = doTipo.filter(function (f) { return !!f.desligado_em; }).length;
     var comTermo = doTipo.filter(function (f) { return !!f.termo_link; }).length;
     var semCadastro = doTipo.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
     var semTreino = doTipo.filter(function (f) {
@@ -2235,11 +2519,24 @@
     var stats = el("div", { class: "stats stats--form" }, [
       statCard("Bolsistas", doTipo.length),
       statCard("Ativos", ativos),
-      statCard("Termo emitido", comTermo),
+      statCard("Aguardando termo", doTipo.length - comTermo - desligados),
       statCard("Cadastro pendente", semCadastro),
       statCard("Sem treinamento", semTreino),
+      desligados ? statCard("Desligados", desligados) : null,
     ]);
     painel.appendChild(stats);
+
+    // --- Ações da aba ---
+    if (ehAdmin()) {
+      var acoesForm = el("div", { class: "cand-acoes" });
+      var btnSup = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button",
+        text: "👥 Supervisores " + (formTipo === "capital" ? "por grupo" : "por região"),
+      });
+      btnSup.addEventListener("click", function () { abrirSupervisores(formTipo); });
+      acoesForm.appendChild(btnSup);
+      painel.appendChild(acoesForm);
+    }
 
     // --- Busca ---
     var buscaWrap = el("div", { class: "painel__barra" });
@@ -2261,7 +2558,7 @@
     var termo = normStr(formBusca);
     var termoCPF = soDigitos(formBusca);
     var lista = !termo ? doTipo : doTipo.filter(function (f) {
-      var texto = [f.nome, f.email, f.supervisor, f.regiao, f.grupo].some(function (v) {
+      var texto = [f.nome, f.email, supervisorDe(f), f.regiao, f.grupo].some(function (v) {
         return normStr(v).indexOf(termo) !== -1;
       });
       var porCPF = termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1;
@@ -2275,12 +2572,13 @@
     }
 
     // --- Tabela ---
-    var cols = ["Nome", "Status"];
+    var cols = ["Nome", "Situação"];
     cols.push(formTipo === "capital" ? "Grupo" : "Região");
     cols = cols.concat(["CPF", "Telefone", "E-mail", "Supervisor", "Cadastro"]);
     if (formTipo === "interior") cols.push("Treino online");
     cols.push(formTipo === "capital" ? "Treinamento" : "Treino presencial");
     cols.push("Termo de bolsa");
+    if (ehAdmin()) cols.push("Editar");
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
     var trh = el("tr");
@@ -2299,9 +2597,9 @@
       if (ent) tdNome.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "entrevista no sistema" }));
       tr.appendChild(tdNome);
 
-      var st = statusFormacao(f);
+      var st = situacaoFormacao(f);
       var tdSt = el("td", { class: "tabela__td", "data-label": "Status" });
-      tdSt.appendChild(el("span", { class: statusClasseFormacao(st), text: st }));
+      tdSt.appendChild(el("span", { class: situacaoClasse(st), text: st, title: f.desligado_motivo || "" }));
       tr.appendChild(tdSt);
 
       if (formTipo === "capital") {
@@ -2315,7 +2613,7 @@
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(f.cpf) }));
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Telefone", text: f.telefone || "—" }));
       tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: f.email || "—" }));
-      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: f.supervisor || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: supervisorDe(f) || "—" }));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
 
       if (formTipo === "interior") {
@@ -2339,6 +2637,13 @@
       }
       tr.appendChild(tdTermo);
 
+      if (ehAdmin()) {
+        var tdEd = el("td", { class: "tabela__td cand-td-editar", "data-label": "Editar" });
+        var btnEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✎ Editar" });
+        btnEd.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+        tdEd.appendChild(btnEd);
+        tr.appendChild(tdEd);
+      }
       tbody.appendChild(tr);
     });
     tabela.appendChild(tbody);
