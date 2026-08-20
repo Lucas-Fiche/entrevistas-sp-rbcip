@@ -112,6 +112,34 @@ Ao final aparece um resumo: quantos cadastros e termos foram lidos, quantas
 fichas mudaram, quantas seguem sem termo e quantas não têm CPF (essas não têm
 como ser casadas — preencha o CPF na ficha).
 
+### Sincronizar sozinho, de tempo em tempo
+
+Além do botão, a sincronização pode rodar por conta própria a cada 6 horas, no
+servidor do Google, sem ninguém abrir o painel. É o mesmo procedimento e as
+mesmas regras — inclusive a de nunca apagar nada.
+
+Para ligar, no Apps Script:
+
+1. Crie no Supabase, em **Authentication → Users**, um usuário só para isto
+   (ex.: `robo@rbcip.org`) e inclua o e-mail na tabela `app_admins`.
+2. Preencha `ROBO_EMAIL` e `ROBO_SENHA` no script.
+3. Rode a função **`instalarGatilhoSincronizacao`** uma vez, pelo editor.
+
+Para desligar, rode `removerGatilhoSincronizacao` — o botão manual continua
+funcionando.
+
+> **Por que um usuário de robô e não a chave `service_role`.** A chave
+> service_role ignora todas as regras de segurança do banco e só pode ser
+> revogada trocando a chave do projeto inteiro. O usuário de robô tem
+> exatamente os poderes de um admin do painel, continua sujeito ao RLS e, se a
+> senha vazar, basta apagar o usuário.
+
+Cada sincronização — manual ou automática — fica registrada na tabela
+`sincronizacoes` (rode `sql/sincronizacoes.sql`), e a aba mostra a última:
+quando foi, se foi automática, quantas fichas mudaram e o que veio da ponte.
+Quando a automática falha, ela envia e-mail e registra o erro: uma rotina que
+roda sem ninguém olhando não pode falhar em silêncio.
+
 ### Ordem da lista
 
 A tabela aparece na **mesma ordem do arquivo importado** — que é a ordem em que

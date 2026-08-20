@@ -424,7 +424,7 @@
       linhas = resp.data || [];
       renderTudo();
       // Histórico e supervisores primeiro: os painéis dependem dos dois.
-      Promise.all([carregarImportacoes(), carregarSupervisores()]).then(function () {
+      Promise.all([carregarImportacoes(), carregarSupervisores(), carregarSincronizacoes()]).then(function () {
         carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
         carregarFormacao();   // idem para o painel de formação (bolsistas)
       });
@@ -2337,6 +2337,58 @@
   // Regra de segurança: nada é APAGADO por sincronização. Se uma planilha vier
   // vazia (ID errado, permissão, aba trocada), o pior que acontece é nada mudar
   // — nunca marcar todo mundo como pendente ou remover um termo já emitido.
+  var sincronizacoes = [];
+
+  function carregarSincronizacoes() {
+    if (!client) return Promise.resolve();
+    try {
+      return client.from("sincronizacoes").select("*").then(function (resp) {
+        sincronizacoes = (!resp.error && resp.data) ? resp.data : [];
+      }).catch(function () { sincronizacoes = []; });
+    } catch (e) { sincronizacoes = []; return Promise.resolve(); }
+  }
+
+  function registrarSincronizacao(lidos, atualizadas, detalhe) {
+    if (!client) return Promise.resolve();
+    var reg = {
+      origem: "manual", usuario: usuarioEmail || null,
+      lidos: lidos || null, atualizadas: atualizadas, detalhe: detalhe || null,
+    };
+    try {
+      return client.from("sincronizacoes").insert(reg).then(function (resp) {
+        if (!resp.error) sincronizacoes.push(Object.assign({ criado_em: new Date().toISOString() }, reg));
+      }).catch(function () { /* registro é opcional */ });
+    } catch (e) { return Promise.resolve(); }
+  }
+
+  // Linha "Última sincronização" — vale tanto para a manual quanto para a que
+  // roda sozinha pelo Apps Script.
+  function blocoUltimaSincronizacao() {
+    var wrap = el("div", { class: "imp-info" });
+    if (!sincronizacoes.length) {
+      wrap.appendChild(el("span", {
+        class: "imp-info__texto",
+        text: "Nenhuma sincronização registrada ainda com as planilhas.",
+      }));
+      return wrap;
+    }
+    var lista = sincronizacoes.slice().sort(function (a, b) {
+      return (b.criado_em || "").localeCompare(a.criado_em || "");
+    });
+    var u = lista[0];
+    var l = u.lidos || {};
+    wrap.appendChild(el("span", {
+      class: "imp-info__texto",
+      text: "Última sincronização: " + formatarDataHora(u.criado_em) +
+        " · " + (u.origem === "automatica" ? "automática" : "manual") +
+        " · " + (u.atualizadas || 0) + " ficha(s) atualizada(s)" +
+        (l.cadastros !== undefined ? " · ponte: " + l.cadastros + " cadastros, " +
+          ((l.termos_capital || 0) + (l.termos_interior || 0)) + " termos" : "") +
+        (u.detalhe ? " · FALHOU: " + String(u.detalhe).slice(0, 120) : ""),
+    }));
+    return wrap;
+  }
+
   function sincronizarFormacao(btn) {
     if (!backendConvocacao()) { alert("Sincronização ainda não configurada. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sincronizando…'; }
@@ -2391,15 +2443,20 @@
         "correspondente antes de confiar no resultado.";
 
       if (!mudancas.length) {
-        renderPainelFormacao();
-        alert("Nada mudou desde a última sincronização.\n\n" + resumo);
-        return;
+        return registrarSincronizacao(lidos, 0, null).then(function () {
+          renderPainelFormacao();
+          alert("Nada mudou desde a última sincronização.\n\n" + resumo);
+        });
       }
       return Promise.all(mudancas.map(function (m) {
         return client.from(formTabela()).update(m.patch).eq("id", m.ficha.id);
       })).then(function (resps) {
         var erro = resps.filter(function (r) { return r && r.error; })[0];
-        return carregarFormacao().then(function () {
+        return registrarSincronizacao(lidos, mudancas.length,
+          erro ? String(erro.error.message || erro.error) : null
+        ).then(function () {
+          return carregarFormacao();
+        }).then(function () {
           if (erro) {
             alert("Sincronizado em parte — algumas fichas não puderam ser gravadas:\n" +
               (erro.error.message || erro.error));
@@ -2756,6 +2813,7 @@
     barra.appendChild(status);
     if (ehAdmin()) painel.appendChild(barra);
     painel.appendChild(blocoUltimaImportacao("formacao", formTipo));
+    painel.appendChild(blocoUltimaSincronizacao());
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });

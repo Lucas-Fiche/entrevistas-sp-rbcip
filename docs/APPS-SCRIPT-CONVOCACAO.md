@@ -53,6 +53,18 @@ var ABA_PONTE = "";
 //   B: CPF Capital    C: Link do termo — Capital
 //   D: CPF Interior   E: Link do termo — Interior
 
+// ===== Conta do robô (só para a sincronização automática) =====
+// Crie no Supabase, em Authentication → Users, um usuário SÓ para isto
+// (ex.: robo@rbcip.org) e inclua o e-mail na tabela app_admins. O robô passa a
+// ter exatamente os mesmos poderes de um admin do painel — nem mais, nem menos
+// — e as regras de RLS continuam valendo.
+// NUNCA use aqui a chave service_role: ela ignora o RLS e não é revogável sem
+// trocar a chave do projeto inteiro. Se esta senha vazar, basta apagar o
+// usuário no Supabase.
+// Estes dados ficam SÓ AQUI, nunca no repositório do sistema.
+var ROBO_EMAIL = "";
+var ROBO_SENHA = "";
+
 // Health-check simples (abrir a URL no navegador deve mostrar {"ok":true}).
 function doGet() {
   return json({ ok: true, servico: "convocacoes RBCIP" });
@@ -211,6 +223,139 @@ function juntarTermo(mapa, cpf, link) {
   var c = apenasDigitos(cpf);
   var l = String(link || "").trim();
   if (c.length === 11 && /^https?:\/\//i.test(l)) mapa[c] = l;
+}
+
+// ===== Sincronização automática (gatilho de tempo) =====
+// Roda no servidor do Google, sem navegador aberto. Faz o mesmo que o botão
+// "Sincronizar planilhas" do painel — inclusive a regra de nunca apagar nada.
+
+// Rode UMA VEZ, pelo editor, para ligar o gatilho (a cada 6 horas).
+function instalarGatilhoSincronizacao() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "sincronizacaoAutomatica") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger("sincronizacaoAutomatica").timeBased().everyHours(6).create();
+  return "Gatilho instalado: a cada 6 horas.";
+}
+
+// Desliga a automação (a sincronização manual continua funcionando).
+function removerGatilhoSincronizacao() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "sincronizacaoAutomatica") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  return "Gatilho removido.";
+}
+
+function sincronizacaoAutomatica() {
+  var token = null, lidos = null;
+  try {
+    var dados = dadosFormacao();
+    lidos = dados.lidos;
+
+    var cadastros = {};
+    for (var i = 0; i < dados.cadastros.length; i++) cadastros[dados.cadastros[i]] = true;
+    var temCadastros = dados.cadastros.length > 0;
+
+    token = tokenDoRobo();
+    var fichas = supabase(token, "formacao?select=id,nome,tipo,cpf,cadastro_bolsista,termo_link");
+
+    var mudaram = [];
+    for (var j = 0; j < fichas.length; j++) {
+      var f = fichas[j];
+      var cpf = apenasDigitos(f.cpf);
+      if (cpf.length !== 11) continue;
+
+      var patch = {};
+      // Preencheu o cadastro de bolsista?
+      if (temCadastros && cadastros[cpf] &&
+          String(f.cadastro_bolsista || "").toLowerCase() !== "realizado") {
+        patch.cadastro_bolsista = "Realizado";
+      }
+      // Termo de bolsa emitido? (só acrescenta; nunca remove um link existente)
+      var link = (dados.termos[f.tipo] || {})[cpf];
+      if (link && link !== f.termo_link) {
+        patch.termo_link = link;
+        patch.termo_bolsa = "Emitido";
+      }
+      if (!Object.keys(patch).length) continue;
+
+      patch.updated_at = new Date().toISOString();
+      supabase(token, "formacao?id=eq." + f.id, "patch", patch);
+      mudaram.push(f.nome || f.id);
+    }
+
+    registrarSincronizacao(token, lidos, mudaram.length, null);
+
+    // Só avisa quando algo mudou — senão vira e-mail diário ignorado.
+    if (mudaram.length) {
+      GmailApp.sendEmail(EMAIL_RECIBO,
+        "RBCIP — sincronizacao automatica: " + mudaram.length + " ficha(s)",
+        "Atualizadas:\n" + mudaram.join("\n") +
+        "\n\nLidos da ponte: " + JSON.stringify(lidos));
+    }
+    return mudaram.length;
+  } catch (err) {
+    // Falha silenciosa é o pior cenário numa rotina automática: avisa e registra.
+    try { if (token) registrarSincronizacao(token, lidos, 0, String(err)); } catch (e2) {}
+    try {
+      GmailApp.sendEmail(EMAIL_RECIBO, "RBCIP — sincronizacao automatica FALHOU", String(err));
+    } catch (e3) {}
+    throw err;
+  }
+}
+
+function registrarSincronizacao(token, lidos, atualizadas, detalhe) {
+  supabase(token, "sincronizacoes", "post", {
+    origem: "automatica",
+    usuario: ROBO_EMAIL,
+    lidos: lidos,
+    atualizadas: atualizadas,
+    detalhe: detalhe,
+  });
+}
+
+// Faz login como o robô e devolve o token (vale ~1 hora, suficiente para a
+// execução). Sem service_role: as regras de RLS continuam valendo.
+function tokenDoRobo() {
+  if (!ROBO_EMAIL || !ROBO_SENHA) throw new Error("Preencha ROBO_EMAIL e ROBO_SENHA no script.");
+  var resp = UrlFetchApp.fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
+    method: "post",
+    contentType: "application/json",
+    headers: { apikey: SUPABASE_ANON_KEY },
+    payload: JSON.stringify({ email: ROBO_EMAIL, password: ROBO_SENHA }),
+    muteHttpExceptions: true,
+  });
+  if (resp.getResponseCode() !== 200) {
+    throw new Error("Login do robo falhou: " + resp.getContentText());
+  }
+  return JSON.parse(resp.getContentText()).access_token;
+}
+
+// Chamada REST ao Supabase, autenticada como o robô.
+function supabase(token, caminho, metodo, corpo) {
+  var opcoes = {
+    method: metodo || "get",
+    contentType: "application/json",
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: "Bearer " + token,
+      Prefer: "return=minimal",
+    },
+    muteHttpExceptions: true,
+  };
+  if (corpo) opcoes.payload = JSON.stringify(corpo);
+  var resp = UrlFetchApp.fetch(SUPABASE_URL + "/rest/v1/" + caminho, opcoes);
+  if (resp.getResponseCode() >= 300) {
+    throw new Error(caminho + " -> " + resp.getResponseCode() + " " + resp.getContentText());
+  }
+  var txt = resp.getContentText();
+  return txt ? JSON.parse(txt) : null;
 }
 
 // Valida o token chamando o próprio Supabase.
