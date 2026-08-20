@@ -750,11 +750,22 @@ textarea {
   cursor: pointer;
   background: var(--cor-primaria);
   color: var(--cor-branco);
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+    box-shadow 0.15s ease, transform 0.08s ease;
 }
 
 .btn:hover {
   background: var(--cor-primaria-escura);
+}
+
+/* Feedback de clique: o botão "afunda" por um instante. */
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
 }
 
 .btn:disabled {
@@ -762,14 +773,39 @@ textarea {
   cursor: default;
 }
 
+/* Botão secundário: fundo BRANCO (e não transparente) para continuar visível
+ * sobre linhas de tabela zebradas ou destacadas pelo hover — antes ele assumia
+ * a cor da linha e sumia. No hover ele se preenche com a cor primária, que é
+ * inconfundível e nunca coincide com o fundo da linha. */
 .btn--secundario {
-  background: transparent;
+  background: var(--cor-branco);
   color: var(--cor-primaria);
-  border: 1px solid var(--cor-borda);
+  border: 1px solid #b6ccd7;
+  box-shadow: 0 1px 2px rgba(16, 42, 56, 0.08);
 }
 
 .btn--secundario:hover {
-  background: var(--cor-primaria-clara);
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: var(--cor-branco);
+  box-shadow: 0 2px 8px rgba(0, 78, 107, 0.28);
+}
+
+.btn--secundario:active:not(:disabled) {
+  background: var(--cor-primaria-escura);
+  border-color: var(--cor-primaria-escura);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.22);
+}
+
+.btn--secundario:disabled {
+  background: var(--cor-branco);
+  color: var(--cor-texto-suave);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn { transition: background 0.15s ease, color 0.15s ease; }
+  .btn:active:not(:disabled) { transform: none; }
 }
 
 /* ---------- Avisos / banners ---------- */
