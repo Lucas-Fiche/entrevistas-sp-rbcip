@@ -2316,14 +2316,14 @@
       // O que veio de CADA aba da ponte: se uma delas vier vazia ou com número
       // estranho, o problema aparece aqui e não nos dados do painel.
       var lidos = dados.lidos || {};
-      var resumo = "Planilha-ponte lida:\n" +
-        "· aba cadastros: " + (lidos.cadastros !== undefined ? lidos.cadastros : totalCad) + " CPF(s)\n" +
-        "· aba termos_capital: " + (lidos.termos_capital !== undefined ? lidos.termos_capital : Object.keys(termos.capital || {}).length) + " termo(s)\n" +
-        "· aba termos_interior: " + (lidos.termos_interior !== undefined ? lidos.termos_interior : Object.keys(termos.interior || {}).length) + " termo(s)\n\n" +
+      var resumo = "Planilha-ponte" + (lidos.aba ? ' (aba "' + lidos.aba + '", ' + lidos.linhas + " linhas)" : "") + ":\n" +
+        "· cadastros de bolsista: " + (lidos.cadastros !== undefined ? lidos.cadastros : totalCad) + " CPF(s)\n" +
+        "· termos Capital: " + (lidos.termos_capital !== undefined ? lidos.termos_capital : Object.keys(termos.capital || {}).length) + "\n" +
+        "· termos Interior: " + (lidos.termos_interior !== undefined ? lidos.termos_interior : Object.keys(termos.interior || {}).length) + "\n\n" +
         "Fichas atualizadas: " + mudancas.length + "\n" +
         "Ainda sem termo: " + semTermo +
         (semCpf ? "\nSem CPF na ficha (não dá para casar): " + semCpf : "") +
-        "\n\nSe algum número acima parecer errado, confira o IMPORTRANGE da aba " +
+        "\n\nSe algum número acima parecer errado, confira o IMPORTRANGE da coluna " +
         "correspondente antes de confiar no resultado.";
 
       if (!mudancas.length) {

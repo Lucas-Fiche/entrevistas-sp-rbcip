@@ -18,7 +18,7 @@ window.SUPABASE_CONFIG = {
   // Versão da publicação. Aparece no canto do painel e serve para conferir se o
   // navegador está com a versão nova (e não com uma cópia velha em cache).
   // Ao publicar mudanças, troque também o "?v=" dos arquivos nos .html.
-  VERSAO: "20260820f",
+  VERSAO: "20260820g",
 
   SUPABASE_URL: "https://gnqzcmzyupetpvlhsfsu.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",

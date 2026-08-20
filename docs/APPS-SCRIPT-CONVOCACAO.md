@@ -37,19 +37,21 @@ var SUPABASE_ANON_KEY = "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_";
 var EMAIL_RECIBO = "lucas@rbcip.org";
 
 // ===== Planilha-ponte lida pela aba Formação =====
-// O script lê UMA planilha só: a "ponte", que você cria e alimenta com
-// IMPORTRANGE a partir das planilhas oficiais. Assim o script nunca depende do
-// layout delas, e enxerga apenas CPF e link do termo.
+// O script lê UMA planilha só: a "ponte" (Dados para o Sistema), que você
+// alimenta com IMPORTRANGE a partir das planilhas oficiais. Assim o script
+// nunca depende do layout delas e enxerga apenas CPF e link do termo.
 // O ID é o trecho da URL entre /d/ e /edit. Fica SÓ AQUI, nunca no repositório.
 var PLANILHA_PONTE = "";
 
-// Abas da ponte. Em todas, a linha 1 é cabeçalho.
-//   cadastros       -> coluna A: CPF de quem preencheu o Cadastro de Bolsista
-//   termos_capital  -> coluna A: CPF   |   coluna B: link do termo
-//   termos_interior -> idem
-var ABA_CADASTROS = "cadastros";
-var ABA_TERMOS_CAPITAL = "termos_capital";
-var ABA_TERMOS_INTERIOR = "termos_interior";
+// Nome da aba da ponte. Deixe "" para usar a primeira.
+// (O script informa no resumo qual aba leu — confira sempre que o número
+//  parecer estranho: ler a aba errada é o erro que não dá mensagem.)
+var ABA_PONTE = "";
+
+// Colunas da ponte (linha 1 = cabeçalho):
+//   A: CPF do Cadastro de Bolsista
+//   B: CPF Capital    C: Link do termo — Capital
+//   D: CPF Interior   E: Link do termo — Interior
 
 // Health-check simples (abrir a URL no navegador deve mostrar {"ok":true}).
 function doGet() {
@@ -167,57 +169,48 @@ function limparEmail(s) {
 
 // ===== Leitura da planilha-ponte =====
 // Devolve { cadastros: [cpf…], termos: { capital: {cpf: link}, interior: {…} },
-//           lidos: {…} }. `lidos` diz quantas linhas vieram de cada aba — é o
-// que permite perceber na hora se uma aba veio vazia ou apontando para o lugar
-// errado, em vez de descobrir isso pelos dados errados no painel.
+//           lidos: {…} }. `lidos` diz qual aba foi lida e quantas linhas vieram
+// de cada coluna — é o que permite perceber na hora que algo veio do lugar
+// errado, em vez de descobrir pelos dados errados no painel.
 function dadosFormacao() {
   if (!PLANILHA_PONTE) throw new Error("Preencha PLANILHA_PONTE no script.");
   var ss = SpreadsheetApp.openById(PLANILHA_PONTE);
-  var cad = cpfsDaAba(ss, ABA_CADASTROS);
-  var cap = linksDaAba(ss, ABA_TERMOS_CAPITAL);
-  var inte = linksDaAba(ss, ABA_TERMOS_INTERIOR);
+  var sh = ABA_PONTE ? ss.getSheetByName(ABA_PONTE) : ss.getSheets()[0];
+  if (!sh) throw new Error('Aba "' + ABA_PONTE + '" nao existe na planilha-ponte.');
+
+  var ult = sh.getLastRow();
+  var nc = Math.min(5, sh.getMaxColumns());
+  var vals = ult > 1 ? sh.getRange(2, 1, ult - 1, nc).getValues() : [];
+
+  var cadastros = [], capital = {}, interior = {};
+  for (var i = 0; i < vals.length; i++) {
+    var cpfCad = apenasDigitos(vals[i][0]);
+    if (cpfCad.length === 11) cadastros.push(cpfCad);
+    juntarTermo(capital, vals[i][1], vals[i][2]);
+    juntarTermo(interior, vals[i][3], vals[i][4]);
+  }
+
   return {
-    cadastros: cad,
-    termos: { capital: cap, interior: inte },
+    cadastros: cadastros,
+    termos: { capital: capital, interior: interior },
     lidos: {
-      cadastros: cad.length,
-      termos_capital: Object.keys(cap).length,
-      termos_interior: Object.keys(inte).length,
+      aba: sh.getName(),
+      linhas: vals.length,
+      cadastros: cadastros.length,
+      termos_capital: Object.keys(capital).length,
+      termos_interior: Object.keys(interior).length,
     },
   };
 }
 
 function apenasDigitos(v) { return String(v == null ? "" : v).replace(/\D/g, ""); }
 
-// Aba com uma coluna de CPF (coluna A).
-function cpfsDaAba(ss, nome) {
-  var sh = ss.getSheetByName(nome);
-  if (!sh) throw new Error('Aba "' + nome + '" não existe na planilha-ponte.');
-  var ult = sh.getLastRow();
-  if (ult < 2) return [];
-  var vals = sh.getRange(2, 1, ult - 1, 1).getValues();
-  var out = [];
-  for (var i = 0; i < vals.length; i++) {
-    var cpf = apenasDigitos(vals[i][0]);
-    if (cpf.length === 11) out.push(cpf);
-  }
-  return out;
-}
-
-// Aba com CPF na coluna A e link do termo na coluna B.
-function linksDaAba(ss, nome) {
-  var sh = ss.getSheetByName(nome);
-  if (!sh) throw new Error('Aba "' + nome + '" não existe na planilha-ponte.');
-  var ult = sh.getLastRow();
-  if (ult < 2) return {};
-  var vals = sh.getRange(2, 1, ult - 1, 2).getValues();
-  var mapa = {};
-  for (var i = 0; i < vals.length; i++) {
-    var cpf = apenasDigitos(vals[i][0]);
-    var link = String(vals[i][1] || "").trim();
-    if (cpf.length === 11 && /^https?:\/\//i.test(link)) mapa[cpf] = link;
-  }
-  return mapa;
+// Só entra no mapa o par completo: CPF de 11 dígitos + link http(s).
+// Erros do IMPORTRANGE (#REF!, #N/A, "Loading…") caem fora sozinhos.
+function juntarTermo(mapa, cpf, link) {
+  var c = apenasDigitos(cpf);
+  var l = String(link || "").trim();
+  if (c.length === 11 && /^https?:\/\//i.test(l)) mapa[c] = l;
 }
 
 // Valida o token chamando o próprio Supabase.
