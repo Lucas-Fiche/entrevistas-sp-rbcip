@@ -304,7 +304,10 @@
     var total = 0;
     var maximo = 0;
     schema.secoes.forEach(function (s) {
-      if (s.chave === "elegibilidade") return;
+      // Só o Perfil Avaliador é pontuado. Identificação e Elegibilidade são
+      // registro administrativo: ter inscrição no SIPE ou ter sido indicado por
+      // alguém não é mérito e não pode somar ponto.
+      if (s.chave === "elegibilidade" || s.chave === "identificacao") return;
       s.perguntas.forEach(function (p) {
         if (p.tipo === "escala") {
           maximo += 5;

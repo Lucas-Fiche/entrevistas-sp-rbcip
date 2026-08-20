@@ -78,6 +78,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
 │   ├── supervisores.sql  # Supervisores por grupo/região + campos da aba Formação
+│   ├── corrigir-pontuacao.sql # Acerta entrevistas pontuadas sobre 38 em vez de 36
 │   ├── duplicados.sql    # Junta fichas duplicadas do mesmo CPF (com backup)
 │   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/
