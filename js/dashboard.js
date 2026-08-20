@@ -2417,6 +2417,98 @@
     return String(n).replace(".", ",");
   }
 
+  // ---------- Linha do tempo das entrevistas ----------
+  function isoData(d) { return d.toISOString().slice(0, 10); }
+  function ddmm(d) {
+    return String(d.getUTCDate()).padStart(2, "0") + "/" + String(d.getUTCMonth() + 1).padStart(2, "0");
+  }
+
+  // Conta entrevistas por dia. Se o período for longo, agrupa por semana para a
+  // linha não virar um serrilhado ilegível. Dias sem entrevista entram como
+  // zero, senão a linha "encurtaria" o tempo parado.
+  function serieEntrevistas(lista) {
+    var porDia = {};
+    lista.forEach(function (r) {
+      var d = String(r.data_entrevista || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      porDia[d] = (porDia[d] || 0) + 1;
+    });
+    var datas = Object.keys(porDia).sort();
+    if (datas.length < 2) return null; // com um dia só não há linha do tempo
+
+    var ini = new Date(datas[0] + "T00:00:00Z");
+    var fim = new Date(datas[datas.length - 1] + "T00:00:00Z");
+    var dias = Math.round((fim - ini) / 86400000) + 1;
+    var passo = dias > 45 ? 7 : 1;
+    var pontos = [];
+    for (var i = 0; i < dias; i += passo) {
+      var inicioBloco = new Date(ini.getTime() + i * 86400000);
+      var soma = 0;
+      for (var j = 0; j < passo && i + j < dias; j++) {
+        soma += porDia[isoData(new Date(ini.getTime() + (i + j) * 86400000))] || 0;
+      }
+      pontos.push({
+        rotulo: ddmm(inicioBloco),
+        valor: soma,
+        titulo: (passo === 1 ? "" : "Semana de ") + ddmm(inicioBloco) + ": " + soma + " entrevista(s)",
+      });
+    }
+    return { pontos: pontos, porSemana: passo > 1 };
+  }
+
+  function graficoLinha(titulo, serie) {
+    var card = el("div", { class: "grafico grafico--largo" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    if (!serie || serie.pontos.length < 2) {
+      card.appendChild(el("p", { class: "vazio", text: "É preciso ter entrevistas em pelo menos dois dias." }));
+      return card;
+    }
+    var pts = serie.pontos;
+    var max = pts.reduce(function (m, p) { return Math.max(m, p.valor); }, 0) || 1;
+    var W = 720, H = 240, ml = 34, mr = 14, mt = 14, mb = 30;
+    var larg = W - ml - mr, alt = H - mt - mb;
+    function x(i) { return ml + (pts.length === 1 ? larg / 2 : (i * larg) / (pts.length - 1)); }
+    function y(v) { return mt + alt - (v / max) * alt; }
+
+    // Eixo Y: no máximo 4 marcas, sempre em números inteiros.
+    var passoY = Math.max(1, Math.ceil(max / 4));
+    var marcas = [];
+    for (var v = 0; v <= max; v += passoY) marcas.push(v);
+    if (marcas[marcas.length - 1] !== max) marcas.push(max);
+
+    var svg = ['<svg class="linha-tempo" viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + titulo + '">'];
+    marcas.forEach(function (v) {
+      svg.push('<line class="linha-tempo__grade" x1="' + ml + '" y1="' + y(v) + '" x2="' + (W - mr) + '" y2="' + y(v) + '"/>');
+      svg.push('<text class="linha-tempo__eixo" x="' + (ml - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + "</text>");
+    });
+
+    var caminho = pts.map(function (p, i) { return x(i).toFixed(1) + "," + y(p.valor).toFixed(1); }).join(" ");
+    svg.push('<polygon class="linha-tempo__area" points="' + ml + "," + y(0) + " " + caminho + " " + (W - mr) + "," + y(0) + '"/>');
+    svg.push('<polyline class="linha-tempo__linha" points="' + caminho + '"/>');
+
+    // Rótulos do eixo X: no máximo ~8, para não embolar.
+    var salto = Math.ceil(pts.length / 8);
+    pts.forEach(function (p, i) {
+      svg.push('<circle class="linha-tempo__ponto" cx="' + x(i).toFixed(1) + '" cy="' + y(p.valor).toFixed(1) + '" r="3.5">' +
+        "<title>" + p.titulo + "</title></circle>");
+      if (i % salto === 0 || i === pts.length - 1) {
+        svg.push('<text class="linha-tempo__eixo" x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + p.rotulo + "</text>");
+      }
+    });
+    svg.push("</svg>");
+
+    var caixa = el("div", { class: "linha-tempo__caixa" });
+    caixa.innerHTML = svg.join("");
+    card.appendChild(caixa);
+    var total = pts.reduce(function (s, p) { return s + p.valor; }, 0);
+    card.appendChild(el("p", {
+      class: "linha-tempo__nota",
+      text: total + " entrevistas · " + (serie.porSemana ? "agrupadas por semana" : "por dia") +
+        " · de " + pts[0].rotulo + " a " + pts[pts.length - 1].rotulo,
+    }));
+    return card;
+  }
+
   // Lista de médias (nome + valor destacado, sem barra).
   function graficoMedia(titulo, dados) {
     var card = el("div", { class: "grafico" });
@@ -2545,7 +2637,7 @@
   // capitalCount: nº de inscritos da Capital (null = não exibir a bolha da Capital)
   function renderMapa(contagem, capitalCount) {
     var card = el("div", { class: "grafico mapa" });
-    card.appendChild(el("h3", { class: "grafico__titulo", text: "Inscritos por região (mapa)" }));
+    card.appendChild(el("h3", { class: "grafico__titulo", text: "Entrevistados por região (mapa)" }));
     card.appendChild(bandeiraSP());
 
     var maxN = 0;
@@ -2604,7 +2696,7 @@
     var lista = candidatosDaViz();
     if (!lista.length) return bloco; // sem inscrições importadas, nada a mostrar
 
-    bloco.appendChild(el("h2", { class: "viz-secao__titulo", text: "Funil do processo (inscrições)" }));
+    bloco.appendChild(el("h2", { class: "viz-secao__titulo", text: "Inscrições no SIPE" }));
 
     var resultados = lista.map(function (c) { return resultadoDoCandidato(c); });
     var convocados = lista.filter(jaConvocadoEntrevista).length;
@@ -2628,15 +2720,15 @@
 
     var grid = el("div", { class: "graficos" });
     grid.appendChild(graficoBarras("Etapas do processo", [
-      { label: "Inscritos", valor: lista.length },
-      { label: "Convocados", valor: convocados },
+      { label: "Cadastrados no SIPE", valor: lista.length },
+      { label: "Convocados p/ entrevista", valor: convocados },
       { label: "Entrevistados", valor: compareceram },
       { label: "Selecionados", valor: selecionados },
       { label: "Convocados p/ cadastro", valor: cadastro },
     ]));
 
     var perdas = [
-      { label: "Aguardando entrevista", valor: Math.max(0, aguardando) },
+      { label: "Sem agendamento", valor: Math.max(0, aguardando) },
       { label: "Não compareceram", valor: faltaram },
       { label: "Reprovados", valor: reprovados },
       { label: "E-mail inválido", valor: semEmail },
@@ -2649,7 +2741,7 @@
     var regioes = Object.keys(porRegiao)
       .map(function (nome) { return { label: nome.replace(/ \(região\)$/, ""), valor: porRegiao[nome] }; })
       .sort(function (a, b) { return b.valor - a.valor; });
-    if (regioes.length > 1) grid.appendChild(graficoBarras("Inscritos por região (interior)", regioes));
+    if (regioes.length > 1) grid.appendChild(graficoBarras("Cadastrados no SIPE por região (interior)", regioes));
 
     bloco.appendChild(grid);
     bloco.appendChild(el("p", {
@@ -2737,6 +2829,9 @@
       ? Math.round((comNota.reduce(function (s, r) { return s + r.pontuacao_total; }, 0) / comNota.length) * 10) / 10
       : "—";
 
+    // ----- Segunda seção: entrevistas realizadas no sistema -----
+    painel.appendChild(el("h2", { class: "viz-secao__titulo viz-secao__titulo--solto", text: "Entrevistas" }));
+
     // KPIs
     var stats = el("div", { class: "stats" }, [
       statCard("Entrevistas", lista.length),
@@ -2754,6 +2849,10 @@
     painel.appendChild(renderMapa(contRegiao, capitalCount));
 
     var grid = el("div", { class: "graficos" });
+
+    // Ritmo das entrevistas ao longo do tempo (ocupa a linha inteira do grid).
+    var serie = serieEntrevistas(lista);
+    if (serie) grid.appendChild(graficoLinha("Entrevistas ao longo do tempo", serie));
 
     // Inscritos por região (leitura precisa dos números do interior) — do maior ao menor
     var regioesOrdenadas = Object.keys(REGIOES)

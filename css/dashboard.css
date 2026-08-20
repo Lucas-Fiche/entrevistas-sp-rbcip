@@ -362,6 +362,7 @@ input[type="date"].viz-data {
   margin: 4px 0 16px;
   color: var(--cor-primaria);
 }
+.viz-secao__titulo--solto { margin-top: 18px; }
 .viz-secao__nota {
   margin: 4px 0 18px;
   font-size: 12.5px;
@@ -402,6 +403,47 @@ input[type="date"].viz-data {
 }
 @media (max-width: 720px) {
   .graficos { grid-template-columns: 1fr; }
+}
+
+/* ---------- Linha do tempo das entrevistas ---------- */
+.grafico--largo { grid-column: 1 / -1; }
+.linha-tempo__caixa { margin-top: 6px; }
+.linha-tempo {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+.linha-tempo__grade {
+  stroke: var(--cor-borda);
+  stroke-width: 1;
+}
+.linha-tempo__eixo {
+  fill: var(--cor-texto-suave);
+  font-size: 11px;
+  font-family: var(--fonte);
+}
+.linha-tempo__area {
+  fill: var(--cor-primaria);
+  opacity: 0.12;
+}
+.linha-tempo__linha {
+  fill: none;
+  stroke: var(--cor-primaria);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.linha-tempo__ponto {
+  fill: var(--cor-branco);
+  stroke: var(--cor-primaria);
+  stroke-width: 2;
+}
+.linha-tempo__ponto:hover { fill: var(--cor-primaria); }
+.linha-tempo__nota {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--cor-texto-suave);
 }
 
 /* ---------- Ajustes para telas pequenas (mobile) ---------- */
