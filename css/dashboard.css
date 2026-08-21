@@ -1045,6 +1045,20 @@ input[type="date"].viz-data {
 .cand-leitura__titulo { margin: 0 0 4px; font-weight: 600; font-size: 15px; }
 .cand-leitura__texto { margin: 0; font-size: 14px; color: var(--cor-texto-suave); }
 
+/* Aviso de inscrição num lado e entrevista no outro */
+.cand-outro-lado {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fdf0e3;
+  color: #8a4b08;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .cand-editado {
   display: inline-block;
   margin-left: 8px;

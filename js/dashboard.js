@@ -1109,6 +1109,14 @@
       var alvo = normStr(cand.nome);
       achadas = doTipo.filter(function (r) { return normStr(r.candidato) === alvo; });
     }
+    // Rede de segurança: quem se inscreveu para um lado e foi entrevistado para
+    // o outro (pediu para atuar na outra região) não pode ficar sem resultado.
+    // Só por CPF: é a única chave forte o bastante para cruzar os dois lados.
+    if (!achadas.length && cpf.length === 11) {
+      achadas = linhas.filter(function (r) {
+        return r.tipo !== cand.tipo && soDigitos(cpfEntrevista(r)) === cpf;
+      });
+    }
     if (!achadas.length) return null;
     // mais recente primeiro
     achadas.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
@@ -1248,9 +1256,19 @@
     // depender só do e-mail: se o endereço mudou (corrigido aqui ou na
     // plataforma), a ficha antiga precisa ser reencontrada pelo CPF — senão a
     // importação cria uma segunda ficha para a mesma pessoa.
-    var porChave = {}, porCPF = {}, porEmail = {};
+    var porChave = {}, porCPF = {}, porEmail = {}, porCPFMovido = {};
     candidatos.forEach(function (c) {
-      if (c.tipo !== tipo) return;
+      if (c.tipo !== tipo) {
+        // Ficha movida à mão para o outro lado (a pessoa se inscreveu aqui mas
+        // vai atuar lá). O CSV desta região continua trazendo essa pessoa: sem
+        // reconhecê-la, a importação criaria uma segunda ficha e a mudança
+        // seria desfeita na prática.
+        if (c.editado && c.editado.tipo) {
+          var dm = soDigitos(c.cpf);
+          if (dm.length === 11 && !porCPFMovido[dm]) porCPFMovido[dm] = c;
+        }
+        return;
+      }
       porChave[c.chave] = c;
       var d = soDigitos(c.cpf);
       if (d.length === 11 && !porCPF[d]) porCPF[d] = c;
@@ -1263,6 +1281,7 @@
       if (d.length === 11 && porCPF[d]) return porCPF[d];
       if (porChave[c.chave]) return porChave[c.chave];
       if (c.email_norm && porEmail[c.email_norm]) return porEmail[c.email_norm];
+      if (d.length === 11 && porCPFMovido[d]) return porCPFMovido[d];
       return null;
     }
 
@@ -1406,8 +1425,16 @@
       { id: "nome", rot: "Nome" },
       { id: "email", rot: "E-mail", dica: "Trocar o e-mail limpa a marca de falha de entrega e libera o reenvio." },
       { id: "cpf", rot: "CPF", cpf: true, dica: "Chave que liga a inscrição, a entrevista e a formação." },
+      {
+        // Quem se inscreveu para um lado e vai atuar no outro: mover a ficha
+        // aqui coloca a pessoa na aba certa e faz as etapas seguintes
+        // (cadastro e formação) irem para o lado correto.
+        id: "tipo", rot: "Região de atuação", opcoes: ["capital", "interior"],
+        rotulos: { capital: "Capital", interior: "Interior" },
+        dica: "Mover a ficha para o outro lado. A importação de CSV respeita esta escolha.",
+      },
+      { id: "regiao", rot: "Região (Interior)", dica: "Usada quando a atuação é no Interior." },
     ];
-    if (cand.tipo === "interior") campos.push({ id: "regiao", rot: "Região" });
     return campos.concat([
       { id: "convocacao_entrevista", rot: "Convocação entrevista", opcoes: ENVIO_OPCOES },
       { id: "data_convocacao_entrevista", rot: "Data da convocação", dica: "dd/mm/aaaa" },
@@ -1445,8 +1472,10 @@
       var entrada;
       if (c.opcoes) {
         entrada = el("select", { class: "edicao__entrada", id: "ed_" + c.id });
-        entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
-        c.opcoes.forEach(function (o) { entrada.appendChild(el("option", { value: o, text: o })); });
+        if (c.id !== "tipo") entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
+        c.opcoes.forEach(function (o) {
+          entrada.appendChild(el("option", { value: o, text: (c.rotulos && c.rotulos[o]) || o }));
+        });
         // Valor fora da lista (veio da planilha): entra como opção extra.
         if (cand[c.id] && c.opcoes.indexOf(cand[c.id]) === -1) {
           entrada.appendChild(el("option", { value: cand[c.id], text: cand[c.id] }));
@@ -2024,6 +2053,17 @@
       var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
       if (ent) {
         tdRes.appendChild(tagResultado(res, "sistema"));
+        // Entrevista feita do outro lado: avisa, porque as etapas seguintes
+        // (cadastro e formação) vão para o lado da FICHA, não da entrevista.
+        if (ent.tipo !== c.tipo) {
+          tdRes.appendChild(el("span", {
+            class: "cand-outro-lado",
+            title: "A inscrição é de " + (c.tipo === "capital" ? "Capital" : "Interior") +
+              ", mas a entrevista foi feita no formulário de " + (ent.tipo === "capital" ? "Capital" : "Interior") +
+              ". Se ela vai mesmo atuar do outro lado, altere a região de atuação em Editar.",
+            text: "⇄ entrevista: " + (ent.tipo === "capital" ? "Capital" : "Interior"),
+          }));
+        }
       } else if (c.resultado_entrevista) {
         tdRes.appendChild(tagResultado(c.resultado_entrevista, "planilha"));
       } else {
