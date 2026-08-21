@@ -1622,18 +1622,20 @@
     return (tipo === "interior" ? cfg.PLATAFORMA_CADASTRO_INTERIOR : cfg.PLATAFORMA_CADASTRO_CAPITAL) || "";
   }
   function emailCadastroRegiao(cand, tipoCerto) {
-    var certo = nomeRegiao(tipoCerto);
+    var errado = tipoCerto === "interior" ? "capital" : "interior";
     return {
       para: cand.email,
-      assunto: "Cadastro na plataforma - Processo Seletivo RBCIP (" + certo + ")",
+      assunto: "Inscrição no projeto " + doRegiao(tipoCerto) + " - Processo Seletivo RBCIP",
       corpo:
         "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
-        "Sou o Lucas, da RBCIP. Obrigado pela sua participação na entrevista.\n\n" +
-        "Na entrevista ficou registrado o seu interesse em atuar no projeto " + doRegiao(tipoCerto) +
-        ", mas o seu cadastro na plataforma foi feito no projeto " + doRegiao(tipoCerto === "interior" ? "capital" : "interior") +
-        ". Como cada projeto tem o seu próprio cadastro, precisamos que você refaça o cadastro no link correto para seguirmos com as próximas etapas:\n\n" +
-        "Cadastro na plataforma (" + certo + "): " + linkPlataforma(tipoCerto) + "\n\n" +
-        "É o mesmo preenchimento que você já fez, apenas no link do projeto certo. Assim que concluir, damos sequência ao seu processo.\n\n" +
+        "Sou o Lucas, da RBCIP. Obrigado pela sua participação em nossa entrevista.\n\n" +
+        "Na entrevista, foi registrado o seu interesse em atuar no projeto " + doRegiao(tipoCerto) +
+        ". Como a sua inscrição na plataforma foi feita no projeto " + doRegiao(errado) +
+        ", e cada projeto tem a sua própria inscrição, precisamos que você se inscreva no projeto " +
+        doRegiao(tipoCerto) + " para seguirmos com as próximas etapas:\n\n" +
+        "Inscrição na plataforma (" + nomeRegiao(tipoCerto) + "): " + linkPlataforma(tipoCerto) + "\n\n" +
+        "É o mesmo formulário que você já preencheu, apenas no link do projeto correto. Não é necessário " +
+        "fazer uma nova entrevista: assim que a inscrição for concluída, damos sequência ao seu processo.\n\n" +
         "Caso tenha alguma dúvida, fique à vontade para responder a este e-mail.\n\n" +
         "Atenciosamente,",
     };
@@ -1790,11 +1792,12 @@
     var resAtual = resultadoDoCandidato(cand, casarEntrevista(cand));
     if (!confirm(
       (jaPedido ? "REENVIAR" : "Enviar") + " para " + (cand.nome || "") + " (" + cand.email + ")\n" +
-      "o pedido de cadastro na plataforma " + doRegiao(tipoCerto) + "?\n\n" +
+      "a solicitação de inscrição no projeto " + doRegiao(tipoCerto) + "?\n\n" +
       "Link: " + link + "\n" +
       "Resultado da entrevista: " + (resAtual || "—") + "\n\n" +
-      "A pessoa refaz o cadastro no projeto certo e passa a aparecer na aba de " +
-      nomeRegiao(tipoCerto) + " na próxima importação de CSV."
+      "A pessoa se inscreve no projeto certo e passa a aparecer na aba de " +
+      nomeRegiao(tipoCerto) + " na próxima importação de CSV. A convocação para o " +
+      "cadastro de bolsista sai de lá."
     )) return;
 
     carregandoConvocacao(btn, true);
@@ -1815,9 +1818,9 @@
         ["pedido_regiao", "email_bounce"]
       ).then(function (r) {
         renderPainelCandidatos();
-        var aviso = "Pedido de cadastro enviado.\n\n" + resumoEnvio(res, enviados, 1) +
-          "\n\nQuando " + (primeiroNome(cand.nome) || "a pessoa") + " refizer o cadastro, ela aparece na aba de " +
-          nomeRegiao(tipoCerto) + " na próxima importação — e o painel marca aqui que o recadastro saiu.";
+        var aviso = "Solicitação de inscrição enviada.\n\n" + resumoEnvio(res, enviados, 1) +
+          "\n\nQuando a inscrição " + emRegiao(tipoCerto) + " for feita, ela chega na próxima " +
+          "importação de CSV — e a convocação para o cadastro de bolsista passa a sair de lá.";
         if (r.ignorados.indexOf("pedido_regiao") !== -1) {
           aviso += "\n\n⚠ O envio não ficou registrado no banco: rode sql/regiao-divergente.sql " +
             "no Supabase para criar a coluna. A marca some ao atualizar a página.";
@@ -1912,8 +1915,8 @@
     var alertaLado = (entCad && entCad.tipo !== cand.tipo)
       ? "\n\nATENÇÃO: a entrevista foi feita no formulário " + doRegiao(entCad.tipo) +
         ", mas esta ficha é " + doRegiao(cand.tipo) + ". Convocando por aqui, a ficha de " +
-        "formação nasce " + emRegiao(cand.tipo) + ". Para seguir " + emRegiao(entCad.tipo) +
-        ", use o botão \"Pedir cadastro\" na coluna Resultado."
+        "formação nasce " + emRegiao(cand.tipo) + " — com o supervisor e a planilha de controle " +
+        "dessa região."
       : "";
     if (!confirm((reenvioCad ? "REENVIAR" : "Enviar") + " a convocação de CADASTRO para " +
       (cand.nome || "") + " (" + cand.email + ")?" + alertaLado)) return;
@@ -2200,23 +2203,18 @@
           if (recadastrada) {
             caixa.appendChild(el("span", {
               class: "cand-recadastrado",
-              title: "A pessoa refez o cadastro na plataforma e já tem ficha na aba de " +
+              title: "A inscrição " + emRegiao(certo) + " foi feita e já existe ficha na aba de " +
                 nomeRegiao(certo) + ". As próximas etapas seguem por lá.",
-              text: "✓ recadastrada " + emRegiao(certo),
+              text: "✓ inscrição feita " + emRegiao(certo),
             }));
           } else if (c.pedido_regiao && c.pedido_regiao.em) {
             caixa.appendChild(el("span", {
               class: "cand-pedido",
-              title: "Pedido de cadastro " + emRegiao(c.pedido_regiao.tipo || certo) + " enviado em " +
+              title: "Solicitação de inscrição " + emRegiao(c.pedido_regiao.tipo || certo) + " enviada em " +
                 c.pedido_regiao.em + (c.pedido_regiao.por ? " por " + c.pedido_regiao.por : "") +
-                ". Assim que ela refizer o cadastro, aparece aqui a marca de recadastrada.",
-              text: "✉ cadastro pedido em " + c.pedido_regiao.em,
+                ". Assim que a inscrição for feita, aparece aqui a marca de inscrição concluída.",
+              text: "✉ inscrição solicitada em " + c.pedido_regiao.em,
             }));
-            if (ehAdmin() && c.email) {
-              caixa.appendChild(botaoPedirCadastro(c, certo, "✉ Reenviar pedido"));
-            }
-          } else if (ehAdmin() && c.email) {
-            caixa.appendChild(botaoPedirCadastro(c, certo, "✉ Pedir cadastro " + emRegiao(certo)));
           }
           tdRes.appendChild(caixa);
         }
@@ -2250,16 +2248,29 @@
         // duas vezes na Formação, e do lado errado.
         tdConvC.appendChild(el("span", {
           class: "cand-pendente",
-          title: "A pessoa refez o cadastro e tem ficha na aba de " + nomeRegiao(recadastrada.tipo) +
-            ". Convoque para o cadastro de bolsista por lá.",
+          title: "A inscrição " + emRegiao(recadastrada.tipo) + " foi feita e tem ficha na aba de " +
+            nomeRegiao(recadastrada.tipo) + ". Convoque para o cadastro de bolsista por lá.",
           text: "→ convocar " + emRegiao(recadastrada.tipo),
         }));
+      } else if (selecionado && ent && ent.tipo !== c.tipo) {
+        // Inscrição de um lado, entrevista do outro: o próximo passo NÃO é
+        // convocar daqui (a ficha de formação nasceria na região errada) — é a
+        // pessoa se inscrever no projeto certo. Por isso o botão é outro.
+        var certoCad = ent.tipo;
+        var jaSolicitado = !!(c.pedido_regiao && c.pedido_regiao.em);
+        if (ehAdmin() && c.email) {
+          tdConvC.appendChild(botaoPedirCadastro(c, certoCad,
+            jaSolicitado ? "✉ Reenviar solicitação" : "✉ Solicitar inscrição " + emRegiao(certoCad)));
+        } else {
+          tdConvC.appendChild(el("span", {
+            class: "cand-pendente",
+            title: "A entrevista foi feita no formulário " + doRegiao(certoCad) +
+              ". A pessoa precisa se inscrever na plataforma " + doRegiao(certoCad) + " antes da convocação.",
+            text: "aguarda inscrição " + emRegiao(certoCad),
+          }));
+        }
       } else if (selecionado) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
-        if (ent && ent.tipo !== c.tipo) {
-          btnCad.title = "Atenção: a entrevista foi feita no formulário " + doRegiao(ent.tipo) +
-            ". Convocando por aqui, a ficha de formação nasce " + emRegiao(c.tipo) + ".";
-        }
         btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
         tdConvC.appendChild(btnCad);
       } else {

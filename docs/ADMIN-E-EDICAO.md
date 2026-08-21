@@ -139,44 +139,51 @@ bastante para cruzar as duas bases — e a linha ganha o aviso
 **⇄ entrevista: Interior** na coluna *Resultado*. Assim o resultado aparece e a
 pessoa não some do funil, mas fica visível que há uma divergência.
 
-### O caminho certo: pedir o recadastro
+### O caminho certo: pedir a inscrição na região certa
 
-Ao lado do aviso aparece o botão **✉ Pedir cadastro no Interior** (ou *na
-Capital*). Ele envia à pessoa um e-mail explicando a situação com o link do
-cadastro da plataforma do projeto certo:
+Na coluna **Convocação cadastro**, o botão *Convocar cadastro* **não aparece**
+nesse caso — no lugar dele vem **✉ Solicitar inscrição no Interior** (ou *na
+Capital*). É de propósito: convocar dali criaria a ficha de formação na região
+da inscrição, com o supervisor e a planilha de controle errados. Enquanto a
+inscrição certa não existir, o único próximo passo possível é pedi-la.
+
+O botão envia à pessoa um e-mail explicando a situação com o link de inscrição
+da plataforma do projeto certo:
 
 | Projeto | Link enviado |
 |---|---|
 | Capital | `PLATAFORMA_CADASTRO_CAPITAL` (em `js/config.js`) |
 | Interior | `PLATAFORMA_CADASTRO_INTERIOR` |
 
-A ideia é justamente **não remendar o cadastro por dentro do sistema**: a
-inscrição nasce certa na origem, e daí para frente todas as etapas — região,
-supervisor, planilha de controle e termo de bolsa — seguem sozinhas pelo lado
-correto.
+A ideia é justamente **não remendar a inscrição por dentro do sistema**: ela
+nasce certa na origem, e daí para frente todas as etapas — região, supervisor,
+planilha de controle e termo de bolsa — seguem sozinhas pelo lado correto.
 
-Depois do envio, o aviso vira **✉ cadastro pedido em dd/mm/aaaa** (com quem
-enviou no "passe o mouse") e o botão passa a ser *Reenviar pedido*. Quando a
-pessoa refizer o cadastro e você importar o CSV daquela região, a linha antiga
-mostra **✓ recadastrada no Interior** e o botão *Convocar cadastro* dela dá
-lugar a **→ convocar no Interior** — a convocação sai pela ficha nova, para a
-pessoa não entrar duas vezes na Formação.
+O e-mail avisa que **não é preciso repetir a entrevista** — é só a inscrição.
+
+Depois do envio, a coluna *Resultado* ganha a marca **✉ inscrição solicitada em
+dd/mm/aaaa** (com quem enviou no "passe o mouse") e o botão passa a ser
+*Reenviar solicitação*. Quando a pessoa se inscrever e você importar o CSV
+daquela região, a linha antiga mostra **✓ inscrição feita no Interior** e o
+botão dá lugar a **→ convocar no Interior**: a convocação sai pela ficha nova,
+para a pessoa não entrar duas vezes na Formação.
 
 Para o registro do pedido ficar gravado, rode **`sql/regiao-divergente.sql`**.
 Sem ele o e-mail continua sendo enviado; só não fica a marca (o painel avisa
 quando é esse o caso).
 
-### Quando o recadastro não é o caminho
+### Quando a nova inscrição não é o caminho
 
-Se a pessoa não vai refazer o cadastro, dá para resolver à mão: em **✎ Editar**
+Se a pessoa não vai se inscrever de novo, dá para resolver à mão: em **✎ Editar**
 há o campo **Região de atuação** (Capital / Interior). Mudando ali, a ficha
-inteira muda de aba e a ficha de formação nasce do lado certo. A importação
+inteira muda de aba, a divergência deixa de existir e o botão *Convocar
+cadastro* volta — com a ficha de formação nascendo do lado certo. A importação
 reconhece pelo CPF as fichas movidas assim, então o CSV da região original
 **não** recria a pessoa do lado antigo.
 
-E se você convocar para o cadastro pelo lado errado mesmo assim, a confirmação
-avisa antes: a ficha de formação nasceria na região da **ficha**, não na da
-entrevista.
+Esse é o único jeito de convocar o cadastro de quem está com a inscrição
+divergente — e é honesto: você está declarando que a pessoa mudou de região, em
+vez de mandar uma convocação que criaria a ficha na região errada.
 
 ---
 

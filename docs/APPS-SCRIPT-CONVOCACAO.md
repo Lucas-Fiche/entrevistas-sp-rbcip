@@ -408,7 +408,7 @@ formulário de Cadastro de Bolsista já vêm preenchidos — confira se estão c
 
 Há ainda `PLATAFORMA_CADASTRO_CAPITAL` e `PLATAFORMA_CADASTRO_INTERIOR`: são os
 links em que a pessoa **se cadastra na plataforma**, um por projeto. O painel os
-usa no botão *Pedir cadastro*, quando alguém se cadastrou numa região e foi
+usa no botão *Solicitar inscrição*, quando alguém se cadastrou numa região e foi
 entrevistado na outra (veja `docs/ADMIN-E-EDICAO.md`).
 
 Salve, faça o commit/deploy e recarregue o painel (Ctrl+Shift+R). Pronto: os
