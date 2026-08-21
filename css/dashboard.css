@@ -1045,10 +1045,31 @@ input[type="date"].viz-data {
 .cand-leitura__titulo { margin: 0 0 4px; font-weight: 600; font-size: 15px; }
 .cand-leitura__texto { margin: 0; font-size: 14px; color: var(--cor-texto-suave); }
 
-/* Aviso de inscrição num lado e entrevista no outro */
+/* Aviso de inscrição num lado e entrevista no outro (+ ação de correção) */
+.cand-divergencia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+.cand-pedido {
+  color: var(--cor-primaria);
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: help;
+}
+.cand-recadastrado {
+  color: var(--cor-sucesso);
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: help;
+}
+.cand-pedir { white-space: nowrap; }
 .cand-outro-lado {
   display: inline-block;
-  margin-left: 8px;
   padding: 2px 8px;
   border-radius: 999px;
   background: #fdf0e3;

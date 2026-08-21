@@ -406,6 +406,11 @@ CONVOCACAO_BACKEND_URL: "COLE_AQUI_A_URL_DO_WEB_APP",   // termina em /exec
 Os links de agendamento da entrevista (`AGENDA_LINKS`, 3 opções) e o link do
 formulário de Cadastro de Bolsista já vêm preenchidos — confira se estão corretos.
 
+Há ainda `PLATAFORMA_CADASTRO_CAPITAL` e `PLATAFORMA_CADASTRO_INTERIOR`: são os
+links em que a pessoa **se cadastra na plataforma**, um por projeto. O painel os
+usa no botão *Pedir cadastro*, quando alguém se cadastrou numa região e foi
+entrevistado na outra (veja `docs/ADMIN-E-EDICAO.md`).
+
 Salve, faça o commit/deploy e recarregue o painel (Ctrl+Shift+R). Pronto: os
 botões de convocação passam a enviar de verdade.
 

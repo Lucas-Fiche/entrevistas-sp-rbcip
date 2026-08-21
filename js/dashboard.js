@@ -1611,6 +1611,34 @@
     };
   }
 
+  // Pedido de cadastro na região certa. Quando a pessoa se cadastrou na
+  // plataforma de um lado e foi entrevistada no outro, o caminho não é o
+  // sistema remendar o cadastro por dentro: é ela refazer o cadastro no link
+  // do projeto certo, para que a inscrição nasça correta na origem.
+  function nomeRegiao(tipo) { return tipo === "interior" ? "Interior" : "Capital"; }
+  function emRegiao(tipo) { return tipo === "interior" ? "no Interior" : "na Capital"; }
+  function doRegiao(tipo) { return tipo === "interior" ? "do Interior" : "da Capital"; }
+  function linkPlataforma(tipo) {
+    return (tipo === "interior" ? cfg.PLATAFORMA_CADASTRO_INTERIOR : cfg.PLATAFORMA_CADASTRO_CAPITAL) || "";
+  }
+  function emailCadastroRegiao(cand, tipoCerto) {
+    var certo = nomeRegiao(tipoCerto);
+    return {
+      para: cand.email,
+      assunto: "Cadastro na plataforma - Processo Seletivo RBCIP (" + certo + ")",
+      corpo:
+        "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
+        "Sou o Lucas, da RBCIP. Obrigado pela sua participação na entrevista.\n\n" +
+        "Na entrevista ficou registrado o seu interesse em atuar no projeto " + doRegiao(tipoCerto) +
+        ", mas o seu cadastro na plataforma foi feito no projeto " + doRegiao(tipoCerto === "interior" ? "capital" : "interior") +
+        ". Como cada projeto tem o seu próprio cadastro, precisamos que você refaça o cadastro no link correto para seguirmos com as próximas etapas:\n\n" +
+        "Cadastro na plataforma (" + certo + "): " + linkPlataforma(tipoCerto) + "\n\n" +
+        "É o mesmo preenchimento que você já fez, apenas no link do projeto certo. Assim que concluir, damos sequência ao seu processo.\n\n" +
+        "Caso tenha alguma dúvida, fique à vontade para responder a este e-mail.\n\n" +
+        "Atenciosamente,",
+    };
+  }
+
   // Envia via Web App do Apps Script (que valida o login e manda pelo Gmail).
   // Chamada genérica ao Web App do Apps Script (envia o token de login junto).
   function chamarBackend(extra) {
@@ -1730,6 +1758,98 @@
     }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
   }
 
+  // Update que sobrevive a uma coluna que ainda não existe no banco: se o
+  // Postgres recusar um campo novo, regrava sem ele em vez de perder tudo (o
+  // e-mail já saiu — não dá para desfazer o envio por causa de um SQL pendente).
+  function atualizarResiliente(tabela, id, patch, opcionais) {
+    return client.from(tabela).update(patch).eq("id", id).then(function (resp) {
+      if (!resp.error) return { ignorados: [] };
+      var msg = String(resp.error.message || "");
+      var faltando = (opcionais || []).filter(function (campo) { return msg.indexOf(campo) !== -1; });
+      if (!faltando.length) throw resp.error;
+      var limpo = {};
+      Object.keys(patch).forEach(function (k) { if (faltando.indexOf(k) === -1) limpo[k] = patch[k]; });
+      return client.from(tabela).update(limpo).eq("id", id).then(function (r2) {
+        if (r2.error) throw r2.error;
+        return { ignorados: faltando };
+      });
+    });
+  }
+
+  // Pede à pessoa que refaça o cadastro na plataforma do projeto certo.
+  function pedirCadastroRegiao(cand, tipoCerto, btn) {
+    if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
+    if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
+    var link = linkPlataforma(tipoCerto);
+    if (!link) {
+      alert("Falta o link de cadastro da plataforma para " + nomeRegiao(tipoCerto) +
+        ".\nPreencha PLATAFORMA_CADASTRO_" + tipoCerto.toUpperCase() + " em js/config.js.");
+      return;
+    }
+    var jaPedido = !!(cand.pedido_regiao && cand.pedido_regiao.em);
+    var resAtual = resultadoDoCandidato(cand, casarEntrevista(cand));
+    if (!confirm(
+      (jaPedido ? "REENVIAR" : "Enviar") + " para " + (cand.nome || "") + " (" + cand.email + ")\n" +
+      "o pedido de cadastro na plataforma " + doRegiao(tipoCerto) + "?\n\n" +
+      "Link: " + link + "\n" +
+      "Resultado da entrevista: " + (resAtual || "—") + "\n\n" +
+      "A pessoa refaz o cadastro no projeto certo e passa a aparecer na aba de " +
+      nomeRegiao(tipoCerto) + " na próxima importação de CSV."
+    )) return;
+
+    carregandoConvocacao(btn, true);
+    enviarConvocacao([emailCadastroRegiao(cand, tipoCerto)]).then(function (res) {
+      var enviados = (res && typeof res.enviados === "number") ? res.enviados : 1;
+      if (enviados <= 0) {
+        renderPainelCandidatos();
+        alert("Nenhum e-mail foi enviado — nada foi marcado.\n" + diagnosticoEnvio(res));
+        return;
+      }
+      var pedido = { em: hojeBR(), tipo: tipoCerto, por: usuarioEmail || null };
+      cand.pedido_regiao = pedido;
+      cand.email_bounce = null; // chegou com o endereço atual
+      return atualizarResiliente(
+        candTabela(),
+        cand.id,
+        { pedido_regiao: pedido, email_bounce: null, updated_at: new Date().toISOString() },
+        ["pedido_regiao", "email_bounce"]
+      ).then(function (r) {
+        renderPainelCandidatos();
+        var aviso = "Pedido de cadastro enviado.\n\n" + resumoEnvio(res, enviados, 1) +
+          "\n\nQuando " + (primeiroNome(cand.nome) || "a pessoa") + " refizer o cadastro, ela aparece na aba de " +
+          nomeRegiao(tipoCerto) + " na próxima importação — e o painel marca aqui que o recadastro saiu.";
+        if (r.ignorados.indexOf("pedido_regiao") !== -1) {
+          aviso += "\n\n⚠ O envio não ficou registrado no banco: rode sql/regiao-divergente.sql " +
+            "no Supabase para criar a coluna. A marca some ao atualizar a página.";
+        }
+        alert(aviso);
+      });
+    }).catch(function (e) { renderPainelCandidatos(); alert("Não foi possível enviar: " + (e.message || e)); });
+  }
+
+  function botaoPedirCadastro(cand, tipoCerto, rotulo) {
+    var b = el("button", { class: "btn btn--secundario btn--pequeno cand-pedir", type: "button", text: rotulo });
+    b.addEventListener("click", function () { pedirCadastroRegiao(cand, tipoCerto, b); });
+    return b;
+  }
+
+  // A pessoa já tem ficha do outro lado? (recadastro concluído na plataforma).
+  // Casa por CPF; sem CPF, pelo e-mail normalizado.
+  function fichaDoOutroLado(cand) {
+    var cpf = soDigitos(cand.cpf);
+    var mail = cand.email_norm || normEmail(cand.email);
+    if (cpf.length !== 11 && !mail) return null;
+    var achada = null;
+    candidatos.forEach(function (o) {
+      if (achada || o.tipo === cand.tipo || o.id === cand.id) return;
+      var mesmo = cpf.length === 11
+        ? soDigitos(o.cpf) === cpf
+        : (o.email_norm || normEmail(o.email)) === mail;
+      if (mesmo) achada = o;
+    });
+    return achada;
+  }
+
   // Telefone da inscrição: a plataforma guarda DDD e número em colunas separadas.
   function telefoneDaInscricao(row) {
     var ddd = soDigitos(pegaCol(row || {}, ["Telefone (que tenha WhatsApp) - DDD", "DDD"]));
@@ -1786,8 +1906,17 @@
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
     var reenvioCad = !!cand.email_bounce;
+    // Entrevista de um lado e ficha do outro: convocar por aqui manda a pessoa
+    // para a formação do lado errado. Avisa antes, não depois.
+    var entCad = casarEntrevista(cand);
+    var alertaLado = (entCad && entCad.tipo !== cand.tipo)
+      ? "\n\nATENÇÃO: a entrevista foi feita no formulário " + doRegiao(entCad.tipo) +
+        ", mas esta ficha é " + doRegiao(cand.tipo) + ". Convocando por aqui, a ficha de " +
+        "formação nasce " + emRegiao(cand.tipo) + ". Para seguir " + emRegiao(entCad.tipo) +
+        ", use o botão \"Pedir cadastro\" na coluna Resultado."
+      : "";
     if (!confirm((reenvioCad ? "REENVIAR" : "Enviar") + " a convocação de CADASTRO para " +
-      (cand.nome || "") + " (" + cand.email + ")?")) return;
+      (cand.nome || "") + " (" + cand.email + ")?" + alertaLado)) return;
 
     carregandoConvocacao(btn, true);
     enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function (res) {
@@ -2051,18 +2180,45 @@
       // Resultado: prioriza a entrevista casada (sistema); senão o valor da planilha.
       var res = resultadoDoCandidato(c, ent);
       var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
+      // Recadastro já feito do outro lado? Se sim, esta ficha é só o histórico
+      // do cadastro errado — quem manda dali para frente é a ficha de lá.
+      var recadastrada = (ent && ent.tipo !== c.tipo) ? fichaDoOutroLado(c) : null;
       if (ent) {
         tdRes.appendChild(tagResultado(res, "sistema"));
         // Entrevista feita do outro lado: avisa, porque as etapas seguintes
         // (cadastro e formação) vão para o lado da FICHA, não da entrevista.
         if (ent.tipo !== c.tipo) {
-          tdRes.appendChild(el("span", {
+          var certo = ent.tipo;
+          var caixa = el("div", { class: "cand-divergencia" });
+          caixa.appendChild(el("span", {
             class: "cand-outro-lado",
-            title: "A inscrição é de " + (c.tipo === "capital" ? "Capital" : "Interior") +
-              ", mas a entrevista foi feita no formulário de " + (ent.tipo === "capital" ? "Capital" : "Interior") +
-              ". Se ela vai mesmo atuar do outro lado, altere a região de atuação em Editar.",
-            text: "⇄ entrevista: " + (ent.tipo === "capital" ? "Capital" : "Interior"),
+            title: "A inscrição é " + doRegiao(c.tipo) +
+              ", mas a entrevista foi feita no formulário " + doRegiao(certo) +
+              ". O caminho certo é a pessoa refazer o cadastro na plataforma " + doRegiao(certo) + ".",
+            text: "⇄ entrevista: " + nomeRegiao(certo),
           }));
+          if (recadastrada) {
+            caixa.appendChild(el("span", {
+              class: "cand-recadastrado",
+              title: "A pessoa refez o cadastro na plataforma e já tem ficha na aba de " +
+                nomeRegiao(certo) + ". As próximas etapas seguem por lá.",
+              text: "✓ recadastrada " + emRegiao(certo),
+            }));
+          } else if (c.pedido_regiao && c.pedido_regiao.em) {
+            caixa.appendChild(el("span", {
+              class: "cand-pedido",
+              title: "Pedido de cadastro " + emRegiao(c.pedido_regiao.tipo || certo) + " enviado em " +
+                c.pedido_regiao.em + (c.pedido_regiao.por ? " por " + c.pedido_regiao.por : "") +
+                ". Assim que ela refizer o cadastro, aparece aqui a marca de recadastrada.",
+              text: "✉ cadastro pedido em " + c.pedido_regiao.em,
+            }));
+            if (ehAdmin() && c.email) {
+              caixa.appendChild(botaoPedirCadastro(c, certo, "✉ Reenviar pedido"));
+            }
+          } else if (ehAdmin() && c.email) {
+            caixa.appendChild(botaoPedirCadastro(c, certo, "✉ Pedir cadastro " + emRegiao(certo)));
+          }
+          tdRes.appendChild(caixa);
         }
       } else if (c.resultado_entrevista) {
         tdRes.appendChild(tagResultado(c.resultado_entrevista, "planilha"));
@@ -2089,8 +2245,21 @@
           btnReCad.addEventListener("click", function () { convocarCadastro(c, btnReCad); });
           tdConvC.appendChild(btnReCad);
         }
+      } else if (selecionado && recadastrada) {
+        // Já existe ficha do lado certo: convocar por aqui criaria a pessoa
+        // duas vezes na Formação, e do lado errado.
+        tdConvC.appendChild(el("span", {
+          class: "cand-pendente",
+          title: "A pessoa refez o cadastro e tem ficha na aba de " + nomeRegiao(recadastrada.tipo) +
+            ". Convoque para o cadastro de bolsista por lá.",
+          text: "→ convocar " + emRegiao(recadastrada.tipo),
+        }));
       } else if (selecionado) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
+        if (ent && ent.tipo !== c.tipo) {
+          btnCad.title = "Atenção: a entrevista foi feita no formulário " + doRegiao(ent.tipo) +
+            ". Convocando por aqui, a ficha de formação nasce " + emRegiao(c.tipo) + ".";
+        }
         btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
         tdConvC.appendChild(btnCad);
       } else {

@@ -127,7 +127,60 @@ e-mail, CPF e região quando o arquivo vier sem eles.
 
 ---
 
-## 5. Ordem das tabelas
+## 5. Cadastro numa região e entrevista na outra
+
+Acontece: a pessoa se cadastra na plataforma pelo link da Capital e, na
+entrevista, pede para atuar no Interior. Como cada projeto tem o seu próprio
+cadastro, a inscrição fica de um lado e a entrevista do outro.
+
+O sistema **não finge que está tudo certo**. Quando não acha entrevista do
+mesmo lado, ele procura no outro — só por **CPF**, a única chave forte o
+bastante para cruzar as duas bases — e a linha ganha o aviso
+**⇄ entrevista: Interior** na coluna *Resultado*. Assim o resultado aparece e a
+pessoa não some do funil, mas fica visível que há uma divergência.
+
+### O caminho certo: pedir o recadastro
+
+Ao lado do aviso aparece o botão **✉ Pedir cadastro no Interior** (ou *na
+Capital*). Ele envia à pessoa um e-mail explicando a situação com o link do
+cadastro da plataforma do projeto certo:
+
+| Projeto | Link enviado |
+|---|---|
+| Capital | `PLATAFORMA_CADASTRO_CAPITAL` (em `js/config.js`) |
+| Interior | `PLATAFORMA_CADASTRO_INTERIOR` |
+
+A ideia é justamente **não remendar o cadastro por dentro do sistema**: a
+inscrição nasce certa na origem, e daí para frente todas as etapas — região,
+supervisor, planilha de controle e termo de bolsa — seguem sozinhas pelo lado
+correto.
+
+Depois do envio, o aviso vira **✉ cadastro pedido em dd/mm/aaaa** (com quem
+enviou no "passe o mouse") e o botão passa a ser *Reenviar pedido*. Quando a
+pessoa refizer o cadastro e você importar o CSV daquela região, a linha antiga
+mostra **✓ recadastrada no Interior** e o botão *Convocar cadastro* dela dá
+lugar a **→ convocar no Interior** — a convocação sai pela ficha nova, para a
+pessoa não entrar duas vezes na Formação.
+
+Para o registro do pedido ficar gravado, rode **`sql/regiao-divergente.sql`**.
+Sem ele o e-mail continua sendo enviado; só não fica a marca (o painel avisa
+quando é esse o caso).
+
+### Quando o recadastro não é o caminho
+
+Se a pessoa não vai refazer o cadastro, dá para resolver à mão: em **✎ Editar**
+há o campo **Região de atuação** (Capital / Interior). Mudando ali, a ficha
+inteira muda de aba e a ficha de formação nasce do lado certo. A importação
+reconhece pelo CPF as fichas movidas assim, então o CSV da região original
+**não** recria a pessoa do lado antigo.
+
+E se você convocar para o cadastro pelo lado errado mesmo assim, a confirmação
+avisa antes: a ficha de formação nasceria na região da **ficha**, não na da
+entrevista.
+
+---
+
+## 6. Ordem das tabelas
 
 As abas **Candidatos** e **Formação** são exibidas na mesma ordem do CSV
 importado — a ordem em que as pessoas se inscreveram ou entraram no projeto.
@@ -136,7 +189,7 @@ o rodapé de cada tabela mostra qual ordem está em uso.
 
 ---
 
-## 6. Largura da tela
+## 7. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A

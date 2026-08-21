@@ -80,6 +80,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── supervisores.sql  # Supervisores por grupo/região + campos da aba Formação
 │   ├── corrigir-pontuacao.sql # Acerta entrevistas pontuadas sobre 38 em vez de 36
 │   ├── sincronizacoes.sql # Registro das sincronizações (manuais e automáticas)
+│   ├── regiao-divergente.sql # Registro do pedido de recadastro na região certa
 │   ├── duplicados.sql    # Junta fichas duplicadas do mesmo CPF (com backup)
 │   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/
@@ -89,7 +90,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
     ├── GUIA-ENTREVISTADORES.md    # Guia simples para quem faz as entrevistas
     ├── APPS-SCRIPT-CONVOCACAO.md  # Envio automático dos e-mails de convocação
     ├── ABA-FORMACAO.md            # Aba Formação + o CPF como chave do sistema
-    └── ADMIN-E-EDICAO.md          # Super admin, edição das fichas e largura da tela
+    └── ADMIN-E-EDICAO.md          # Super admin, edição das fichas, divergência de região
 ```
 
 ---
