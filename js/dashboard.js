@@ -1060,6 +1060,21 @@
     planilha: "resultado importado da planilha",
   };
 
+  // "Pendente" é o único estado da tabela que pede uma ação sua — merece o
+  // mesmo peso visual dos marcadores de resultado, não um cinza de rodapé.
+  var ICONE_RELOGIO =
+    '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+    '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M8 4.4V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function tagPendente(texto, titulo) {
+    var tag = el("span", { class: "tag tag--ambar tag--com-icone", title: titulo || "" });
+    tag.innerHTML = ICONE_RELOGIO;
+    tag.appendChild(el("span", { text: texto }));
+    return tag;
+  }
+
   function tagResultado(res, fonte) {
     var tag = el("span", { class: resultadoClasse(res) + " tag--com-icone", title: ROTULO_FONTE[fonte] || "" });
     tag.innerHTML = ICONES_FONTE[fonte] || "";
@@ -2176,7 +2191,8 @@
       } else if (c.convocacao_entrevista === "Enviado") {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
       } else {
-        tdConvE.appendChild(el("span", { class: "cand-pendente", text: "pendente" }));
+        tdConvE.appendChild(tagPendente("pendente",
+          "Ainda não recebeu a convocação para a entrevista."));
       }
       tr.appendChild(tdConvE);
 

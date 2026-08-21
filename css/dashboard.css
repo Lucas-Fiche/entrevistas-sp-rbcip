@@ -290,6 +290,8 @@ body.tela-cheia .dash {
 .tag--verde-claro { background: #eef7ea; color: #5f8b3a; }
 .tag--vermelho { background: #fce8e6; color: var(--cor-erro); }
 .tag--cinza { background: #eef0f2; color: var(--cor-texto-suave); }
+/* Estado que espera uma ação sua (ex.: convocação ainda não enviada). */
+.tag--ambar { background: #fdf0e3; color: #8a4b08; border: 1px solid #f2d7b2; }
 
 /* ---------- Visualização de dados ---------- */
 .viz-filtros {
