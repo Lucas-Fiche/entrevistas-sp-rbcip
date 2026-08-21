@@ -81,6 +81,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── corrigir-pontuacao.sql # Acerta entrevistas pontuadas sobre 38 em vez de 36
 │   ├── sincronizacoes.sql # Registro das sincronizações (manuais e automáticas)
 │   ├── regiao-divergente.sql # Registro do pedido de recadastro na região certa
+│   ├── data-inscricao.sql # Data/hora da inscrição na plataforma (coluna data_envio)
 │   ├── duplicados.sql    # Junta fichas duplicadas do mesmo CPF (com backup)
 │   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/
@@ -196,9 +197,10 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**.
 - **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**),
-  indicadores (KPIs), gráficos (inscritos por região, recomendação, entrevistas e
-  **nota média por entrevistador**) e um **mapa de São Paulo** com o número de
-  inscritos por região.
+  indicadores (KPIs), gráficos (inscritos por região, recomendação, **inscrições
+  ao longo do tempo**, entrevistas ao longo do tempo e **nota média por
+  entrevistador**) e um **mapa de São Paulo** com o número de inscritos por
+  região.
 
 ---
 

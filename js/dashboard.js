@@ -983,6 +983,36 @@
 
   // Converte uma linha do CSV de inscrição numa ficha de candidato.
   // `idx` é a posição da linha no arquivo — é o que preserva a ordem original.
+  // Data/hora em que a pessoa se inscreveu na plataforma (coluna `data_envio`).
+  // Guardada como "AAAA-MM-DD HH:MM": ordena como texto, não depende de fuso
+  // e não corre o risco de o navegador "puxar" a data um dia para trás.
+  function normalizarDataHora(txt) {
+    var t = String(txt || "").trim();
+    if (!t) return null;
+    var m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:[ ,T]+(\d{1,2}):(\d{2}))?/);
+    if (m) {
+      return m[3] + "-" + m[2] + "-" + m[1] +
+        (m[4] ? " " + m[4].padStart(2, "0") + ":" + m[5] : "");
+    }
+    m = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?/);
+    if (m) {
+      return m[1] + "-" + m[2] + "-" + m[3] +
+        (m[4] ? " " + m[4].padStart(2, "0") + ":" + m[5] : "");
+    }
+    return null;
+  }
+  function dataInscricao(row) {
+    return normalizarDataHora(pegaCol(row, [
+      "data_envio", "Data de envio", "Data do envio", "Data da inscrição", "Data de inscrição",
+    ]));
+  }
+
+  // "2026-08-20 19:24" → "20/08/2026 19:24" (para exibir).
+  function dataInscricaoBR(c) {
+    var m = String((c && c.data_inscricao) || "").match(/^(\d{4})-(\d{2})-(\d{2})(?: (\d{2}:\d{2}))?/);
+    return m ? m[3] + "/" + m[2] + "/" + m[1] + (m[4] ? " " + m[4] : "") : "";
+  }
+
   function linhaParaCandidato(tipo, row, idx) {
     var nome = pegaCol(row, ["Nome completo", "Nome"]);
     var email = pegaCol(row, ["E-mail", "Email"]);
@@ -1004,6 +1034,7 @@
       email_norm: emailN || null,
       cpf: cpf || null,
       regiao: regiao || null,
+      data_inscricao: dataInscricao(row),
       inscricao: row,
       convocacao_entrevista: pegaCol(row, ["Convocação para Entrevista"]) || null,
       resultado_entrevista: pegaCol(row, ["Resultado Entrevista", "Resultado"]) || null,
@@ -1163,7 +1194,7 @@
   ];
   // Dados de identificação: um arquivo que não traga a coluna (ou traga vazia)
   // nunca APAGA o que já está preenchido na ficha.
-  var CAMPOS_IDENTIDADE = ["nome", "email", "email_norm", "cpf", "regiao"];
+  var CAMPOS_IDENTIDADE = ["nome", "email", "email_norm", "cpf", "regiao", "data_inscricao"];
 
   // ---------- Registro das importações (auditoria) ----------
   var importacoes = [];
@@ -1326,7 +1357,7 @@
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
     if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
-    return upsertResiliente(candTabela(), rows, ["importado_em", "ordem", "editado"])
+    return upsertResiliente(candTabela(), rows, ["importado_em", "ordem", "editado", "data_inscricao"])
       .then(function () {
         return registrarImportacao({
           aba: "candidatos", tipo: tipo, arquivo: arquivo,
@@ -1471,6 +1502,7 @@
     alvo.appendChild(el("p", {
       class: "modal__meta",
       text: (cand.tipo === "capital" ? "Capital" : "Interior") +
+        (dataInscricaoBR(cand) ? " · inscrição em " + dataInscricaoBR(cand) : "") +
         " · o que você salvar aqui passa a valer sobre a planilha nas próximas importações.",
     }));
 
@@ -3324,10 +3356,14 @@
   // Conta entrevistas por dia. Se o período for longo, agrupa por semana para a
   // linha não virar um serrilhado ilegível. Dias sem entrevista entram como
   // zero, senão a linha "encurtaria" o tempo parado.
-  function serieEntrevistas(lista) {
+  var UN_ENTREVISTA = { um: "entrevista", varios: "entrevistas" };
+  var UN_INSCRICAO = { um: "inscrição", varios: "inscrições" };
+
+  function serieDiaria(valores, unidade) {
     var porDia = {};
-    lista.forEach(function (r) {
-      var d = String(r.data_entrevista || "");
+    valores.forEach(function (v) {
+      // Aceita "AAAA-MM-DD" e "AAAA-MM-DD HH:MM" (a data da inscrição tem hora).
+      var d = String(v || "").slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
       porDia[d] = (porDia[d] || 0) + 1;
     });
@@ -3348,17 +3384,26 @@
       pontos.push({
         rotulo: ddmm(inicioBloco),
         valor: soma,
-        titulo: (passo === 1 ? "" : "Semana de ") + ddmm(inicioBloco) + ": " + soma + " entrevista(s)",
+        titulo: (passo === 1 ? "" : "Semana de ") + ddmm(inicioBloco) + ": " + soma + " " +
+          (soma === 1 ? unidade.um : unidade.varios),
       });
     }
-    return { pontos: pontos, porSemana: passo > 1 };
+    return { pontos: pontos, porSemana: passo > 1, unidade: unidade };
+  }
+
+  function serieEntrevistas(lista) {
+    return serieDiaria(lista.map(function (r) { return r.data_entrevista; }), UN_ENTREVISTA);
+  }
+  function serieInscricoes(lista) {
+    return serieDiaria(lista.map(function (c) { return c.data_inscricao; }), UN_INSCRICAO);
   }
 
   function graficoLinha(titulo, serie) {
     var card = el("div", { class: "grafico grafico--largo" });
     card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    var un = (serie && serie.unidade) || UN_ENTREVISTA;
     if (!serie || serie.pontos.length < 2) {
-      card.appendChild(el("p", { class: "vazio", text: "É preciso ter entrevistas em pelo menos dois dias." }));
+      card.appendChild(el("p", { class: "vazio", text: "É preciso ter " + un.varios + " em pelo menos dois dias." }));
       return card;
     }
     var pts = serie.pontos;
@@ -3401,7 +3446,7 @@
     var total = pts.reduce(function (s, p) { return s + p.valor; }, 0);
     card.appendChild(el("p", {
       class: "linha-tempo__nota",
-      text: total + " entrevistas · " + (serie.porSemana ? "agrupadas por semana" : "por dia") +
+      text: total + " " + un.varios + " · " + (serie.porSemana ? "agrupadas por semana" : "por dia") +
         " · de " + pts[0].rotulo + " a " + pts[pts.length - 1].rotulo,
     }));
     return card;
@@ -3583,11 +3628,16 @@
   // Segue os filtros de Tipo e Região da tela. O filtro de PERÍODO não se
   // aplica: as inscrições não têm data — ele vale só para as entrevistas.
   function candidatosDaViz() {
-    var lista = candidatos.slice();
-    if (vizTipo !== "todos") lista = lista.filter(function (c) { return c.tipo === vizTipo; });
-    if (vizRegiao) lista = lista.filter(function (c) { return c.regiao === vizRegiao; });
+    var lista = candidatosDoTipoViz();
+    // Período: agora as inscrições têm data (coluna `data_envio` do arquivo da
+    // plataforma). Fichas importadas antes disso não têm data e ficam de fora
+    // quando há período escolhido — o rodapé da seção diz quantas são, para o
+    // número menor não parecer perda de dado.
+    if (vizDe) lista = lista.filter(function (c) { return diaInscricao(c) && diaInscricao(c) >= vizDe; });
+    if (vizAte) lista = lista.filter(function (c) { return diaInscricao(c) && diaInscricao(c) <= vizAte; });
     return lista;
   }
+  function diaInscricao(c) { return String(c.data_inscricao || "").slice(0, 10); }
 
   function blocoFunilCandidatos() {
     var bloco = el("section", { class: "viz-secao" });
@@ -3641,12 +3691,36 @@
       .sort(function (a, b) { return b.valor - a.valor; });
     if (regioes.length > 1) grid.appendChild(graficoBarras("Cadastrados no SIPE por região (interior)", regioes));
 
+    // Ritmo das inscrições ao longo do tempo (coluna `data_envio` do arquivo).
+    var serieInsc = serieInscricoes(lista);
+    if (serieInsc) grid.appendChild(graficoLinha("Inscrições ao longo do tempo", serieInsc));
+
     bloco.appendChild(grid);
-    bloco.appendChild(el("p", {
-      class: "viz-secao__nota",
-      text: "Fonte: aba Candidatos. O filtro de período não se aplica aqui — as inscrições não têm data.",
-    }));
+
+    // Quantas fichas têm data de inscrição — dizer isso evita que um número
+    // menor no gráfico do que nos cartões pareça dado perdido.
+    // Conta sobre TODAS as fichas do tipo (sem o período): o que interessa aqui
+    // é quantas ainda não têm data, não quantas ficaram fora da janela.
+    var semData = candidatosDoTipoViz().filter(function (c) { return !diaInscricao(c); }).length;
+    var nota = "Fonte: aba Candidatos.";
+    if (vizDe || vizAte) {
+      nota += " Período aplicado pela data de inscrição" +
+        (semData > 0 ? "; " + semData + " ficha(s) sem essa data ficaram de fora." : ".");
+    } else if (semData > 0) {
+      nota += " " + semData + " ficha(s) ainda não têm data de inscrição — são as importadas " +
+        "antes de o arquivo da plataforma trazer a coluna data_envio. Reimporte os CSVs para completar.";
+    }
+    bloco.appendChild(el("p", { class: "viz-secao__nota", text: nota }));
     return bloco;
+  }
+
+  // Mesma seleção de candidatosDaViz, mas SEM o período — serve para contar
+  // quantas fichas ficaram de fora por não ter data de inscrição.
+  function candidatosDoTipoViz() {
+    var lista = candidatos.slice();
+    if (vizTipo !== "todos") lista = lista.filter(function (c) { return c.tipo === vizTipo; });
+    if (vizRegiao) lista = lista.filter(function (c) { return c.regiao === vizRegiao; });
+    return lista;
   }
 
   function renderDados() {

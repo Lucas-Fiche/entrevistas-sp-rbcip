@@ -89,6 +89,28 @@ A região do Interior é o caso mais chamativo: na planilha de controle ela se
 chama **"Região"**; no arquivo da plataforma, **"De qual região de SP sua
 residência está mais próxima? *"**. Os dois funcionam.
 
+### A data da inscrição (`data_envio`)
+
+O arquivo da plataforma traz a coluna **`data_envio`** — o dia e a hora em que a
+pessoa se inscreveu. O sistema guarda isso em `data_inscricao` (rode
+**`sql/data-inscricao.sql`**) e usa em dois lugares:
+
+- o gráfico **"Inscrições ao longo do tempo"**, na aba *Visualização de dados*;
+- o **filtro de período** daquela aba, que agora também vale para a seção
+  *Inscrições no SIPE*.
+
+A data é gravada como texto `AAAA-MM-DD HH:MM`, e não como timestamp, de
+propósito: assim ela ordena exatamente como veio, sem fuso horário no meio do
+caminho — uma inscrição feita às 21h não corre o risco de aparecer no dia
+seguinte só por causa da conversão.
+
+Fichas importadas antes de a plataforma incluir essa coluna ficam sem data.
+Elas continuam aparecendo em tudo, mas ficam de fora do gráfico e do filtro de
+período; o rodapé da seção diz quantas são. Basta reimportar o CSV novo para
+preenchê-las — a importação atualiza a ficha existente, não duplica.
+
+A ordem da tabela **não** muda: continua sendo a ordem das linhas do arquivo.
+
 ### Exportar a planilha de candidatos
 
 O botão **⬇ Baixar CSV**, na aba Candidatos, gera a planilha completa da região
