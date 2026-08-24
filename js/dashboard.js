@@ -422,6 +422,7 @@
         return;
       }
       linhas = resp.data || [];
+      esquecerCasamentos();
       renderTudo();
       // Histórico e supervisores primeiro: os painéis dependem dos dois.
       Promise.all([carregarImportacoes(), carregarSupervisores(), carregarSincronizacoes()]).then(function () {
@@ -727,6 +728,8 @@
       .eq("id", id)
       .then(function (resp) {
         if (resp.error) throw resp.error;
+        // O CPF é a chave do casamento: com ele preenchido, a conta muda.
+        esquecerCasamentos();
         return resp;
       });
   }
@@ -1058,8 +1061,13 @@
   }
   // Já convocado? Considera tanto a data (envio pelo sistema) quanto o status
   // "Enviado" que veio da planilha de controle — evita reconvocar quem já recebeu.
+  // Quem já foi ENTREVISTADO também conta: o convite chegou de algum jeito, e
+  // uma ficha criada depois da entrevista (recadastro na outra região, correção
+  // de CPF) não pode reabrir a fila de convocação — nem receber o e-mail de
+  // novo, nem aparecer como pendente numa etapa que já passou.
   function jaConvocadoEntrevista(c) {
-    return !!(c.data_convocacao_entrevista || c.convocacao_entrevista === "Enviado");
+    return !!(c.data_convocacao_entrevista || c.convocacao_entrevista === "Enviado" ||
+      casarEntrevista(c));
   }
   function jaConvocadoCadastro(c) {
     return !!(c.data_convocacao_cadastro || c.convocacao_cadastro === "Enviado");
@@ -1139,7 +1147,21 @@
 
   // Casa uma ficha de candidato com uma entrevista.
   // Ordem: 1º CPF (chave-mestra, preenchida na entrevista), 2º e-mail (cid), 3º nome.
+  // O casamento é consultado muitas vezes por linha (resultado, convocação,
+  // funil, exportação). A conta é a mesma para a mesma ficha: guarda o
+  // resultado até os dados serem recarregados.
+  var casamentos = {};
+  function esquecerCasamentos() { casamentos = {}; }
   function casarEntrevista(cand) {
+    var chave = (cand.id || cand.chave || cand.nome) + "|" + cand.tipo + "|" + soDigitos(cand.cpf) +
+      "|" + (cand.email_norm || "") + "|" + normStr(cand.nome || "");
+    if (Object.prototype.hasOwnProperty.call(casamentos, chave)) return casamentos[chave];
+    var achada = casarEntrevistaBusca(cand);
+    casamentos[chave] = achada;
+    return achada;
+  }
+
+  function casarEntrevistaBusca(cand) {
     var doTipo = linhas.filter(function (r) { return r.tipo === cand.tipo; });
     var achadas = [];
     var cpf = soDigitos(cand.cpf);
@@ -1181,6 +1203,7 @@
         return;
       }
       candidatos = resp.data || [];
+      esquecerCasamentos();
       var badge = $("#cont-candidatos");
       if (badge) badge.textContent = candidatos.length;
       renderPainelCandidatos();
@@ -2222,6 +2245,16 @@
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ " + c.data_convocacao_entrevista }));
       } else if (c.convocacao_entrevista === "Enviado") {
         tdConvE.appendChild(el("span", { class: "cand-enviado", text: "✓ Enviado" }));
+      } else if (ent) {
+        // Entrevistada sem convite registrado nesta ficha: o convite saiu por
+        // outra ficha (recadastro na região certa) ou antes de o sistema
+        // registrar isso. Dizer "pendente" seria mentir sobre uma etapa vencida.
+        tdConvE.appendChild(el("span", {
+          class: "cand-enviado",
+          title: "A entrevista foi realizada, então esta etapa já passou. O convite não " +
+            "está registrado nesta ficha — saiu pela ficha anterior ou antes de o sistema registrar.",
+          text: "✓ entrevista realizada",
+        }));
       } else {
         tdConvE.appendChild(tagPendente("pendente",
           "Ainda não recebeu a convocação para a entrevista."));

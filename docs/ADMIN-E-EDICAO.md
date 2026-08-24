@@ -194,6 +194,18 @@ Para o registro do pedido ficar gravado, rode **`sql/regiao-divergente.sql`**.
 Sem ele o e-mail continua sendo enviado; só não fica a marca (o painel avisa
 quando é esse o caso).
 
+### A ficha nova não volta para a fila de convocação
+
+A ficha que nasce do recadastro não tem registro do convite de entrevista —
+ele saiu pela ficha anterior. Para o sistema isso não é "pendente": como existe
+entrevista casada (pelo CPF), a coluna *Convocação entrevista* mostra
+**✓ entrevista realizada** e a pessoa **não entra** no botão *Convocar todos
+para entrevista*. Uma etapa vencida não pode reabrir só porque o cadastro é
+novo — o efeito seria convidar de novo quem já foi entrevistado.
+
+A mesma regra vale para qualquer ficha nessa situação: se há entrevista casada,
+a convocação está vencida, com ou sem registro.
+
 ### Quando a nova inscrição não é o caminho
 
 Se a pessoa não vai se inscrever de novo, dá para resolver à mão: em **✎ Editar**
