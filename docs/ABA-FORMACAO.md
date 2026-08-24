@@ -89,6 +89,19 @@ vírgula ou ponto e vírgula — é detectado automaticamente.
 Reimportar **atualiza** as linhas existentes em vez de duplicar: a
 identificação é feita pelo CPF (sem CPF, pelo e-mail; sem e-mail, pelo nome).
 
+### Baixar em Excel, por região
+
+O botão **⬇ Baixar .xlsx por região** (por *grupo*, na Capital) abre um menu com
+cada região e quantos bolsistas ela tem. Escolhendo uma, sai um arquivo `.xlsx`
+só com aquela gente, no mesmo layout da planilha de controle — útil para mandar
+a lista ao supervisor da região sem expor o resto do projeto. A primeira opção
+do menu baixa o Interior (ou a Capital) inteiro.
+
+O nome do arquivo sai como `formacao_bauru_2026-08-24.xlsx` e a aba da planilha
+leva o nome da região.
+
+O botão **⬇ Baixar CSV**, ao lado, continua exportando tudo em CSV.
+
 ### Sincronizar com as planilhas
 
 O botão **🔄 Sincronizar planilhas** lê, pelo Apps Script, o formulário de

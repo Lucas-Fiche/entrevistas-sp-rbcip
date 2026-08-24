@@ -233,7 +233,48 @@ vez de mandar uma convocação que criaria a ficha na região errada.
 
 ---
 
-## 6. Ordem das tabelas
+## 6. Metas por região, vagas e reserva
+
+Cada região precisa de um número de entrevistadores. Enquanto houver vaga, o
+aprovado é convocado normalmente; quando a região enche, os próximos aparecem
+como **reserva** em vez de receberem a convocação de cadastro.
+
+Rode **`sql/metas.sql`** uma vez. Ele já cria a meta da **Capital: 50**; as do
+Interior você preenche no painel quando os números chegarem.
+
+### O que ocupa uma vaga
+
+Quem está na Formação e **não** foi desligado — ou seja, **Ativos + Aguardando
+termo**. Quem recebeu a convocação e espera o termo já está comprometido com a
+região; quem é desligado **devolve a vaga sozinho**, sem ninguém mexer na meta.
+
+O bloco **Metas e vagas** (nas abas *Candidatos* e *Formação*) mostra a conta
+aberta — `3 (2 ativos + 1 aguardando)` — para o número ser sempre conferível.
+Regiões sem meta, sem bolsista e sem fila ficam fora da tabela; o rodapé diz
+quantas são.
+
+### Editar as metas
+
+Botão **⚙ Editar metas**, dentro do bloco (só administradores). Todas as
+regiões aparecem na lista, inclusive as que ainda não têm meta. Deixar em
+branco significa **sem controle de vagas** naquela região: nada é bloqueado, o
+painel se comporta como antes. Cada alteração guarda quem mudou e quando.
+
+### Reserva
+
+Sem vaga, a coluna *Convocação cadastro* mostra **⏸ Reserva** no lugar do botão,
+com o número da região no "passe o mouse". Ao lado fica **Convocar mesmo
+assim** — você continua podendo, e a confirmação diz `Bauru já está com 12 de
+12`. É aviso, não bloqueio.
+
+O botão **N na fila**, na coluna *Reserva*, abre a fila daquela região:
+aprovados ainda não convocados, **do maior para o menor desempenho na
+entrevista**, cada um com o botão de convocar. Quando alguém é desligado, a
+vaga abre e o próximo nome já está na frente — sem garimpar a tabela.
+
+---
+
+## 7. Ordem das tabelas
 
 As abas **Candidatos** e **Formação** são exibidas na mesma ordem do CSV
 importado — a ordem em que as pessoas se inscreveram ou entraram no projeto.
@@ -242,7 +283,7 @@ o rodapé de cada tabela mostra qual ordem está em uso.
 
 ---
 
-## 7. Largura da tela
+## 8. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A

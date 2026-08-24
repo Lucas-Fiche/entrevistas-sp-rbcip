@@ -82,6 +82,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── sincronizacoes.sql # Registro das sincronizações (manuais e automáticas)
 │   ├── regiao-divergente.sql # Registro do pedido de recadastro na região certa
 │   ├── data-inscricao.sql # Data/hora da inscrição na plataforma (coluna data_envio)
+│   ├── metas.sql         # Metas por região (vagas e reserva na convocação)
 │   ├── duplicados.sql    # Junta fichas duplicadas do mesmo CPF (com backup)
 │   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/

@@ -1166,3 +1166,73 @@ input[type="date"].viz-data {
 @media (max-width: 480px) {
   .barra__rotulo { width: 110px; }
 }
+
+/* ---------- Metas por região e vagas ---------- */
+.metas {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-branco);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+}
+.metas__resumo {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--cor-primaria);
+  list-style: revert;
+}
+.metas__tab {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.metas__tab th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--cor-texto-suave);
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.metas__tab td { padding: 6px 8px; border-bottom: 1px solid #eef2f4; vertical-align: middle; }
+.metas__tab tr:last-child td { border-bottom: none; }
+.metas__reg { font-weight: 600; }
+.metas__acoes { margin-top: 10px; }
+.metas__nota { margin: 8px 0 0; font-size: 12px; color: var(--cor-texto-suave); }
+.cand-reserva { cursor: help; }
+
+/* ---------- Botão com menu (baixar por região) ---------- */
+.menu-baixar { position: relative; display: inline-block; }
+.menu-baixar__lista {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 240px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--cor-branco);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  box-shadow: 0 8px 24px rgba(16, 42, 58, 0.14);
+  padding: 6px;
+}
+.menu-baixar__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--cor-texto);
+  cursor: pointer;
+}
+.menu-baixar__item:hover,
+.menu-baixar__item:focus-visible { background: var(--cor-primaria); color: #fff; }
+.menu-baixar__sep { height: 1px; background: var(--cor-borda); margin: 5px 2px; }

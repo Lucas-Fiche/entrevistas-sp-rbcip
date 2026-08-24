@@ -425,7 +425,8 @@
       esquecerCasamentos();
       renderTudo();
       // Histórico e supervisores primeiro: os painéis dependem dos dois.
-      Promise.all([carregarImportacoes(), carregarSupervisores(), carregarSincronizacoes()]).then(function () {
+      Promise.all([carregarImportacoes(), carregarSupervisores(), carregarSincronizacoes(),
+        carregarMetas()]).then(function () {
         carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
         carregarFormacao();   // idem para o painel de formação (bolsistas)
       });
@@ -1984,6 +1985,14 @@
     // Entrevista de um lado e ficha do outro: convocar por aqui manda a pessoa
     // para a formação do lado errado. Avisa antes, não depois.
     var entCad = casarEntrevista(cand);
+    // Sem vaga na região: dizer o número antes do envio, não depois.
+    var vagasCad = vagasDe(cand.tipo, cand.regiao);
+    var alertaVaga = (vagasCad !== null && vagasCad <= 0)
+      ? "\n\nATENÇÃO: " + (cand.tipo === "capital" ? "a Capital" : regiaoCurta(cand.regiao)) +
+        " já está com " + ocupacaoDe(cand.tipo, cand.regiao).total + " de " +
+        metaDe(cand.tipo, cand.regiao) + " (ativos + aguardando termo). Convocando, " +
+        "a região passa da meta."
+      : "";
     var alertaLado = (entCad && entCad.tipo !== cand.tipo)
       ? "\n\nATENÇÃO: a entrevista foi feita no formulário " + doRegiao(entCad.tipo) +
         ", mas esta ficha é " + doRegiao(cand.tipo) + ". Convocando por aqui, a ficha de " +
@@ -1991,7 +2000,7 @@
         "dessa região."
       : "";
     if (!confirm((reenvioCad ? "REENVIAR" : "Enviar") + " a convocação de CADASTRO para " +
-      (cand.nome || "") + " (" + cand.email + ")?" + alertaLado)) return;
+      (cand.nome || "") + " (" + cand.email + ")?" + alertaVaga + alertaLado)) return;
 
     carregandoConvocacao(btn, true);
     enviarConvocacao([emailConvocacaoCadastro(cand)]).then(function (res) {
@@ -2160,6 +2169,9 @@
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
     }
     painel.appendChild(acoes);
+
+    // --- Metas e vagas (fechado: aqui é consulta, não leitura diária) ---
+    painel.appendChild(blocoMetas(candTipo, false));
 
     // --- Busca (nome, e-mail, CPF ou região) ---
     var buscaWrap = el("div", { class: "painel__barra" });
@@ -2337,6 +2349,26 @@
           btnReCad.addEventListener("click", function () { convocarCadastro(c, btnReCad); });
           tdConvC.appendChild(btnReCad);
         }
+      } else if (selecionado && !recadastrada && emReserva(c)) {
+        // Região sem vaga: o próximo passo não é convocar, é esperar abrir vaga
+        // (ou decidir conscientemente convocar assim mesmo).
+        var vagasReg = ocupacaoDe(c.tipo, c.regiao);
+        var caixaRes = el("div", { class: "cand-divergencia" });
+        caixaRes.appendChild(el("span", {
+          class: "tag tag--ambar tag--com-icone cand-reserva",
+          title: (c.tipo === "capital" ? "Capital" : regiaoCurta(c.regiao)) + " está com " +
+            vagasReg.total + " de " + metaDe(c.tipo, c.regiao) + " (ativos + aguardando termo). " +
+            "Quando alguém for desligado, a vaga abre.",
+          text: "⏸ Reserva",
+        }));
+        if (ehAdmin() && c.email) {
+          var btnMesmo = el("button", {
+            class: "btn btn--secundario btn--pequeno", type: "button", text: "Convocar mesmo assim",
+          });
+          btnMesmo.addEventListener("click", function () { convocarCadastro(c, btnMesmo); });
+          caixaRes.appendChild(btnMesmo);
+        }
+        tdConvC.appendChild(caixaRes);
       } else if (selecionado && recadastrada) {
         // Já existe ficha do lado certo: convocar por aqui criaria a pessoa
         // duas vezes na Formação, e do lado errado.
@@ -2516,6 +2548,294 @@
         supervisores = (!resp.error && resp.data) ? resp.data : [];
       }).catch(function () { supervisores = []; });
     } catch (e) { supervisores = []; return Promise.resolve(); }
+  }
+
+  // ---------- Metas por região e vagas ----------
+  // A meta diz quantos entrevistadores cada região precisa ter. Ela muda com o
+  // tempo, então mora no banco e é editada no painel — nunca no código.
+  //
+  // Ocupa vaga quem está na Formação e NÃO foi desligado (Ativo + Aguardando
+  // termo): quem recebeu a convocação de cadastro e ainda espera o termo já
+  // está comprometido com a região. Desligar alguém devolve a vaga sozinho.
+  var metas = [];
+
+  function carregarMetas() {
+    if (!client) return Promise.resolve();
+    try {
+      return client.from("metas").select("*").then(function (resp) {
+        metas = (!resp.error && resp.data) ? resp.data : [];
+      }).catch(function () { metas = []; });
+    } catch (e) { metas = []; return Promise.resolve(); }
+  }
+
+  // Capital tem uma meta só; no Interior, uma por região (comparada sem acento
+  // e sem o sufixo "(região)", que aparece em umas planilhas e não em outras).
+  function chaveMeta(tipo, regiao) {
+    return tipo === "capital" ? "capital" : normStr(regiaoCurta(regiao));
+  }
+  function registroMeta(tipo, regiao) {
+    var k = chaveMeta(tipo, regiao);
+    return metas.filter(function (m) {
+      return m.tipo === tipo && chaveMeta(tipo, m.regiao) === k;
+    })[0] || null;
+  }
+  function metaDe(tipo, regiao) {
+    var r = registroMeta(tipo, regiao);
+    return (r && typeof r.meta === "number") ? r.meta : null;
+  }
+
+  function ocupacaoDe(tipo, regiao) {
+    var k = chaveMeta(tipo, regiao);
+    var ativos = 0, aguardando = 0;
+    formacao.forEach(function (f) {
+      if (f.tipo !== tipo || chaveMeta(tipo, f.regiao) !== k) return;
+      var st = situacaoFormacao(f);
+      if (st === "Ativo") ativos++;
+      else if (st !== "Desligado") aguardando++;
+    });
+    return { ativos: ativos, aguardando: aguardando, total: ativos + aguardando };
+  }
+
+  // null = região sem meta definida (nada é bloqueado, funciona como antes).
+  function vagasDe(tipo, regiao) {
+    var meta = metaDe(tipo, regiao);
+    if (meta === null) return null;
+    return meta - ocupacaoDe(tipo, regiao).total;
+  }
+
+  // Aprovados ainda não convocados para o cadastro: a fila da região.
+  function reservaDe(tipo, regiao) {
+    var k = chaveMeta(tipo, regiao);
+    return candidatos.filter(function (c) {
+      if (c.tipo !== tipo || chaveMeta(tipo, c.regiao) !== k) return false;
+      if (jaConvocadoCadastro(c)) return false;
+      var res = resultadoDoCandidato(c, casarEntrevista(c));
+      return res.indexOf("SELECIONADO") === 0;
+    }).sort(function (a, b) { return notaDoCandidato(b) - notaDoCandidato(a); });
+  }
+  function notaDoCandidato(c) {
+    var e = casarEntrevista(c);
+    return (e && typeof e.pontuacao_total === "number") ? e.pontuacao_total : -1;
+  }
+
+  // Sem vaga o próximo aprovado entra na reserva em vez de ser convocado.
+  function emReserva(c) {
+    var v = vagasDe(c.tipo, c.regiao);
+    return v !== null && v <= 0;
+  }
+
+  // Regiões que aparecem no controle de metas: as conhecidas do sistema mais
+  // as que já existem nos dados (uma região nova numa planilha não pode ficar
+  // invisível só porque ainda não está na lista).
+  function regioesDaMeta(tipo) {
+    if (tipo === "capital") return ["Capital"];
+    var vistas = {}, saida = [];
+    function juntar(nome) {
+      var curto = regiaoCurta(nome);
+      if (!curto || curto === "—") return;
+      var k = normStr(curto);
+      if (vistas[k]) return;
+      vistas[k] = true;
+      saida.push(curto);
+    }
+    Object.keys(REGIOES).forEach(juntar);
+    metas.forEach(function (m) { if (m.tipo === "interior") juntar(m.regiao); });
+    formacao.forEach(function (f) { if (f.tipo === "interior") juntar(f.regiao); });
+    candidatos.forEach(function (c) { if (c.tipo === "interior") juntar(c.regiao); });
+    return saida.sort(function (a, b) { return normStr(a).localeCompare(normStr(b)); });
+  }
+
+  // Bloco "Metas e vagas". Vem fechado por padrão (é referência, não leitura
+  // diária), mas o resumo do cabeçalho já diz se alguma região fechou.
+  function blocoMetas(tipo, aberto) {
+    var regioes = regioesDaMeta(tipo);
+    var comMeta = regioes.filter(function (r) { return metaDe(tipo, r) !== null; });
+    var lotadas = comMeta.filter(function (r) { return vagasDe(tipo, r) <= 0; });
+    var vagasTotais = comMeta.reduce(function (s, r) { return s + Math.max(0, vagasDe(tipo, r)); }, 0);
+
+    var caixa = el("details", { class: "metas" });
+    if (aberto) caixa.open = true;
+    var resumo = !comMeta.length
+      ? "Metas e vagas — nenhuma meta definida ainda"
+      : "Metas e vagas — " + vagasTotais + " vaga(s) em aberto" +
+        (lotadas.length ? " · " + lotadas.length + " região(ões) sem vaga" : "");
+    caixa.appendChild(el("summary", { class: "metas__resumo", text: resumo }));
+
+    var tabela = el("table", { class: "metas__tab" });
+    var thead = el("tr", {}, [
+      el("th", { text: tipo === "capital" ? "Projeto" : "Região" }),
+      el("th", { text: "Meta" }),
+      el("th", { text: "Ocupadas" }),
+      el("th", { text: "Vagas" }),
+      el("th", { text: "Reserva" }),
+    ]);
+    tabela.appendChild(el("thead", {}, [thead]));
+    var corpo = el("tbody");
+    var ocultas = 0;
+    regioes.forEach(function (r) {
+      var meta = metaDe(tipo, r);
+      var oc = ocupacaoDe(tipo, r);
+      var vagas = vagasDe(tipo, r);
+      var reserva = reservaDe(tipo, r);
+      // Região sem meta, sem bolsista e sem fila não tem o que mostrar: entra
+      // só na contagem do rodapé (e continua na lista de edição de metas).
+      if (meta === null && !oc.total && !reserva.length) { ocultas++; return; }
+      var tr = el("tr");
+      tr.appendChild(el("td", { class: "metas__reg", text: r }));
+      tr.appendChild(el("td", { text: meta === null ? "—" : String(meta) }));
+      tr.appendChild(el("td", {
+        title: oc.ativos + " ativo(s) + " + oc.aguardando + " aguardando termo",
+        text: oc.total + (oc.total ? " (" + oc.ativos + " ativo(s) + " + oc.aguardando + " aguardando)" : ""),
+      }));
+      var tdV = el("td");
+      if (meta === null) tdV.appendChild(el("span", { class: "cand-pendente", text: "sem meta" }));
+      else if (vagas > 0) tdV.appendChild(el("span", { class: "tag tag--verde", text: vagas + " vaga(s)" }));
+      else tdV.appendChild(el("span", { class: "tag tag--ambar", text: vagas === 0 ? "sem vaga" : "excedente de " + (-vagas) }));
+      tr.appendChild(tdV);
+      var tdR = el("td");
+      if (!reserva.length) tdR.appendChild(el("span", { class: "cand-pendente", text: "—" }));
+      else {
+        var bR = el("button", {
+          class: "btn btn--secundario btn--pequeno", type: "button",
+          text: reserva.length + " na fila",
+          title: "Ver a fila de aprovados ainda não convocados, do maior para o menor desempenho",
+        });
+        bR.addEventListener("click", function () { abrirReserva(tipo, r); });
+        tdR.appendChild(bR);
+      }
+      tr.appendChild(tdR);
+      corpo.appendChild(tr);
+    });
+    tabela.appendChild(corpo);
+    caixa.appendChild(tabela);
+
+    if (ehAdmin()) {
+      var bEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "⚙ Editar metas" });
+      bEd.addEventListener("click", function () { abrirMetas(tipo); });
+      caixa.appendChild(el("div", { class: "metas__acoes" }, [bEd]));
+    }
+    caixa.appendChild(el("p", {
+      class: "metas__nota",
+      text: "Ocupam vaga os bolsistas ativos e os que aguardam o termo de bolsa. " +
+        "Quem é desligado devolve a vaga. Região sem meta não bloqueia convocação." +
+        (ocultas ? " (" + ocultas + " região(ões) sem meta, sem bolsista e sem fila não aparecem aqui.)" : ""),
+    }));
+    return caixa;
+  }
+
+  function abrirMetas(tipo) {
+    if (!ehAdmin()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Metas — " + (tipo === "capital" ? "Capital" : "Interior") }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: "Quantos entrevistadores cada região precisa ter. Deixe em branco para não " +
+        "controlar vagas naquela região. Vale a partir do momento em que você salvar.",
+    }));
+
+    var form = el("form", { class: "edicao" });
+    var entradas = [];
+    regioesDaMeta(tipo).forEach(function (r) {
+      var meta = metaDe(tipo, r);
+      var linha = el("div", { class: "edicao__campo" });
+      linha.appendChild(el("label", { class: "edicao__rot", text: r }));
+      var entrada = el("input", {
+        class: "edicao__entrada", type: "number", min: "0", step: "1",
+        value: meta === null ? "" : String(meta), placeholder: "sem meta",
+      });
+      linha.appendChild(entrada);
+      form.appendChild(linha);
+      entradas.push({ regiao: r, entrada: entrada, atual: meta });
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var linhas_ = [];
+      entradas.forEach(function (item) {
+        var txt = item.entrada.value.trim();
+        var valor = txt === "" ? null : parseInt(txt, 10);
+        if (valor !== null && (isNaN(valor) || valor < 0)) return;
+        if (valor === item.atual) return;
+        linhas_.push({
+          tipo: tipo,
+          regiao: tipo === "capital" ? "Capital" : item.regiao,
+          meta: valor,
+          atualizado_em: new Date().toISOString(),
+          atualizado_por: usuarioEmail || null,
+        });
+      });
+      if (!linhas_.length) { msg.textContent = "Nada foi alterado."; return; }
+      salvar.disabled = true;
+      msg.textContent = "Salvando…";
+      client.from("metas").upsert(linhas_, { onConflict: "tipo,regiao" }).then(function (resp) {
+        salvar.disabled = false;
+        if (resp && resp.error) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = /relation .* does not exist|schema cache/i.test(resp.error.message || "")
+            ? "A tabela de metas ainda não existe: rode sql/metas.sql no Supabase."
+            : "Não foi possível salvar: " + (resp.error.message || resp.error);
+          return;
+        }
+        carregarMetas().then(function () {
+          fecharModal();
+          renderPainelCandidatos();
+          renderPainelFormacao();
+        });
+      });
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+  }
+
+  // A fila de reserva de uma região: quem já foi aprovado e ainda não recebeu a
+  // convocação de cadastro, do maior para o menor desempenho na entrevista.
+  function abrirReserva(tipo, regiao) {
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    var vagas = vagasDe(tipo, regiao);
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Fila de reserva — " + regiao }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: vagas === null ? "Região sem meta definida."
+        : (vagas > 0 ? vagas + " vaga(s) em aberto." : "Sem vaga: a região está com " +
+          ocupacaoDe(tipo, regiao).total + " de " + metaDe(tipo, regiao) + "."),
+    }));
+
+    var lista = reservaDe(tipo, regiao);
+    var tabela = el("table", { class: "metas__tab" });
+    tabela.appendChild(el("thead", {}, [el("tr", {}, [
+      el("th", { text: "#" }), el("th", { text: "Nome" }), el("th", { text: "Nota" }),
+      el("th", { text: "Entrevista" }), el("th", { text: "" }),
+    ])]));
+    var corpo = el("tbody");
+    lista.forEach(function (c, i) {
+      var ent = casarEntrevista(c);
+      var tr = el("tr");
+      tr.appendChild(el("td", { text: String(i + 1) }));
+      tr.appendChild(el("td", { class: "metas__reg", text: c.nome || "(sem nome)" }));
+      tr.appendChild(el("td", { text: ent && ent.pontuacao_total != null ? ent.pontuacao_total + "/" + (ent.pontuacao_maxima || 36) : "—" }));
+      tr.appendChild(el("td", { text: ent ? formatarData(ent.data_entrevista) : "—" }));
+      var tdA = el("td");
+      if (ehAdmin() && c.email) {
+        var b = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
+        b.addEventListener("click", function () { fecharModal(); convocarCadastro(c, b); });
+        tdA.appendChild(b);
+      }
+      tr.appendChild(tdA);
+      corpo.appendChild(tr);
+    });
+    tabela.appendChild(corpo);
+    alvo.appendChild(lista.length ? tabela : el("p", { class: "vazio", text: "Ninguém na fila." }));
+    mostrar($("#modal"), true);
   }
 
   // A "chave" do bolsista: o grupo na Capital, a região no Interior.
@@ -2790,8 +3110,15 @@
   // Reproduz o layout da planilha de controle (inclusive a coluna "Nome"
   // repetida) para o arquivo cair direto no seu fluxo, e acrescenta ao final o
   // que só existe no sistema: facilitador e desligamento.
-  function planilhaFormacao(tipo) {
-    var lista = formacao.filter(function (f) { return f.tipo === tipo; }).sort(porOrdemPlanilha);
+  // `regiao` opcional: quando vem, a planilha sai só com quem é daquela região
+  // (no Interior) ou daquele grupo (na Capital).
+  function planilhaFormacao(tipo, regiao) {
+    var alvo = regiao ? normStr(regiaoCurta(regiao)) : "";
+    var lista = formacao.filter(function (f) {
+      if (f.tipo !== tipo) return false;
+      if (!alvo) return true;
+      return normStr(regiaoCurta(chaveSupervisao(f))) === alvo;
+    }).sort(porOrdemPlanilha);
     if (!lista.length) return null;
 
     var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome", "Nome",
@@ -2833,6 +3160,87 @@
     if (!aoa) { alert("Não há bolsistas para exportar em " + tipo + "."); return; }
     var hoje = new Date().toISOString().slice(0, 10);
     window.Exportador.csv("formacao_" + tipo + "_" + hoje + ".csv", aoa);
+  }
+
+  // Nome de arquivo sem acento, espaço ou barra (as regiões têm todos os três:
+  // "São José dos Campos / Vale do Paraíba").
+  function nomeArquivo(txt) {
+    return normStr(txt).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "todos";
+  }
+  function exportarFormacaoXlsx(tipo, regiao) {
+    var aoa = planilhaFormacao(tipo, regiao);
+    if (!aoa) { alert("Não há bolsistas em " + (regiao || tipo) + "."); return; }
+    var hoje = new Date().toISOString().slice(0, 10);
+    var rotulo = regiao ? regiaoCurta(regiao) : (tipo === "capital" ? "Capital" : "Interior");
+    // O Excel recusa nome de aba com mais de 31 caracteres ou com : \ / ? * [ ]
+    var aba = String(rotulo).replace(/[:\\/?*[\]]/g, "-").slice(0, 31);
+    window.Exportador.xlsx("formacao_" + nomeArquivo(rotulo) + "_" + hoje + ".xlsx", aba, aoa);
+  }
+
+  // Lista para o menu de download: cada região/grupo com quantos bolsistas tem.
+  function gruposDaFormacao(tipo) {
+    var mapa = {}, ordem = [];
+    formacao.forEach(function (f) {
+      if (f.tipo !== tipo) return;
+      var nome = regiaoCurta(chaveSupervisao(f));
+      if (!nome || nome === "—") nome = "(sem " + (tipo === "capital" ? "grupo" : "região") + ")";
+      var k = normStr(nome);
+      if (!mapa[k]) { mapa[k] = { nome: nome, qtd: 0 }; ordem.push(k); }
+      mapa[k].qtd++;
+    });
+    return ordem.map(function (k) { return mapa[k]; })
+      .sort(function (a, b) { return normStr(a.nome).localeCompare(normStr(b.nome)); });
+  }
+
+  var fecharMenus = [];
+  var menusLigados = false;
+  function ligarFechamentoDeMenus() {
+    if (menusLigados) return;
+    menusLigados = true;
+    function todos() { fecharMenus.forEach(function (f) { f(); }); }
+    document.addEventListener("click", todos);
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") todos(); });
+  }
+
+  // Botão com menu: escolher a região e baixar só ela.
+  function menuBaixarXlsx(tipo) {
+    var wrap = el("div", { class: "menu-baixar" });
+    var rot = tipo === "capital" ? "grupo" : "região";
+    var btn = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button",
+      "aria-haspopup": "true", "aria-expanded": "false",
+      text: "⬇ Baixar .xlsx por " + rot + " ▾",
+      title: "Planilha de formação em Excel, só com os entrevistadores da " + rot + " escolhida",
+    });
+    var lista = el("div", { class: "menu-baixar__lista oculto" });
+
+    function fechar() { lista.classList.add("oculto"); btn.setAttribute("aria-expanded", "false"); }
+    function item(rotulo, regiao, qtd) {
+      var b = el("button", { class: "menu-baixar__item", type: "button", text: rotulo + " (" + qtd + ")" });
+      b.addEventListener("click", function () { fechar(); exportarFormacaoXlsx(tipo, regiao); });
+      lista.appendChild(b);
+    }
+    var todos = formacao.filter(function (f) { return f.tipo === tipo; }).length;
+    item(tipo === "capital" ? "Capital inteira" : "Interior inteiro", "", todos);
+    lista.appendChild(el("div", { class: "menu-baixar__sep" }));
+    gruposDaFormacao(tipo).forEach(function (g) { item(g.nome, g.nome, g.qtd); });
+
+    btn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var abrindo = lista.classList.contains("oculto");
+      lista.classList.toggle("oculto", !abrindo);
+      btn.setAttribute("aria-expanded", abrindo ? "true" : "false");
+    });
+    lista.addEventListener("click", function (e) { e.stopPropagation(); });
+    // Um menu por vez na tela: registrar o fechamento aqui (e não a cada
+    // render) evita empilhar ouvintes em nós que já saíram do documento.
+    fecharMenus.length = 0;
+    fecharMenus.push(fechar);
+    ligarFechamentoDeMenus();
+
+    wrap.appendChild(btn);
+    wrap.appendChild(lista);
+    return wrap;
   }
 
   // ---------- Completar a ficha com o que o sistema já sabe ----------
@@ -3154,6 +3562,7 @@
 
     // --- Resumo (Ativos, termo emitido, treinamento pendente…) ---
     var ativos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Ativo"; }).length;
+    var aguardandoTermo = doTipo.filter(function (f) { return situacaoFormacao(f) === "Aguardando termo"; }).length;
     var desligados = doTipo.filter(function (f) { return !!f.desligado_em; }).length;
     var comTermo = doTipo.filter(function (f) { return !!f.termo_link; }).length;
     var semCadastro = doTipo.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
@@ -3163,7 +3572,9 @@
     var stats = el("div", { class: "stats stats--form" }, [
       statCard("Bolsistas", doTipo.length),
       statCard("Ativos", ativos),
-      statCard("Aguardando termo", doTipo.length - comTermo - desligados),
+      // Pela situação, e não por subtração: quem foi desligado COM termo
+      // emitido era descontado duas vezes e o número saía menor do que é.
+      statCard("Aguardando termo", aguardandoTermo),
       statCard("Cadastro pendente", semCadastro),
       statCard("Sem treinamento", semTreino),
       desligados ? statCard("Desligados", desligados) : null,
@@ -3191,6 +3602,7 @@
       });
       btnExpF.addEventListener("click", function () { exportarFormacao(formTipo); });
       acoesForm.appendChild(btnExpF);
+      acoesForm.appendChild(menuBaixarXlsx(formTipo));
       var faltando = doTipo.filter(function (f) { return !f.cpf || !f.telefone || !f.email; }).length;
       if (faltando) {
         var btnCompl = el("button", {
@@ -3203,6 +3615,9 @@
       }
       painel.appendChild(acoesForm);
     }
+
+    // --- Metas e vagas: a Formação é onde a ocupação acontece ---
+    painel.appendChild(blocoMetas(formTipo, true));
 
     // --- Busca ---
     var buscaWrap = el("div", { class: "painel__barra" });
