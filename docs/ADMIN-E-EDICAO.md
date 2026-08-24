@@ -44,11 +44,23 @@ administradores). O que dá para corrigir:
 - **Resultado da entrevista** e a data — o resultado só é usado quando **não há**
   entrevista casada no sistema; havendo, o sistema sempre mostra o dele.
 - **Convocação para cadastro** e a data.
-- **Falha de entrega** — dá para limpar a marcação de "e-mail não existe" quando
-  o endereço foi corrigido.
+- **Falha de entrega** — dá para limpar a marcação de "e-mail não existe" à mão,
+  se for o caso.
 
 Ao salvar, os campos alterados ficam **travados** e a ficha ganha a marca
 **✎ editado** na tabela.
+
+### E-mail corrigido: a ficha continua pedindo reenvio
+
+Corrigir o endereço **não** apaga a falha de entrega. A falha é a prova de que
+aquela convocação nunca chegou — apagá-la fazia a linha voltar a exibir
+"✓ enviado em tal dia", sem botão nenhum, para alguém que não recebeu nada.
+
+Depois da correção, a coluna *Convocação entrevista* mostra
+**⏱ corrigido — reenviar**, com o botão **✉ Reenviar** ao lado; o motivo antigo
+("e-mail não existe") sai de baixo do endereço, porque ele era do endereço
+anterior e o novo ainda não foi testado. A marca só desaparece quando um envio
+dá certo — aí a linha passa a mostrar a data do reenvio.
 
 ---
 

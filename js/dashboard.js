@@ -1492,7 +1492,8 @@
   function camposEdicao(cand) {
     var campos = [
       { id: "nome", rot: "Nome" },
-      { id: "email", rot: "E-mail", dica: "Trocar o e-mail limpa a marca de falha de entrega e libera o reenvio." },
+      { id: "email", rot: "E-mail",
+        dica: "Ao trocar o e-mail, a ficha continua marcada para reenvio até um envio dar certo." },
       { id: "cpf", rot: "CPF", cpf: true, dica: "Chave que liga a inscrição, a entrevista e a formação." },
       {
         // Quem se inscreveu para um lado e vai atuar no outro: mover a ficha
@@ -1606,10 +1607,11 @@
       // continuar encontrando esta mesma ficha.
       if (patch.email !== undefined) {
         patch.email_norm = normEmail(patch.email) || null;
-        // A marca de falha de entrega era do endereço ANTIGO. Ao trocar o
-        // e-mail, ela deixa de fazer sentido e sai junto — a não ser que você
-        // tenha escolhido uma falha no próprio formulário.
-        if (patch.email_bounce === undefined && cand.email_bounce) patch.email_bounce = null;
+        // A marca de falha de entrega NÃO sai aqui. Ela é a prova de que a
+        // convocação não chegou: apagá-la ao corrigir o endereço fazia a ficha
+        // voltar a exibir "enviado em tal dia", sem botão de reenvio, para uma
+        // pessoa que nunca recebeu nada. Sai só quando um envio der certo (ou
+        // se você limpar o campo "Falha de entrega" à mão).
       }
       salvarEdicaoCandidato(cand, patch, novasTravas, msg, salvar, false);
     });
@@ -2219,7 +2221,11 @@
       // E-mail (com aviso de falha de entrega, se houver).
       var tdEmail = el("td", { class: "tabela__td cand-email", "data-label": "E-mail", title: c.email || "" });
       tdEmail.appendChild(el("span", { text: c.email || "—" }));
-      if (c.email_bounce) tdEmail.appendChild(el("div", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+      // A falha era do endereço ANTIGO: depois da correção, repeti-la embaixo do
+      // endereço novo acusaria de inválido um e-mail que ainda não foi testado.
+      if (c.email_bounce && !(c.editado && c.editado.email)) {
+        tdEmail.appendChild(el("div", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+      }
       tr.appendChild(tdEmail);
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(c.cpf) }));
       if (candTipo === "interior") {
@@ -2233,9 +2239,16 @@
       // Convocação entrevista: falha de entrega tem prioridade; senão data/Enviado/pendente.
       var tdConvE = el("td", { class: "tabela__td", "data-label": "Convocação entrevista" });
       if (c.email_bounce) {
-        // Falhou: mostra o motivo e, para o admin, o botão de reenviar (útil
-        // depois de corrigir o e-mail em "Editar").
-        tdConvE.appendChild(el("span", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+        // Falhou: mostra o motivo e, para o admin, o botão de reenviar. Se o
+        // e-mail já foi corrigido à mão, o motivo antigo confunde (o endereço
+        // errado não existe mais) — o que importa é que falta reenviar.
+        if (c.editado && c.editado.email) {
+          tdConvE.appendChild(tagPendente("corrigido — reenviar",
+            "O endereço foi corrigido aqui no painel. A convocação anterior não chegou (" +
+            c.email_bounce + "); reenvie para o endereço novo."));
+        } else {
+          tdConvE.appendChild(el("span", { class: "cand-bounce", text: "✗ " + c.email_bounce }));
+        }
         if (ehAdmin() && c.email) {
           var btnRe = el("button", { class: "btn btn--secundario btn--pequeno cand-reenviar", type: "button", text: "✉ Reenviar" });
           btnRe.addEventListener("click", function () { convocarEntrevistaIndividual(c, btnRe); });
