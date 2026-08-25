@@ -1911,6 +1911,17 @@
 
   // A pessoa já tem ficha do outro lado? (recadastro concluído na plataforma).
   // Casa por CPF; sem CPF, pelo e-mail normalizado.
+  // A ficha do outro lado que ASSUMIU esta pessoa: ela foi entrevistada lá e
+  // já se inscreveu lá. Desse momento em diante é aquela ficha que a
+  // representa — esta fica só como histórico da inscrição na região errada, e
+  // não pode mais aparecer como pendência (fila de reserva, convocação) aqui.
+  function fichaQueAssumiu(cand) {
+    var ent = casarEntrevista(cand);
+    if (!ent || ent.tipo === cand.tipo) return null;
+    var outra = fichaDoOutroLado(cand);
+    return (outra && outra.tipo === ent.tipo) ? outra : null;
+  }
+
   function fichaDoOutroLado(cand) {
     var cpf = soDigitos(cand.cpf);
     var mail = cand.email_norm || normEmail(cand.email);
@@ -2291,7 +2302,7 @@
       var tdRes = el("td", { class: "tabela__td", "data-label": "Resultado" });
       // Recadastro já feito do outro lado? Se sim, esta ficha é só o histórico
       // do cadastro errado — quem manda dali para frente é a ficha de lá.
-      var recadastrada = (ent && ent.tipo !== c.tipo) ? fichaDoOutroLado(c) : null;
+      var recadastrada = fichaQueAssumiu(c);
       if (ent) {
         tdRes.appendChild(tagResultado(res, "sistema"));
         // Entrevista feita do outro lado: avisa, porque as etapas seguintes
@@ -2609,6 +2620,9 @@
     return candidatos.filter(function (c) {
       if (c.tipo !== tipo || chaveMeta(tipo, c.regiao) !== k) return false;
       if (jaConvocadoCadastro(c)) return false;
+      // Quem se inscreveu de novo na região certa é acompanhado por lá: a
+      // ficha antiga não é fila de ninguém.
+      if (fichaQueAssumiu(c)) return false;
       var res = resultadoDoCandidato(c, casarEntrevista(c));
       return res.indexOf("SELECIONADO") === 0;
     }).sort(function (a, b) { return notaDoCandidato(b) - notaDoCandidato(a); });
@@ -4171,6 +4185,11 @@
       nota += " " + semData + " ficha(s) ainda não têm data de inscrição — são as importadas " +
         "antes de o arquivo da plataforma trazer a coluna data_envio. Reimporte os CSVs para completar.";
     }
+    var assumidas = assumidasNoOutroLado();
+    if (assumidas) {
+      nota += " " + assumidas + " ficha(s) de quem se inscreveu de novo na outra região ficam " +
+        "de fora daqui: a pessoa é contada do lado em que vai atuar.";
+    }
     bloco.appendChild(el("p", { class: "viz-secao__nota", text: nota }));
     return bloco;
   }
@@ -4181,7 +4200,18 @@
     var lista = candidatos.slice();
     if (vizTipo !== "todos") lista = lista.filter(function (c) { return c.tipo === vizTipo; });
     if (vizRegiao) lista = lista.filter(function (c) { return c.regiao === vizRegiao; });
-    return lista;
+    // Quem se inscreveu de novo na região certa é contado lá, uma vez só. Sem
+    // isso a mesma pessoa apareceria como duas selecionadas.
+    return lista.filter(function (c) { return !fichaQueAssumiu(c); });
+  }
+  function assumidasNoOutroLado() {
+    var n = 0;
+    candidatos.forEach(function (c) {
+      if (vizTipo !== "todos" && c.tipo !== vizTipo) return;
+      if (vizRegiao && c.regiao !== vizRegiao) return;
+      if (fichaQueAssumiu(c)) n++;
+    });
+    return n;
   }
 
   function renderDados() {

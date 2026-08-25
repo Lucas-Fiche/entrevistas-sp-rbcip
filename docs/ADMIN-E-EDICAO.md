@@ -267,6 +267,12 @@ com o número da região no "passe o mouse". Ao lado fica **Convocar mesmo
 assim** — você continua podendo, e a confirmação diz `Bauru já está com 12 de
 12`. É aviso, não bloqueio.
 
+Quem se inscreveu de novo na região certa **sai da fila da região antiga**: a
+ficha velha vira histórico e a pessoa passa a ser acompanhada — e contada — só
+do lado em que vai atuar. Isso vale também para o funil da aba *Visualização de
+dados*, que assim não conta a mesma pessoa como duas selecionadas; o rodapé da
+seção diz quantas fichas ficaram de fora por esse motivo.
+
 O botão **N na fila**, na coluna *Reserva*, abre a fila daquela região:
 aprovados ainda não convocados, **do maior para o menor desempenho na
 entrevista**, cada um com o botão de convocar. Quando alguém é desligado, a
