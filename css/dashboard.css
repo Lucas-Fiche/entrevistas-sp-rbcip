@@ -1175,12 +1175,56 @@ input[type="date"].viz-data {
   padding: 10px 14px;
   margin-bottom: 14px;
 }
+/* O resumo é o botão que abre o bloco: precisa parecer clicável mesmo fechado. */
 .metas__resumo {
   cursor: pointer;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -10px -14px;          /* colar no card: a faixa inteira é clicável */
+  padding: 12px 14px;
+  border-radius: var(--raio);
   font-size: 14px;
+  color: var(--cor-texto);
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+.metas__resumo::-webkit-details-marker { display: none; }
+.metas__resumo:hover { background: var(--cor-primaria-clara); }
+.metas__resumo:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+.metas[open] .metas__resumo {
+  border-bottom: 1px solid var(--cor-borda);
+  border-radius: var(--raio) var(--raio) 0 0;
+  margin-bottom: 4px;
+}
+.metas__seta {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
   color: var(--cor-primaria);
-  list-style: revert;
+  transition: transform 0.15s ease;
+}
+.metas__seta svg { width: 16px; height: 16px; }
+.metas[open] .metas__seta { transform: rotate(90deg); }
+.metas__titulo { font-weight: 700; color: var(--cor-primaria); }
+.metas__projeto {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cor-texto-suave);
+  border: 1px solid var(--cor-borda);
+  border-radius: 999px;
+  padding: 1px 9px;
+}
+.metas__chip { font-size: 12px; }
+.metas__nenhuma { font-size: 13px; color: var(--cor-texto-suave); }
+@media (prefers-reduced-motion: reduce) {
+  .metas__resumo, .metas__seta { transition: none; }
 }
 .metas__tab {
   width: 100%;

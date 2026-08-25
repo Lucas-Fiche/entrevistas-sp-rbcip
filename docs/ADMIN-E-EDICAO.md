@@ -248,8 +248,10 @@ Quem está na Formação e **não** foi desligado — ou seja, **Ativos + Aguard
 termo**. Quem recebeu a convocação e espera o termo já está comprometido com a
 região; quem é desligado **devolve a vaga sozinho**, sem ninguém mexer na meta.
 
-O bloco **Metas e vagas** (nas abas *Candidatos* e *Formação*) mostra a conta
-aberta — `3 (2 ativos + 1 aguardando)` — para o número ser sempre conferível.
+O bloco **Metas e vagas** (nas abas *Candidatos*, *Formação* e na sub-aba
+*Formação* da Visualização de dados) vem **fechado**: o cabeçalho já responde
+"tem vaga?" com os selos de *vagas em aberto* e *regiões sem vaga*, e um clique
+abre a tabela por região. Ela mostra a conta aberta — `3 (2 ativos + 1 aguardando)` — para o número ser sempre conferível.
 Regiões sem meta, sem bolsista e sem fila ficam fora da tabela; o rodapé diz
 quantas são.
 

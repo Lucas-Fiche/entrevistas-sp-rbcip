@@ -2186,7 +2186,7 @@
     painel.appendChild(acoes);
 
     // --- Metas e vagas (fechado: aqui é consulta, não leitura diária) ---
-    painel.appendChild(blocoMetas(candTipo, false));
+    painel.appendChild(blocoMetas(candTipo));
 
     // --- Busca (nome, e-mail, CPF ou região) ---
     var buscaWrap = el("div", { class: "painel__barra" });
@@ -2677,22 +2677,40 @@
 
   // Bloco "Metas e vagas". Vem fechado por padrão (é referência, não leitura
   // diária), mas o resumo do cabeçalho já diz se alguma região fechou.
-  function blocoMetas(tipo, aberto) {
+  function blocoMetas(tipo) {
     var regioes = regioesDaMeta(tipo);
     var comMeta = regioes.filter(function (r) { return metaDe(tipo, r) !== null; });
     var lotadas = comMeta.filter(function (r) { return vagasDe(tipo, r) <= 0; });
     var vagasTotais = comMeta.reduce(function (s, r) { return s + Math.max(0, vagasDe(tipo, r)); }, 0);
 
+    // Sempre fechado ao abrir a aba: é consulta, não leitura diária. O resumo
+    // no cabeçalho já responde "tem vaga?" sem precisar abrir.
     var caixa = el("details", { class: "metas" });
-    if (aberto) caixa.open = true;
     // O nome do projeto entra no resumo porque a aba de dados pode mostrar os
     // dois blocos (Capital e Interior) um embaixo do outro.
-    var titulo = "Metas e vagas · " + nomeRegiao(tipo);
-    var resumo = !comMeta.length
-      ? titulo + " — nenhuma meta definida ainda"
-      : titulo + " — " + vagasTotais + " vaga(s) em aberto" +
-        (lotadas.length ? " · " + lotadas.length + " região(ões) sem vaga" : "");
-    caixa.appendChild(el("summary", { class: "metas__resumo", text: resumo }));
+    var resumo = el("summary", { class: "metas__resumo" });
+    var seta = el("span", { class: "metas__seta", "aria-hidden": "true" });
+    seta.innerHTML = '<svg viewBox="0 0 16 16" focusable="false">' +
+      '<path d="M6 3.5L10.5 8L6 12.5" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    resumo.appendChild(seta);
+    resumo.appendChild(el("span", { class: "metas__titulo", text: "Metas e vagas" }));
+    resumo.appendChild(el("span", { class: "metas__projeto", text: nomeRegiao(tipo) }));
+    if (!comMeta.length) {
+      resumo.appendChild(el("span", { class: "metas__nenhuma", text: "nenhuma meta definida ainda" }));
+    } else {
+      resumo.appendChild(el("span", {
+        class: "tag " + (vagasTotais ? "tag--verde" : "tag--cinza") + " metas__chip",
+        text: vagasTotais + " vaga(s) em aberto",
+      }));
+      if (lotadas.length) {
+        resumo.appendChild(el("span", {
+          class: "tag tag--ambar metas__chip",
+          text: lotadas.length + (lotadas.length === 1 ? " região sem vaga" : " regiões sem vaga"),
+        }));
+      }
+    }
+    caixa.appendChild(resumo);
 
     var tabela = el("table", { class: "metas__tab" });
     var thead = el("tr", {}, [
@@ -3817,7 +3835,7 @@
     }
 
     // --- Metas e vagas: a Formação é onde a ocupação acontece ---
-    painel.appendChild(blocoMetas(formTipo, true));
+    painel.appendChild(blocoMetas(formTipo));
 
     // --- No projeto x desligados ---
     var noProjeto = doTipo.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
@@ -4559,7 +4577,7 @@
     ]));
 
     // Metas e vagas por região (o mesmo bloco das outras abas, já aberto).
-    tipos.forEach(function (t) { bloco.appendChild(blocoMetas(t, true)); });
+    tipos.forEach(function (t) { bloco.appendChild(blocoMetas(t)); });
 
     var grid = el("div", { class: "graficos" });
 
