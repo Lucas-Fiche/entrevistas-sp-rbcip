@@ -58,8 +58,8 @@ bolsista:
 - **Grupo** (Capital) ou **Região** (Interior) e o **Supervisor**.
 - **CPF, telefone e e-mail** — vindos do formulário *Cadastro de Bolsista*.
 - **Cadastro** — se o formulário de cadastro foi preenchido.
-- **Treinamento** — a Capital tem um treinamento só; o Interior tem *online* e
-  *presencial*, cada um com sua data.
+- **Treinamento** — uma coluna só, nos dois projetos: vale **qualquer
+  treinamento realizado** (online ou presencial), com a data.
 - **Termo de bolsa** — quando existe o documento, vira um link direto para o
   arquivo no Drive.
 
@@ -82,8 +82,10 @@ existente.
 2. Na aba **Formação**, escolha *Capital* ou *Interior*, selecione o arquivo e
    clique em **Enviar CSV**.
 
-O sistema entende os dois formatos de cabeçalho (o da Capital tem *Grupo* e uma
-coluna de treinamento; o do Interior tem *Região* e duas). O separador pode ser
+O sistema entende os dois formatos de cabeçalho (o da Capital tem *Grupo*; o do
+Interior, *Região*) e aceita qualquer nome de coluna de treinamento
+(*Treinamento*, *Treinamento Presencial*, *Treinamento Presencial/Online*,
+*Treinamento Online*) — todas caem no campo único. O separador pode ser
 vírgula ou ponto e vírgula — é detectado automaticamente.
 
 Reimportar **atualiza** as linhas existentes em vez de duplicar: a
@@ -124,16 +126,17 @@ cadastrado.
 > **Treinamento é marcado à mão**, por decisão do projeto: em *Editar*, escolha
 > *Realizado*, preencha a data e o facilitador.
 
-A **Capital tem um treinamento só** (é a coluna *Treinamento Presencial/Online*
-da planilha de lá) e o **Interior tem dois**, online e presencial — o formulário
-de edição mostra exatamente os campos daquele lado.
+**Treinamento é um só**, para a Capital e para o Interior: conta qualquer
+treinamento realizado. Na ficha há um campo *Treinamento*, a *Data do
+treinamento* e o *Facilitador*; na tabela, uma coluna *Treinamento*. Os
+arquivos exportados saem com as colunas *Treinamento* e *Data do Treinamento*.
 
-> Se você marcou treinamentos da Capital antes de **26/08** e eles apareciam
-> como *Não Realizado*, era um campo trocado: a edição gravava num campo e a
-> tabela lia outro. Já está corrigido, e o que foi marcado continua aparecendo.
-> Para arrumar o dado de vez, rode **`sql/treinamento-capital.sql`** (só move o
-> que ficou no lugar errado; não sobrescreve nada). Sem isso também funciona:
-> a ficha se conserta sozinha na primeira vez que for salva.
+> **Quem já marcava antes:** havia dois campos (online e presencial) e, na
+> Capital, o formulário editava um e a tabela lia o outro. Tudo o que foi
+> marcado continua aparecendo — o painel lê os dois. Para juntar o dado de vez,
+> rode **`sql/treinamento-unico.sql`** (só move o que está no campo antigo;
+> não sobrescreve nada). Sem rodar também funciona: cada ficha se junta sozinha
+> na primeira vez que for salva.
 
 Marca feita à mão **não é desfeita** por reimportação: treinamento, data,
 facilitador e grupo são tratados como campos do painel — o CSV atualiza o resto

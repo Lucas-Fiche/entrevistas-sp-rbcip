@@ -2482,11 +2482,16 @@
       supervisor: pegaCol(row, ["Supervisor"]) || null,
       status: pegaCol(row, ["Status"]) || null,
       cadastro_bolsista: pegaCol(row, ["Cadastro de Bolsista"]) || null,
-      treinamento_online: pegaCol(row, ["Treinamento Online"]) || null,
-      data_treinamento_online: pegaCol(row, ["Data do Treinamento Online"]) || null,
+      // Um treinamento só: qualquer uma das colunas antigas cai no mesmo campo.
+      treinamento_online: null,
+      data_treinamento_online: null,
       // Na Capital a coluna se chama "Treinamento Presencial/Online" (é o único).
-      treinamento_presencial: pegaCol(row, ["Treinamento Presencial", "Treinamento Presencial/Online"]) || null,
-      data_treinamento_presencial: pegaCol(row, ["Data do Treinamento Presencial"]) || null,
+      treinamento_presencial: pegaCol(row, [
+        "Treinamento", "Treinamento Presencial", "Treinamento Presencial/Online", "Treinamento Online",
+      ]) || null,
+      data_treinamento_presencial: pegaCol(row, [
+        "Data do Treinamento", "Data do Treinamento Presencial", "Data do Treinamento Online",
+      ]) || null,
       termo_bolsa: pegaCol(row, ["Termo de Bolsa"]) || null,
       termo_link: pegaCol(row, ["Documento do Termo de Bolsa"]) || null,
       origem: row,
@@ -2947,6 +2952,17 @@
     return tag;
   }
   function ehRealizado(v) { return normStr(v) === "realizado"; }
+
+  // ---------- Treinamento: um só, para os dois projetos ----------
+  // O valor mora em `treinamento_presencial` (a coluna que a planilha de
+  // controle chama de "Treinamento Presencial/Online"). O campo antigo
+  // `treinamento_online` só é lido, para não perder o que já foi marcado
+  // enquanto existiam dois — sql/treinamento-unico.sql junta os dois de vez.
+  function treinamentoDe(f) { return f.treinamento_presencial || f.treinamento_online || ""; }
+  function dataTreinamentoDe(f) {
+    return f.data_treinamento_presencial || f.data_treinamento_online || "";
+  }
+  function fezTreinamento(f) { return ehRealizado(treinamentoDe(f)); }
   function formatarCPF(v) {
     var d = soDigitos(v);
     if (d.length !== 11) return v || "—";
@@ -3160,12 +3176,7 @@
 
     var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome",
       "CPF", "Telefone", "Email", "Cadastro de Bolsista", "Supervisor"];
-    if (tipo === "capital") {
-      cabecalho.push("Treinamento Presencial/Online", "Data do Treinamento Presencial");
-    } else {
-      cabecalho.push("Treinamento Online", "Data do Treinamento Online",
-        "Treinamento Presencial", "Data do Treinamento Presencial");
-    }
+    cabecalho.push("Treinamento", "Data do Treinamento");
     cabecalho.push("Termo de Bolsa", "Documento do Termo de Bolsa",
       "Facilitador", "Desligado em", "Motivo do desligamento");
 
@@ -3178,13 +3189,7 @@
         f.cpf || "", f.telefone || "", f.email || "",
         f.cadastro_bolsista || "", supervisorDe(f) || "",
       ];
-      if (tipo === "capital") {
-        linha.push(f.treinamento_presencial || f.treinamento_online || "",
-          f.data_treinamento_presencial || f.data_treinamento_online || "");
-      } else {
-        linha.push(f.treinamento_online || "", f.data_treinamento_online || "",
-          f.treinamento_presencial || "", f.data_treinamento_presencial || "");
-      }
+      linha.push(treinamentoDe(f), dataTreinamentoDe(f));
       linha.push(f.termo_link ? "Emitido" : (f.termo_bolsa || "Não Emitido"), f.termo_link || "",
         f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "");
       aoa.push(linha);
@@ -3371,23 +3376,14 @@
         dica: "Define o supervisor automaticamente." });
     }
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
-    if (f.tipo === "capital") {
-      // A Capital tem um treinamento só, e a planilha dela o chama de
-      // "Treinamento Presencial/Online" — é este campo que a tabela mostra.
-      // Editar por outro campo era o motivo de "Realizado" sumir ao salvar.
-      // `valor`: fichas marcadas antes desta correção têm o dado no campo
-      // "online". O formulário mostra o que existe e, ao salvar, grava no campo
-      // certo — a ficha se conserta sozinha na primeira edição.
-      campos.push({ id: "treinamento_presencial", rot: "Treinamento", opcoes: OPCOES_TREINO,
-        valor: f.treinamento_presencial || f.treinamento_online });
-      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento", dica: "dd/mm/aaaa",
-        valor: f.data_treinamento_presencial || f.data_treinamento_online });
-    } else {
-      campos.push({ id: "treinamento_online", rot: "Treinamento online", opcoes: OPCOES_TREINO });
-      campos.push({ id: "data_treinamento_online", rot: "Data do treinamento online", dica: "dd/mm/aaaa" });
-      campos.push({ id: "treinamento_presencial", rot: "Treinamento presencial", opcoes: OPCOES_TREINO });
-      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento presencial", dica: "dd/mm/aaaa" });
-    }
+    // Um treinamento só, para os dois projetos: conta qualquer treinamento
+    // realizado. Fica no campo que a planilha chama de "Treinamento
+    // Presencial/Online"; `valor` mostra também o que estiver no campo antigo,
+    // e salvar move para o campo único — a ficha se conserta sozinha.
+    campos.push({ id: "treinamento_presencial", rot: "Treinamento", opcoes: OPCOES_TREINO,
+      valor: treinamentoDe(f), dica: "Qualquer treinamento realizado (online ou presencial)." });
+    campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento", dica: "dd/mm/aaaa",
+      valor: dataTreinamentoDe(f) });
     campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
     campos.push({ id: "termo_link", rot: "Link do termo de bolsa",
       dica: "Preenchido pela planilha de termos. Ter link = bolsista ativo." });
@@ -3771,7 +3767,7 @@
     var comTermo = doTipo.filter(function (f) { return !!f.termo_link; }).length;
     var semCadastro = doTipo.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
     var semTreino = doTipo.filter(function (f) {
-      return !ehRealizado(f.treinamento_presencial) && !ehRealizado(f.treinamento_online);
+      return !fezTreinamento(f);
     }).length;
     var stats = el("div", { class: "stats stats--form" }, [
       statCard("Bolsistas", doTipo.length),
@@ -3883,8 +3879,7 @@
     var cols = ["Nome", "Situação"];
     cols.push(formTipo === "capital" ? "Grupo" : "Região");
     cols = cols.concat(["CPF", "Telefone", "E-mail", "Supervisor", "Cadastro"]);
-    if (formTipo === "interior") cols.push("Treino online");
-    cols.push(formTipo === "capital" ? "Treinamento" : "Treino presencial");
+    cols.push("Treinamento");
     cols.push("Termo de bolsa");
     // Na lista de desligados, o que importa é quando saiu e por quê.
     if (formVer === "desligados") cols.push("Desligado em", "Motivo");
@@ -3930,14 +3925,7 @@
       tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: supervisorDe(f) || "—" }));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
 
-      if (formTipo === "interior") {
-        tr.appendChild(celulaEtapa("Treino online", f.treinamento_online, f.data_treinamento_online));
-      }
-      tr.appendChild(celulaEtapa(
-        formTipo === "capital" ? "Treinamento" : "Treino presencial",
-        formTipo === "capital" ? (f.treinamento_presencial || f.treinamento_online) : f.treinamento_presencial,
-        formTipo === "capital" ? (f.data_treinamento_presencial || f.data_treinamento_online) : f.data_treinamento_presencial
-      ));
+      tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
 
       // Termo de bolsa: link do documento quando existe (é o que define "Ativo").
       var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });
@@ -4540,7 +4528,7 @@
     var naProjeto = ativos.length + aguardando.length;
     var comCadastro = lista.filter(function (f) { return ehRealizado(f.cadastro_bolsista); });
     var comTreino = lista.filter(function (f) {
-      return ehRealizado(f.treinamento_online) || ehRealizado(f.treinamento_presencial);
+      return fezTreinamento(f);
     });
 
     // Meta e ocupação das regiões que estão dentro do filtro.
