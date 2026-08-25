@@ -97,6 +97,10 @@ só com aquela gente, no mesmo layout da planilha de controle — útil para man
 a lista ao supervisor da região sem expor o resto do projeto. A primeira opção
 do menu baixa o Interior (ou a Capital) inteiro.
 
+**Desligados não entram** neste arquivo (nem na contagem do menu): ele é lista
+de trabalho, não histórico. Para levar todo mundo, com as colunas de
+desligamento, use o **⬇ Baixar CSV**.
+
 O nome do arquivo sai como `formacao_bauru_2026-08-24.xlsx` e a aba da planilha
 leva o nome da região.
 

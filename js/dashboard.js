@@ -3148,16 +3148,17 @@
   // que só existe no sistema: facilitador e desligamento.
   // `regiao` opcional: quando vem, a planilha sai só com quem é daquela região
   // (no Interior) ou daquele grupo (na Capital).
-  function planilhaFormacao(tipo, regiao) {
+  function planilhaFormacao(tipo, regiao, semDesligados) {
     var alvo = regiao ? normStr(regiaoCurta(regiao)) : "";
     var lista = formacao.filter(function (f) {
       if (f.tipo !== tipo) return false;
+      if (semDesligados && situacaoFormacao(f) === "Desligado") return false;
       if (!alvo) return true;
       return normStr(regiaoCurta(chaveSupervisao(f))) === alvo;
     }).sort(porOrdemPlanilha);
     if (!lista.length) return null;
 
-    var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome", "Nome",
+    var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome",
       "CPF", "Telefone", "Email", "Cadastro de Bolsista", "Supervisor"];
     if (tipo === "capital") {
       cabecalho.push("Treinamento Presencial/Online", "Data do Treinamento Presencial");
@@ -3173,7 +3174,7 @@
       var linha = [
         situacaoFormacao(f),
         (tipo === "capital" ? (f.grupo || "") : regiaoCurta(f.regiao).replace("—", "")),
-        f.nome || "", f.nome || "",
+        f.nome || "",
         f.cpf || "", f.telefone || "", f.email || "",
         f.cadastro_bolsista || "", supervisorDe(f) || "",
       ];
@@ -3203,9 +3204,11 @@
   function nomeArquivo(txt) {
     return normStr(txt).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "todos";
   }
+  // O .xlsx por região vai para o supervisor: leva só quem está no projeto.
+  // Desligado é histórico do controle central, não lista de trabalho.
   function exportarFormacaoXlsx(tipo, regiao) {
-    var aoa = planilhaFormacao(tipo, regiao);
-    if (!aoa) { alert("Não há bolsistas em " + (regiao || tipo) + "."); return; }
+    var aoa = planilhaFormacao(tipo, regiao, true);
+    if (!aoa) { alert("Não há bolsistas ativos em " + (regiao || tipo) + "."); return; }
     var hoje = new Date().toISOString().slice(0, 10);
     var rotulo = regiao ? regiaoCurta(regiao) : (tipo === "capital" ? "Capital" : "Interior");
     // O Excel recusa nome de aba com mais de 31 caracteres ou com : \ / ? * [ ]
@@ -3218,6 +3221,7 @@
     var mapa = {}, ordem = [];
     formacao.forEach(function (f) {
       if (f.tipo !== tipo) return;
+      if (situacaoFormacao(f) === "Desligado") return; // o arquivo também não os leva
       var nome = regiaoCurta(chaveSupervisao(f));
       if (!nome || nome === "—") nome = "(sem " + (tipo === "capital" ? "grupo" : "região") + ")";
       var k = normStr(nome);
@@ -3256,7 +3260,9 @@
       b.addEventListener("click", function () { fechar(); exportarFormacaoXlsx(tipo, regiao); });
       lista.appendChild(b);
     }
-    var todos = formacao.filter(function (f) { return f.tipo === tipo; }).length;
+    var todos = formacao.filter(function (f) {
+      return f.tipo === tipo && situacaoFormacao(f) !== "Desligado";
+    }).length;
     item(tipo === "capital" ? "Capital inteira" : "Interior inteiro", "", todos);
     lista.appendChild(el("div", { class: "menu-baixar__sep" }));
     gruposDaFormacao(tipo).forEach(function (g) { item(g.nome, g.nome, g.qtd); });
