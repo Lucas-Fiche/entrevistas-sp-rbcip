@@ -102,6 +102,26 @@ leva o nome da região.
 
 O botão **⬇ Baixar CSV**, ao lado, continua exportando tudo em CSV.
 
+### O que a coluna em branco quer dizer
+
+Nas colunas **Cadastro**, **Treino online** e **Treino presencial**, em branco
+significa **Não Realizado** — é assim que a planilha de controle funciona: só
+quem concluiu recebe "Realizado". Por isso a tabela escreve *Não Realizado* em
+vez de um traço: um traço parece "não sei", e a informação existe.
+
+O **supervisor** não é digitado nem sincronizado: ele vem da tabela de
+supervisores, pela região (Interior) ou pelo grupo (Capital). A comparação
+ignora o sufixo *"(região)"*, que aparece nos dados da plataforma e não nas
+planilhas — sem isso, a ficha ficava sem supervisor mesmo com o supervisor
+cadastrado.
+
+> **O que a sincronização preenche:** apenas **Cadastro de bolsista** (quem
+> aparece no formulário de cadastro) e o **termo de bolsa** (link e situação).
+> **Treinamentos não vêm da sincronização** — a planilha-ponte só carrega CPF e
+> link do termo. Eles chegam pelo **CSV de formação** ou são marcados à mão em
+> *Editar*. Se quiser que os treinamentos também sincronizem, dá para acrescentar
+> duas colunas à ponte; é só pedir.
+
 ### Sincronizar com as planilhas
 
 O botão **🔄 Sincronizar planilhas** lê, pelo Apps Script, o formulário de

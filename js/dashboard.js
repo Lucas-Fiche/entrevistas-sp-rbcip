@@ -1136,7 +1136,9 @@
 
   // Nome de região para exibir em tabela (sem o sufixo "(região)").
   function regiaoCurta(r) {
-    return String(r || "").replace(/\s*\(região\)$/i, "").trim() || "—";
+    // Aceita "(região)", "(Região)" e "(regiao)" — a mesma região aparece das
+    // três formas entre a plataforma, as planilhas e o que é digitado à mão.
+    return String(r || "").replace(/\s*\(regi[ãa]o\)$/i, "").trim() || "—";
   }
   function resultadoClasse(res) {
     if (res === "SELECIONADO") return "tag tag--verde-forte";
@@ -1975,7 +1977,9 @@
       telefone: telefoneDaInscricao(cand.inscricao) || null,
       email: cand.email || null,
       email_norm: cand.email_norm || normEmail(cand.email) || null,
-      regiao: cand.tipo === "interior" ? (cand.regiao || null) : null,
+      // Sem o sufixo "(região)": é assim que a planilha de controle e a tabela
+      // de supervisores escrevem, e é por esse nome que as duas se encontram.
+      regiao: cand.tipo === "interior" ? (regiaoCurta(cand.regiao) || null) : null,
       candidato_id: cand.id || null,
       origem: { criado_por: "convocação de cadastro", em: new Date().toISOString() },
       updated_at: new Date().toISOString(),
@@ -2864,11 +2868,17 @@
   }
   // Supervisor deduzido da tabela; se ainda não houver cadastro, mostra o que
   // veio da planilha para não perder a informação.
+  //
+  // A comparação tira o sufixo "(região)": a plataforma escreve "Ribeirão Preto
+  // (região)" e a tabela de supervisores, "Ribeirão Preto". Comparando cru, a
+  // ficha ficava sem supervisor sem nenhum aviso — o supervisor existia, só não
+  // era encontrado.
   function supervisorDe(f) {
-    var chave = normStr(chaveSupervisao(f));
+    var bruto = chaveSupervisao(f);
+    var chave = bruto ? normStr(regiaoCurta(bruto)) : "";
     if (chave) {
       var achado = supervisores.filter(function (s) {
-        return s.tipo === f.tipo && s.ativo !== false && normStr(s.chave) === chave;
+        return s.tipo === f.tipo && s.ativo !== false && normStr(regiaoCurta(s.chave)) === chave;
       })[0];
       if (achado) return achado.nome;
     }
@@ -2952,7 +2962,9 @@
     var td = el("td", { class: "tabela__td", "data-label": rotulo });
     var caixa = el("span", { class: "form-etapa" });
     if (!valor) {
-      caixa.appendChild(el("span", { class: "cand-pendente", text: "—" }));
+      // Em branco não é "não sei": na planilha de controle, só quem concluiu
+      // recebe "Realizado". Quem está em branco ainda não fez.
+      caixa.appendChild(el("span", { class: "cand-pendente", text: "Não Realizado" }));
     } else if (ehRealizado(valor)) {
       caixa.appendChild(el("span", { class: "cand-enviado", text: "✓ Realizado" }));
       if (data) caixa.appendChild(el("span", { class: "form-data", text: data }));
@@ -3156,7 +3168,7 @@
     lista.forEach(function (f) {
       var linha = [
         situacaoFormacao(f),
-        (tipo === "capital" ? f.grupo : f.regiao) || "",
+        (tipo === "capital" ? (f.grupo || "") : regiaoCurta(f.regiao).replace("—", "")),
         f.nome || "", f.nome || "",
         f.cpf || "", f.telefone || "", f.email || "",
         f.cadastro_bolsista || "", supervisorDe(f) || "",
@@ -3913,7 +3925,9 @@
           text: "📄 " + (f.termo_bolsa || "Emitido"),
         }));
       } else {
-        tdTermo.appendChild(el("span", { class: "cand-pendente", text: f.termo_bolsa || "Não emitido" }));
+        // Sem link é sem termo, venha o que vier escrito na planilha
+        // ("Não Emitido", "não emitido", vazio): um texto só para toda a coluna.
+        tdTermo.appendChild(el("span", { class: "cand-pendente", text: "Não emitido" }));
       }
       tr.appendChild(tdTermo);
 
