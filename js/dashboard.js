@@ -2669,9 +2669,12 @@
 
     var caixa = el("details", { class: "metas" });
     if (aberto) caixa.open = true;
+    // O nome do projeto entra no resumo porque a aba de dados pode mostrar os
+    // dois blocos (Capital e Interior) um embaixo do outro.
+    var titulo = "Metas e vagas · " + nomeRegiao(tipo);
     var resumo = !comMeta.length
-      ? "Metas e vagas — nenhuma meta definida ainda"
-      : "Metas e vagas — " + vagasTotais + " vaga(s) em aberto" +
+      ? titulo + " — nenhuma meta definida ainda"
+      : titulo + " — " + vagasTotais + " vaga(s) em aberto" +
         (lotadas.length ? " · " + lotadas.length + " região(ões) sem vaga" : "");
     caixa.appendChild(el("summary", { class: "metas__resumo", text: resumo }));
 
@@ -3775,6 +3778,8 @@
   }
 
   // ---------- Visualização de dados ----------
+  // Qual etapa está sendo olhada: inscricoes | entrevistas | formacao.
+  var vizAba = "inscricoes";
   var vizTipo = "todos";
   var vizDe = "";
   var vizAte = "";
@@ -4214,6 +4219,172 @@
     return n;
   }
 
+  // ---------- Seção Formação (aba Visualização de dados) ----------
+  function formacaoDaViz() {
+    var lista = formacao.slice();
+    if (vizTipo !== "todos") lista = lista.filter(function (f) { return f.tipo === vizTipo; });
+    if (vizRegiao) {
+      var alvo = normStr(regiaoCurta(vizRegiao));
+      lista = lista.filter(function (f) { return normStr(regiaoCurta(f.regiao)) === alvo; });
+    }
+    return lista;
+  }
+
+  // Barra que se compara com uma meta: o preenchimento é a fração da meta, e o
+  // rótulo mostra os dois números — "8 / 12" diz mais do que qualquer cor.
+  function graficoProgresso(titulo, dados, nota) {
+    var card = el("div", { class: "grafico" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    if (!dados.length) {
+      card.appendChild(el("p", { class: "vazio", text: "Nenhuma região com meta definida." }));
+      return card;
+    }
+    dados.forEach(function (d) {
+      var pct = d.meta > 0 ? Math.min(100, Math.round((d.valor / d.meta) * 100)) : 0;
+      var linha = el("div", { class: "barra" });
+      linha.appendChild(el("span", { class: "barra__rotulo", text: d.label, title: d.label }));
+      var trilho = el("div", { class: "barra__trilho" });
+      var preench = el("div", {
+        class: "barra__preench" + (d.valor >= d.meta ? " barra__preench--cheia" : ""),
+        title: d.valor + " de " + d.meta + " (" + pct + "%)",
+      });
+      preench.style.width = pct + "%";
+      trilho.appendChild(preench);
+      linha.appendChild(trilho);
+      linha.appendChild(el("span", { class: "barra__valor barra__valor--meta", text: d.valor + "/" + d.meta }));
+      card.appendChild(linha);
+    });
+    if (nota) card.appendChild(el("p", { class: "grafico__nota", text: nota }));
+    return card;
+  }
+
+  function blocoFormacaoViz() {
+    var bloco = el("section", { class: "viz-secao" });
+    var lista = formacaoDaViz();
+    if (!lista.length) {
+      bloco.appendChild(el("p", {
+        class: "vazio",
+        text: "Nenhum bolsista na Formação com os filtros atuais. As fichas nascem ao convocar " +
+          "alguém para o cadastro de bolsista, ou ao importar o CSV de formação.",
+      }));
+      return bloco;
+    }
+
+    var ativos = lista.filter(function (f) { return situacaoFormacao(f) === "Ativo"; });
+    var aguardando = lista.filter(function (f) { return situacaoFormacao(f) === "Aguardando termo"; });
+    var desligados = lista.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
+    var naProjeto = ativos.length + aguardando.length;
+    var comCadastro = lista.filter(function (f) { return ehRealizado(f.cadastro_bolsista); });
+    var comOnline = lista.filter(function (f) { return ehRealizado(f.treinamento_online); });
+    var comPresencial = lista.filter(function (f) { return ehRealizado(f.treinamento_presencial); });
+    var comTreino = lista.filter(function (f) {
+      return ehRealizado(f.treinamento_online) || ehRealizado(f.treinamento_presencial);
+    });
+
+    // Meta e ocupação das regiões que estão dentro do filtro.
+    var tipos = vizTipo === "todos" ? ["capital", "interior"] : [vizTipo];
+    var metaTotal = 0, ocupTotal = 0, semMeta = 0;
+    var porRegiao = [];
+    tipos.forEach(function (t) {
+      regioesDaMeta(t).forEach(function (r) {
+        if (vizRegiao && normStr(regiaoCurta(vizRegiao)) !== normStr(r)) return;
+        var meta = metaDe(t, r);
+        var oc = ocupacaoDe(t, r).total;
+        if (meta === null) { if (oc) semMeta += oc; return; }
+        metaTotal += meta;
+        ocupTotal += oc;
+        porRegiao.push({ label: r, valor: oc, meta: meta });
+      });
+    });
+    var ocupacaoPct = metaTotal ? Math.round((ocupTotal / metaTotal) * 100) + "%" : "—";
+
+    bloco.appendChild(el("div", { class: "stats" }, [
+      statCard("No projeto", naProjeto),
+      statCard("Ativos (com termo)", ativos.length),
+      statCard("Aguardando termo", aguardando.length),
+      statCard("Desligados", desligados.length),
+      statCard("Ocupação das metas", ocupacaoPct),
+    ]));
+
+    // Metas e vagas por região (o mesmo bloco das outras abas, já aberto).
+    tipos.forEach(function (t) { bloco.appendChild(blocoMetas(t, true)); });
+
+    var grid = el("div", { class: "graficos" });
+
+    if (porRegiao.length) {
+      grid.appendChild(graficoProgresso(
+        vizTipo === "capital" ? "Ocupação da meta" : "Ocupação da meta por região",
+        porRegiao.sort(function (a, b) { return (b.valor / b.meta) - (a.valor / a.meta); }),
+        "Ocupam vaga os ativos e os que aguardam termo." +
+          (semMeta ? " " + semMeta + " bolsista(s) estão em região sem meta definida." : "")
+      ));
+    }
+
+    grid.appendChild(graficoBarras("Situação dos bolsistas", [
+      { label: "Ativos (termo emitido)", valor: ativos.length },
+      { label: "Aguardando termo", valor: aguardando.length },
+      { label: "Desligados", valor: desligados.length },
+    ]));
+
+    // Etapas da formação: onde cada bolsista parou. Sempre sobre o total do
+    // filtro, para as barras poderem ser comparadas entre si.
+    var etapas = [
+      { label: "Cadastro de bolsista", valor: comCadastro.length },
+      { label: "Treinamento online", valor: comOnline.length },
+      { label: "Treinamento presencial", valor: comPresencial.length },
+      { label: "Termo de bolsa emitido", valor: ativos.length + desligados.filter(function (f) { return !!f.termo_link; }).length },
+    ];
+    grid.appendChild(graficoBarras("Etapas concluídas (de " + lista.length + " bolsistas)", etapas));
+
+    // O que falta: a lista de pendências do dia a dia.
+    var pendencias = [
+      { label: "Sem cadastro", valor: lista.length - comCadastro.length - desligados.length },
+      { label: "Sem treinamento", valor: naProjeto - comTreino.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; }).length },
+      { label: "Sem termo", valor: aguardando.length },
+      { label: "Sem CPF na ficha", valor: lista.filter(function (f) { return soDigitos(f.cpf).length !== 11; }).length },
+    ].filter(function (d) { return d.valor > 0; });
+    if (pendencias.length) grid.appendChild(graficoBarras("Pendências (quem ainda não concluiu)", pendencias));
+
+    // Por grupo (Capital) e por região (Interior) — só quem está no projeto.
+    var noProjeto = lista.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
+    var porGrupo = contarPor(noProjeto, function (f) {
+      return f.tipo === "capital" ? (f.grupo || "(sem grupo)") : regiaoCurta(f.regiao);
+    });
+    var chavesGrupo = Object.keys(porGrupo).sort(function (a, b) { return porGrupo[b] - porGrupo[a]; });
+    if (chavesGrupo.length > 1) {
+      grid.appendChild(graficoBarras(
+        vizTipo === "capital" ? "Bolsistas por grupo"
+          : vizTipo === "interior" ? "Bolsistas por região"
+          // Em "Todas" a lista mistura as duas coisas — o título precisa dizer.
+          : "Bolsistas por grupo (Capital) e região (Interior)",
+        chavesGrupo.map(function (k) { return { label: k, valor: porGrupo[k] }; })
+      ));
+    }
+
+    var porSup = contarPor(noProjeto, function (f) { return supervisorDe(f) || "(sem supervisor)"; });
+    var chavesSup = Object.keys(porSup).sort(function (a, b) { return porSup[b] - porSup[a]; });
+    if (chavesSup.length) {
+      grid.appendChild(graficoBarras("Bolsistas por supervisor", chavesSup.map(function (k) {
+        return { label: k, valor: porSup[k] };
+      })));
+    }
+
+    if (desligados.length) {
+      var porMotivo = contarPor(desligados, function (f) { return f.desligado_motivo || "(sem motivo registrado)"; });
+      grid.appendChild(graficoBarras("Desligamentos por motivo", Object.keys(porMotivo)
+        .sort(function (a, b) { return porMotivo[b] - porMotivo[a]; })
+        .map(function (k) { return { label: k, valor: porMotivo[k] }; })));
+    }
+
+    bloco.appendChild(grid);
+    bloco.appendChild(el("p", {
+      class: "viz-secao__nota",
+      text: "Fonte: aba Formação. Os filtros de tipo e região valem aqui; o de período não, " +
+        "porque a ficha de formação não tem uma data única que sirva de referência.",
+    }));
+    return bloco;
+  }
+
   function renderDados() {
     var painel = $("#painel-dados");
     painel.innerHTML = "";
@@ -4282,8 +4453,26 @@
 
     painel.appendChild(barra);
 
-    // ----- Funil do processo (fonte: aba Candidatos) -----
-    painel.appendChild(blocoFunilCandidatos());
+    // ----- Sub-abas: cada etapa do funil tem a sua tela -----
+    // Empilhar as três seções numa página só obrigava a rolar muito para
+    // comparar qualquer coisa; separadas, cada etapa cabe na tela.
+    var pills = el("div", { class: "cand-filtro" });
+    [
+      { id: "inscricoes", rot: "Inscrições no SIPE" },
+      { id: "entrevistas", rot: "Entrevistas" },
+      { id: "formacao", rot: "Formação" },
+    ].forEach(function (a) {
+      var b = el("button", {
+        class: "cand-tab" + (vizAba === a.id ? " cand-tab--ativa" : ""),
+        type: "button", text: a.rot,
+      });
+      b.addEventListener("click", function () { vizAba = a.id; renderDados(); });
+      pills.appendChild(b);
+    });
+    painel.appendChild(pills);
+
+    if (vizAba === "inscricoes") { painel.appendChild(blocoFunilCandidatos()); return; }
+    if (vizAba === "formacao") { painel.appendChild(blocoFormacaoViz()); return; }
 
     var lista = filtrarViz();
     var avaliados = lista.filter(function (r) { return !r.nao_compareceu && !r.nao_cumpre_requisitos; });
@@ -4292,9 +4481,7 @@
       ? Math.round((comNota.reduce(function (s, r) { return s + r.pontuacao_total; }, 0) / comNota.length) * 10) / 10
       : "—";
 
-    // ----- Segunda seção: entrevistas realizadas no sistema -----
-    painel.appendChild(el("h2", { class: "viz-secao__titulo viz-secao__titulo--solto", text: "Entrevistas" }));
-
+    // ----- Entrevistas realizadas no sistema -----
     // KPIs
     var stats = el("div", { class: "stats" }, [
       statCard("Entrevistas", lista.length),

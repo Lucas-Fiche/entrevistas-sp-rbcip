@@ -197,11 +197,15 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   coluna (padrão: ranking por pontuação), **Recomendação colorida** (verde =
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**.
-- **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**),
-  indicadores (KPIs), gráficos (inscritos por região, recomendação, **inscrições
-  ao longo do tempo**, entrevistas ao longo do tempo e **nota média por
-  entrevistador**) e um **mapa de São Paulo** com o número de inscritos por
-  região.
+- **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**) e três
+  sub-abas, uma por etapa do funil:
+  - **Inscrições no SIPE** — funil do processo, inscrições por região e
+    **inscrições ao longo do tempo**;
+  - **Entrevistas** — indicadores, **mapa de São Paulo**, recomendação,
+    entrevistas ao longo do tempo e **nota média por entrevistador**;
+  - **Formação** — ocupação das metas por região, situação dos bolsistas,
+    etapas concluídas, pendências, distribuição por grupo/região e por
+    supervisor, e desligamentos por motivo.
 
 ---
 

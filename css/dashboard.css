@@ -1236,3 +1236,8 @@ input[type="date"].viz-data {
 .menu-baixar__item:hover,
 .menu-baixar__item:focus-visible { background: var(--cor-primaria); color: #fff; }
 .menu-baixar__sep { height: 1px; background: var(--cor-borda); margin: 5px 2px; }
+
+/* Barra comparada com a meta (aba Visualização de dados → Formação) */
+.barra__preench--cheia { background: var(--cor-sucesso); }
+.barra__valor--meta { width: 56px; text-align: right; white-space: nowrap; }
+.grafico__nota { margin: 10px 0 0; font-size: 12px; color: var(--cor-texto-suave); }

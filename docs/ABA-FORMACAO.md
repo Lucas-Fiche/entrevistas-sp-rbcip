@@ -153,6 +153,26 @@ quando foi, se foi automática, quantas fichas mudaram e o que veio da ponte.
 Quando a automática falha, ela envia e-mail e registra o erro: uma rotina que
 roda sem ninguém olhando não pode falhar em silêncio.
 
+### A Formação na aba Visualização de dados
+
+A aba **Visualização de dados** tem três sub-abas — *Inscrições no SIPE*,
+*Entrevistas* e *Formação* —, uma por etapa do funil. A de Formação mostra:
+
+- **Indicadores:** no projeto, ativos (com termo), aguardando termo, desligados
+  e a **ocupação das metas** em porcentagem;
+- **Metas e vagas** por região (o mesmo bloco das outras abas);
+- **Ocupação da meta por região** — barra que se enche até a meta, com o número
+  aberto (`3/3`, `1/4`); verde quando a região fecha;
+- **Situação dos bolsistas** — ativos, aguardando termo, desligados;
+- **Etapas concluídas** — cadastro, treinamento online, presencial e termo;
+- **Pendências** — sem cadastro, sem treinamento, sem termo e sem CPF na ficha;
+- **Distribuição** por grupo (Capital) ou região (Interior) e **por supervisor**;
+- **Desligamentos por motivo**, quando houver.
+
+Os filtros de **tipo** e **região** valem nessa sub-aba; o de **período** não —
+a ficha de formação não tem uma data única que sirva de referência, e filtrar
+por uma data qualquer daria um número que não significa nada.
+
 ### Ordem da lista
 
 A tabela aparece na **mesma ordem do arquivo importado** — que é a ordem em que
