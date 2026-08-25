@@ -124,6 +124,17 @@ cadastrado.
 > **Treinamento é marcado à mão**, por decisão do projeto: em *Editar*, escolha
 > *Realizado*, preencha a data e o facilitador.
 
+A **Capital tem um treinamento só** (é a coluna *Treinamento Presencial/Online*
+da planilha de lá) e o **Interior tem dois**, online e presencial — o formulário
+de edição mostra exatamente os campos daquele lado.
+
+> Se você marcou treinamentos da Capital antes de **26/08** e eles apareciam
+> como *Não Realizado*, era um campo trocado: a edição gravava num campo e a
+> tabela lia outro. Já está corrigido, e o que foi marcado continua aparecendo.
+> Para arrumar o dado de vez, rode **`sql/treinamento-capital.sql`** (só move o
+> que ficou no lugar errado; não sobrescreve nada). Sem isso também funciona:
+> a ficha se conserta sozinha na primeira vez que for salva.
+
 Marca feita à mão **não é desfeita** por reimportação: treinamento, data,
 facilitador e grupo são tratados como campos do painel — o CSV atualiza o resto
 da ficha e deixa esses como estão. O mesmo vale para o *Cadastro de bolsista*

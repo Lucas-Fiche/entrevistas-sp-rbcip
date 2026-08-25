@@ -3371,13 +3371,24 @@
         dica: "Define o supervisor automaticamente." });
     }
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
-    campos.push({ id: "treinamento_online", rot: "Treinamento online", opcoes: OPCOES_TREINO });
-    campos.push({ id: "data_treinamento_online", rot: "Data do treinamento", dica: "dd/mm/aaaa" });
-    campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
-    if (f.tipo === "interior") {
-      campos.push({ id: "treinamento_presencial", rot: "Treinamento presencial (histórico)", opcoes: OPCOES_TREINO });
-      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento presencial" });
+    if (f.tipo === "capital") {
+      // A Capital tem um treinamento só, e a planilha dela o chama de
+      // "Treinamento Presencial/Online" — é este campo que a tabela mostra.
+      // Editar por outro campo era o motivo de "Realizado" sumir ao salvar.
+      // `valor`: fichas marcadas antes desta correção têm o dado no campo
+      // "online". O formulário mostra o que existe e, ao salvar, grava no campo
+      // certo — a ficha se conserta sozinha na primeira edição.
+      campos.push({ id: "treinamento_presencial", rot: "Treinamento", opcoes: OPCOES_TREINO,
+        valor: f.treinamento_presencial || f.treinamento_online });
+      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento", dica: "dd/mm/aaaa",
+        valor: f.data_treinamento_presencial || f.data_treinamento_online });
+    } else {
+      campos.push({ id: "treinamento_online", rot: "Treinamento online", opcoes: OPCOES_TREINO });
+      campos.push({ id: "data_treinamento_online", rot: "Data do treinamento online", dica: "dd/mm/aaaa" });
+      campos.push({ id: "treinamento_presencial", rot: "Treinamento presencial", opcoes: OPCOES_TREINO });
+      campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento presencial", dica: "dd/mm/aaaa" });
     }
+    campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
     campos.push({ id: "termo_link", rot: "Link do termo de bolsa",
       dica: "Preenchido pela planilha de termos. Ter link = bolsista ativo." });
     // Desligamento NÃO entra aqui: é ação própria, com botão e tela próprios.
@@ -3400,6 +3411,7 @@
     var form = el("form", { class: "edicao" });
     var entradas = {};
     camposFormacao(f).forEach(function (c) {
+      var atual = c.valor !== undefined ? (c.valor || "") : (f[c.id] || "");
       var linha = el("div", { class: "edicao__campo" });
       linha.appendChild(el("label", { class: "edicao__rot", for: "fm_" + c.id, text: c.rot }));
       var entrada;
@@ -3407,12 +3419,12 @@
         entrada = el("select", { class: "edicao__entrada", id: "fm_" + c.id });
         entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
         c.opcoes.forEach(function (o) { entrada.appendChild(el("option", { value: o, text: o })); });
-        if (f[c.id] && c.opcoes.indexOf(f[c.id]) === -1) {
-          entrada.appendChild(el("option", { value: f[c.id], text: f[c.id] }));
+        if (atual && c.opcoes.indexOf(atual) === -1) {
+          entrada.appendChild(el("option", { value: atual, text: atual }));
         }
-        entrada.value = f[c.id] || "";
+        entrada.value = atual;
       } else {
-        entrada = el("input", { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: f[c.id] || "" });
+        entrada = el("input", { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: atual });
       }
       linha.appendChild(entrada);
       if (c.dica) linha.appendChild(el("p", { class: "edicao__dica", text: c.dica }));
@@ -3923,8 +3935,8 @@
       }
       tr.appendChild(celulaEtapa(
         formTipo === "capital" ? "Treinamento" : "Treino presencial",
-        f.treinamento_presencial,
-        f.data_treinamento_presencial
+        formTipo === "capital" ? (f.treinamento_presencial || f.treinamento_online) : f.treinamento_presencial,
+        formTipo === "capital" ? (f.data_treinamento_presencial || f.data_treinamento_online) : f.data_treinamento_presencial
       ));
 
       // Termo de bolsa: link do documento quando existe (é o que define "Ativo").
