@@ -153,6 +153,35 @@ quando foi, se foi automática, quantas fichas mudaram e o que veio da ponte.
 Quando a automática falha, ela envia e-mail e registra o erro: uma rotina que
 roda sem ninguém olhando não pode falhar em silêncio.
 
+### Desligar um bolsista (e para onde ele vai)
+
+O desligamento deixou de ser "preencher dois campos" no meio da edição: virou
+uma **ação própria**. No fim da ficha (**✎ Editar**) há a faixa vermelha com o
+botão **⛔ Desligar bolsista**, que abre uma tela só para isso:
+
+- **Data do desligamento** — já vem com a data de hoje;
+- **Motivo** — lista de motivos comuns (desistência, abandono, baixo
+  desempenho, indisponibilidade, mudança de região, fim da participação) ou
+  *Outro*, com campo livre. O motivo é **obrigatório**: é ele que explica, três
+  meses depois, por que aquela vaga abriu.
+
+A confirmação diz quantas vagas a região passa a ter. Nada é apagado.
+
+**Para onde a pessoa vai:** a aba Formação tem duas listas — **No projeto** e
+**Desligados**. Ao confirmar, a ficha sai da primeira e aparece na segunda, que
+mostra duas colunas a mais: *Desligado em* e *Motivo*. O painel já muda para
+essa lista, para você ver o resultado do que acabou de fazer.
+
+O efeito em cadeia é o esperado: a região **libera uma vaga**, quem estava na
+fila de reserva pode ser convocado, e a pessoa continua contando nos gráficos
+de *Desligamentos por motivo* e no histórico. Os arquivos exportados (CSV e
+.xlsx) continuam trazendo todo mundo, com as colunas de desligamento — é o
+mesmo layout da sua planilha de controle.
+
+Errou? **↩ Reverter desligamento**, na mesma faixa, devolve a pessoa para a
+lista de quem está no projeto (e a vaga volta a ser ocupada). Para só corrigir a
+data ou o motivo, use **Corrigir desligamento**.
+
 ### A Formação na aba Visualização de dados
 
 A aba **Visualização de dados** tem três sub-abas — *Inscrições no SIPE*,

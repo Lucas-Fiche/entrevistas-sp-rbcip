@@ -2445,6 +2445,9 @@
   // ============================================================
   var formacao = [];
   var formTipo = "capital";
+  // Quem está sendo listado: "projeto" (ativos + aguardando termo) ou
+  // "desligados". Desligar não apaga ninguém — muda de lista.
+  var formVer = "projeto";
   var formMsg = "";
   var formBusca = "";
 
@@ -3355,8 +3358,9 @@
     }
     campos.push({ id: "termo_link", rot: "Link do termo de bolsa",
       dica: "Preenchido pela planilha de termos. Ter link = bolsista ativo." });
-    campos.push({ id: "desligado_em", rot: "Desligado em", dica: "dd/mm/aaaa — preencher só em caso de saída." });
-    campos.push({ id: "desligado_motivo", rot: "Motivo do desligamento" });
+    // Desligamento NÃO entra aqui: é ação própria, com botão e tela próprios.
+    // Misturado entre treinamento e termo, era fácil desligar alguém sem
+    // perceber — e desligar não é "editar um campo", é tirar do projeto.
     return campos;
   }
 
@@ -3429,7 +3433,156 @@
     });
 
     alvo.appendChild(form);
+    alvo.appendChild(blocoDesligamento(f));
     mostrar($("#modal"), true);
+  }
+
+  // ---------- Desligamento (ação própria, separada da edição) ----------
+  var MOTIVOS_DESLIGAMENTO = [
+    "Desistência",
+    "Abandono (sem retorno)",
+    "Baixo desempenho",
+    "Indisponibilidade de horário",
+    "Mudança de cidade/região",
+    "Fim da participação no projeto",
+    "Outro",
+  ];
+
+  function blocoDesligamento(f) {
+    var caixa = el("div", { class: "zona-risco" });
+    if (!f.desligado_em) {
+      caixa.appendChild(el("p", {
+        class: "zona-risco__texto",
+        text: "Encerrar a participação desta pessoa no projeto. A vaga da região é liberada " +
+          "e a ficha passa para a lista de desligados.",
+      }));
+      var b = el("button", { class: "btn btn--perigo btn--pequeno", type: "button", text: "⛔ Desligar bolsista" });
+      b.addEventListener("click", function () { abrirDesligamento(f); });
+      caixa.appendChild(b);
+      return caixa;
+    }
+    caixa.classList.add("zona-risco--desligado");
+    caixa.appendChild(el("p", {
+      class: "zona-risco__texto",
+      text: "Desligado em " + f.desligado_em + (f.desligado_motivo ? " — " + f.desligado_motivo : "") + ".",
+    }));
+    var bEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Corrigir desligamento" });
+    bEd.addEventListener("click", function () { abrirDesligamento(f); });
+    caixa.appendChild(bEd);
+    var bRev = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "↩ Reverter desligamento" });
+    bRev.addEventListener("click", function () {
+      if (!confirm("Reverter o desligamento de " + (f.nome || "") + "?\n\n" +
+        "A pessoa volta para a lista de quem está no projeto e ocupa vaga de novo em " +
+        (f.tipo === "capital" ? "Capital" : regiaoCurta(f.regiao)) + ".")) return;
+      salvarDesligamento(f, { desligado_em: null, desligado_motivo: null }, bRev);
+    });
+    caixa.appendChild(bRev);
+    return caixa;
+  }
+
+  function abrirDesligamento(f) {
+    if (!ehAdmin()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Desligar — " + (f.nome || "(sem nome)") }));
+    var oc = ocupacaoDe(f.tipo, f.regiao);
+    var meta = metaDe(f.tipo, f.regiao);
+    var ondeFica = f.tipo === "capital" ? "Capital" : regiaoCurta(f.regiao);
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: ondeFica + (meta === null ? " (sem meta definida)" : " · " + oc.total + " de " + meta + " ocupadas hoje") +
+        " · a ficha sai da lista de quem está no projeto e passa para a de desligados.",
+    }));
+
+    var form = el("form", { class: "edicao" });
+
+    var lData = el("div", { class: "edicao__campo" });
+    lData.appendChild(el("label", { class: "edicao__rot", for: "dl_data", text: "Data do desligamento" }));
+    var iData = el("input", {
+      class: "edicao__entrada", type: "text", id: "dl_data",
+      value: f.desligado_em || hojeBR(), placeholder: "dd/mm/aaaa",
+    });
+    lData.appendChild(iData);
+    lData.appendChild(el("p", { class: "edicao__dica", text: "Já vem com a data de hoje — troque se a saída foi antes." }));
+    form.appendChild(lData);
+
+    var lMot = el("div", { class: "edicao__campo" });
+    lMot.appendChild(el("label", { class: "edicao__rot", for: "dl_motivo", text: "Motivo do desligamento" }));
+    var sMot = el("select", { class: "edicao__entrada", id: "dl_motivo" });
+    sMot.appendChild(el("option", { value: "", text: "— escolha —" }));
+    MOTIVOS_DESLIGAMENTO.forEach(function (m) { sMot.appendChild(el("option", { value: m, text: m })); });
+    var motivoAtual = f.desligado_motivo || "";
+    var conhecido = MOTIVOS_DESLIGAMENTO.indexOf(motivoAtual) !== -1;
+    sMot.value = motivoAtual ? (conhecido ? motivoAtual : "Outro") : "";
+    lMot.appendChild(sMot);
+    form.appendChild(lMot);
+
+    var lOutro = el("div", { class: "edicao__campo" + (sMot.value === "Outro" ? "" : " oculto") });
+    lOutro.appendChild(el("label", { class: "edicao__rot", for: "dl_outro", text: "Qual?" }));
+    var iOutro = el("input", {
+      class: "edicao__entrada", type: "text", id: "dl_outro",
+      value: conhecido ? "" : motivoAtual, placeholder: "descreva em poucas palavras",
+    });
+    lOutro.appendChild(iOutro);
+    form.appendChild(lOutro);
+    sMot.addEventListener("change", function () {
+      lOutro.classList.toggle("oculto", sMot.value !== "Outro");
+      if (sMot.value === "Outro") iOutro.focus();
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--perigo btn--pequeno", type: "submit", text: "⛔ Confirmar desligamento" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var data = iData.value.trim();
+      if (!/^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "Informe a data no formato dd/mm/aaaa.";
+        return;
+      }
+      var motivo = sMot.value === "Outro" ? iOutro.value.trim() : sMot.value;
+      if (!motivo) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "Escolha (ou escreva) o motivo — é o que explica a vaga aberta depois.";
+        return;
+      }
+      var vagaTexto = meta === null ? "" :
+        "\n\nA região fica com " + Math.max(0, meta - (oc.total - 1)) + " vaga(s) em aberto.";
+      if (!confirm("Desligar " + (f.nome || "") + " em " + data + "?\nMotivo: " + motivo + vagaTexto)) return;
+      msg.className = "edicao__msg";
+      msg.textContent = "Salvando…";
+      salvar.disabled = true;
+      salvarDesligamento(f, { desligado_em: data, desligado_motivo: motivo }, salvar, msg);
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+  }
+
+  function salvarDesligamento(f, patch, botao, msg) {
+    var envio = Object.assign({}, patch, { updated_at: new Date().toISOString() });
+    return client.from(formTabela()).update(envio).eq("id", f.id).then(function (resp) {
+      if (botao) botao.disabled = false;
+      if (resp.error) {
+        var txt = /row-level security|permission/i.test(resp.error.message || "")
+          ? "Sem permissão. Só administradores podem desligar."
+          : "Não foi possível salvar: " + (resp.error.message || resp.error);
+        if (msg) { msg.className = "edicao__msg edicao__msg--erro"; msg.textContent = txt; }
+        else alert(txt);
+        return;
+      }
+      Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+      // Desligado sai da lista de quem está no projeto; revertido, volta para ela.
+      formVer = patch.desligado_em ? "desligados" : "projeto";
+      fecharModal();
+      renderPainelFormacao();
+      renderDados();
+    });
   }
 
   // ---------- Quem supervisiona cada grupo / região ----------
@@ -3636,6 +3789,24 @@
     // --- Metas e vagas: a Formação é onde a ocupação acontece ---
     painel.appendChild(blocoMetas(formTipo, true));
 
+    // --- No projeto x desligados ---
+    var noProjeto = doTipo.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
+    var saidos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
+    var verFiltro = el("div", { class: "cand-filtro" });
+    [
+      { id: "projeto", rot: "No projeto", qtd: noProjeto.length },
+      { id: "desligados", rot: "Desligados", qtd: saidos.length },
+    ].forEach(function (v) {
+      var b = el("button", {
+        class: "cand-tab" + (formVer === v.id ? " cand-tab--ativa" : ""),
+        type: "button", text: v.rot + " (" + v.qtd + ")",
+      });
+      b.addEventListener("click", function () { formVer = v.id; renderPainelFormacao(); });
+      verFiltro.appendChild(b);
+    });
+    painel.appendChild(verFiltro);
+    doTipo = formVer === "desligados" ? saidos : noProjeto;
+
     // --- Busca ---
     var buscaWrap = el("div", { class: "painel__barra" });
     var inp = el("input", {
@@ -3665,7 +3836,12 @@
     lista = lista.slice().sort(porOrdemPlanilha);
 
     if (!lista.length) {
-      painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum bolsista encontrado para esta busca." }));
+      painel.appendChild(el("p", {
+        class: "cand-vazio",
+        text: formBusca ? "Nenhum bolsista encontrado para esta busca."
+          : formVer === "desligados" ? "Ninguém foi desligado nesta região."
+          : "Nenhum bolsista no projeto nesta região.",
+      }));
       return;
     }
 
@@ -3676,6 +3852,8 @@
     if (formTipo === "interior") cols.push("Treino online");
     cols.push(formTipo === "capital" ? "Treinamento" : "Treino presencial");
     cols.push("Termo de bolsa");
+    // Na lista de desligados, o que importa é quando saiu e por quê.
+    if (formVer === "desligados") cols.push("Desligado em", "Motivo");
     if (ehAdmin()) cols.push("Editar");
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
@@ -3738,6 +3916,11 @@
         tdTermo.appendChild(el("span", { class: "cand-pendente", text: f.termo_bolsa || "Não emitido" }));
       }
       tr.appendChild(tdTermo);
+
+      if (formVer === "desligados") {
+        tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Desligado em", text: f.desligado_em || "—" }));
+        tr.appendChild(el("td", { class: "tabela__td", "data-label": "Motivo", text: f.desligado_motivo || "—" }));
+      }
 
       if (ehAdmin()) {
         var tdEd = el("td", { class: "tabela__td cand-td-editar", "data-label": "Editar" });
