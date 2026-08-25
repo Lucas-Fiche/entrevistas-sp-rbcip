@@ -213,12 +213,17 @@ A aba **Visualização de dados** tem três sub-abas — *Inscrições no SIPE*,
 - **Indicadores:** no projeto, ativos (com termo), aguardando termo, desligados
   e a **ocupação das metas** em porcentagem;
 - **Metas e vagas** por região (o mesmo bloco das outras abas);
-- **Ocupação da meta por região** — barra que se enche até a meta, com o número
-  aberto (`3/3`, `1/4`); verde quando a região fecha;
-- **Situação dos bolsistas** — ativos, aguardando termo, desligados;
-- **Etapas concluídas** — cadastro, treinamento online, presencial e termo;
-- **Pendências** — sem cadastro, sem treinamento, sem termo e sem CPF na ficha;
-- **Distribuição** por grupo (Capital) ou região (Interior) e **por supervisor**;
+- **Ocupação das metas** — uma barra por região, com os números abertos
+  (`3/50 · faltam 47`, `3/3 · completa`, `1/0 · 1 acima da meta`). A ordem é
+  por quem falta mais: em cima está onde há trabalho a fazer. Verde = completa,
+  laranja = acima da meta. Região sem meta e sem ninguém não aparece;
+- **Situação dos bolsistas** — ativos (verde), aguardando termo (laranja) e
+  desligados (cinza), com a porcentagem ao lado do número;
+- **Pendências (não aptos para atuar)** — sem cadastro, sem treinamento, sem
+  termo e sem CPF na ficha;
+- **Distribuição** — um gráfico por grupo (Capital) e outro por região
+  (Interior), separados porque grupo e região não se comparam; e **por
+  supervisor**;
 - **Desligamentos por motivo**, quando houver.
 
 Os filtros de **tipo** e **região** valem nessa sub-aba; o de **período** não —

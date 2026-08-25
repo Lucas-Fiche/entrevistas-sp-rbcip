@@ -4441,21 +4441,66 @@
       return card;
     }
     dados.forEach(function (d) {
-      var pct = d.meta > 0 ? Math.min(100, Math.round((d.valor / d.meta) * 100)) : 0;
-      var linha = el("div", { class: "barra" });
-      linha.appendChild(el("span", { class: "barra__rotulo", text: d.label, title: d.label }));
-      var trilho = el("div", { class: "barra__trilho" });
+      var falta = d.meta - d.valor;
+      var pct = d.meta > 0 ? Math.min(100, Math.round((d.valor / d.meta) * 100)) : (d.valor ? 100 : 0);
+      var estado = falta > 0 ? "faltam " + falta + (falta === 1 ? "" : "")
+        : falta === 0 ? "completa"
+        : (-falta) + " acima da meta";
+      if (falta === 1) estado = "falta 1";
+      var classe = falta > 0 ? "" : (falta === 0 ? " prog__preench--cheia" : " prog__preench--acima");
+
+      var item = el("div", { class: "prog" });
+      var topo = el("div", { class: "prog__topo" });
+      topo.appendChild(el("span", { class: "prog__nome", text: d.label, title: d.label }));
+      var num = el("span", { class: "prog__num" });
+      num.appendChild(el("strong", { text: d.valor + "/" + d.meta }));
+      num.appendChild(el("span", { text: " · " + estado }));
+      topo.appendChild(num);
+      item.appendChild(topo);
+
+      var trilho = el("div", { class: "prog__trilho" });
       var preench = el("div", {
-        class: "barra__preench" + (d.valor >= d.meta ? " barra__preench--cheia" : ""),
+        class: "prog__preench" + classe,
         title: d.valor + " de " + d.meta + " (" + pct + "%)",
       });
       preench.style.width = pct + "%";
       trilho.appendChild(preench);
-      linha.appendChild(trilho);
-      linha.appendChild(el("span", { class: "barra__valor barra__valor--meta", text: d.valor + "/" + d.meta }));
-      card.appendChild(linha);
+      item.appendChild(trilho);
+      card.appendChild(item);
     });
     if (nota) card.appendChild(el("p", { class: "grafico__nota", text: nota }));
+    return card;
+  }
+
+  // Barras com cor por significado (verde = ativo, âmbar = pendente…) e a
+  // porcentagem ao lado do número: "92" sozinho não diz se é muito ou pouco.
+  function graficoBarrasCores(titulo, dados) {
+    var total = dados.reduce(function (s2, d) { return s2 + d.valor; }, 0);
+    var max = dados.reduce(function (m, d) { return Math.max(m, d.valor); }, 0) || 1;
+    var card = el("div", { class: "grafico" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    if (!total) {
+      card.appendChild(el("p", { class: "vazio", text: "Sem dados." }));
+      return card;
+    }
+    dados.forEach(function (d) {
+      var pct = Math.round((d.valor / total) * 100);
+      var linha = el("div", { class: "barra" });
+      linha.appendChild(el("span", { class: "barra__rotulo", text: d.label, title: d.label }));
+      var trilho = el("div", { class: "barra__trilho" });
+      var preench = el("div", {
+        class: "barra__preench" + (d.cor ? " barra__preench--" + d.cor : ""),
+        title: d.valor + " de " + total + " (" + pct + "%)",
+      });
+      preench.style.width = Math.round((d.valor / max) * 100) + "%";
+      trilho.appendChild(preench);
+      linha.appendChild(trilho);
+      var val = el("span", { class: "barra__valor barra__valor--pct" });
+      val.appendChild(el("strong", { text: String(d.valor) }));
+      val.appendChild(el("span", { class: "barra__pct", text: pct + "%" }));
+      linha.appendChild(val);
+      card.appendChild(linha);
+    });
     return card;
   }
 
@@ -4476,8 +4521,6 @@
     var desligados = lista.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
     var naProjeto = ativos.length + aguardando.length;
     var comCadastro = lista.filter(function (f) { return ehRealizado(f.cadastro_bolsista); });
-    var comOnline = lista.filter(function (f) { return ehRealizado(f.treinamento_online); });
-    var comPresencial = lista.filter(function (f) { return ehRealizado(f.treinamento_presencial); });
     var comTreino = lista.filter(function (f) {
       return ehRealizado(f.treinamento_online) || ehRealizado(f.treinamento_presencial);
     });
@@ -4494,6 +4537,8 @@
         if (meta === null) { if (oc) semMeta += oc; return; }
         metaTotal += meta;
         ocupTotal += oc;
+        // Meta zero e ninguém dentro: linha que não informa nada.
+        if (!meta && !oc) return;
         porRegiao.push({ label: r, valor: oc, meta: meta });
       });
     });
@@ -4513,29 +4558,28 @@
     var grid = el("div", { class: "graficos" });
 
     if (porRegiao.length) {
+      // Quem tem mais gente faltando primeiro: é onde há trabalho a fazer.
+      // As completas e as acima da meta descem para o fim da lista.
+      porRegiao.sort(function (a, b) {
+        var fa = a.meta - a.valor, fb = b.meta - b.valor;
+        if (fa !== fb) return fb - fa;
+        return normStr(a.label).localeCompare(normStr(b.label));
+      });
       grid.appendChild(graficoProgresso(
-        vizTipo === "capital" ? "Ocupação da meta" : "Ocupação da meta por região",
-        porRegiao.sort(function (a, b) { return (b.valor / b.meta) - (a.valor / a.meta); }),
-        "Ocupam vaga os ativos e os que aguardam termo." +
-          (semMeta ? " " + semMeta + " bolsista(s) estão em região sem meta definida." : "")
+        vizTipo === "capital" ? "Ocupação da meta (Capital)"
+          : vizTipo === "interior" ? "Ocupação da meta por região"
+          : "Ocupação das metas",
+        porRegiao,
+        "Ocupam vaga os ativos e os que aguardam termo. Total: " + ocupTotal + " de " + metaTotal +
+          (semMeta ? " · " + semMeta + " bolsista(s) em região sem meta definida." : ".")
       ));
     }
 
-    grid.appendChild(graficoBarras("Situação dos bolsistas", [
-      { label: "Ativos (termo emitido)", valor: ativos.length },
-      { label: "Aguardando termo", valor: aguardando.length },
-      { label: "Desligados", valor: desligados.length },
+    grid.appendChild(graficoBarrasCores("Situação dos bolsistas", [
+      { label: "Ativos (termo emitido)", valor: ativos.length, cor: "verde" },
+      { label: "Aguardando termo", valor: aguardando.length, cor: "ambar" },
+      { label: "Desligados", valor: desligados.length, cor: "cinza" },
     ]));
-
-    // Etapas da formação: onde cada bolsista parou. Sempre sobre o total do
-    // filtro, para as barras poderem ser comparadas entre si.
-    var etapas = [
-      { label: "Cadastro de bolsista", valor: comCadastro.length },
-      { label: "Treinamento online", valor: comOnline.length },
-      { label: "Treinamento presencial", valor: comPresencial.length },
-      { label: "Termo de bolsa emitido", valor: ativos.length + desligados.filter(function (f) { return !!f.termo_link; }).length },
-    ];
-    grid.appendChild(graficoBarras("Etapas concluídas (de " + lista.length + " bolsistas)", etapas));
 
     // O que falta: a lista de pendências do dia a dia.
     var pendencias = [
@@ -4544,22 +4588,28 @@
       { label: "Sem termo", valor: aguardando.length },
       { label: "Sem CPF na ficha", valor: lista.filter(function (f) { return soDigitos(f.cpf).length !== 11; }).length },
     ].filter(function (d) { return d.valor > 0; });
-    if (pendencias.length) grid.appendChild(graficoBarras("Pendências (quem ainda não concluiu)", pendencias));
+    if (pendencias.length) grid.appendChild(graficoBarras("Pendências (não aptos para atuar)", pendencias));
 
-    // Por grupo (Capital) e por região (Interior) — só quem está no projeto.
+    // Distribuição de quem está no projeto. Capital e Interior em gráficos
+    // separados: grupo e região são coisas diferentes e não se comparam.
     var noProjeto = lista.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
-    var porGrupo = contarPor(noProjeto, function (f) {
-      return f.tipo === "capital" ? (f.grupo || "(sem grupo)") : regiaoCurta(f.regiao);
-    });
-    var chavesGrupo = Object.keys(porGrupo).sort(function (a, b) { return porGrupo[b] - porGrupo[a]; });
-    if (chavesGrupo.length > 1) {
-      grid.appendChild(graficoBarras(
-        vizTipo === "capital" ? "Bolsistas por grupo"
-          : vizTipo === "interior" ? "Bolsistas por região"
-          // Em "Todas" a lista mistura as duas coisas — o título precisa dizer.
-          : "Bolsistas por grupo (Capital) e região (Interior)",
-        chavesGrupo.map(function (k) { return { label: k, valor: porGrupo[k] }; })
-      ));
+    function distribuicao(titulo, fichas, chaveDe) {
+      var cont = contarPor(fichas, chaveDe);
+      var chaves = Object.keys(cont).sort(function (a, b) { return cont[b] - cont[a]; });
+      if (!chaves.length) return;
+      grid.appendChild(graficoBarras(titulo, chaves.map(function (k) {
+        return { label: k, valor: cont[k] };
+      })));
+    }
+    if (vizTipo !== "interior") {
+      distribuicao("Bolsistas por grupo (Capital)",
+        noProjeto.filter(function (f) { return f.tipo === "capital"; }),
+        function (f) { return f.grupo || "(sem grupo)"; });
+    }
+    if (vizTipo !== "capital") {
+      distribuicao("Bolsistas por região (Interior)",
+        noProjeto.filter(function (f) { return f.tipo === "interior"; }),
+        function (f) { return regiaoCurta(f.regiao); });
     }
 
     var porSup = contarPor(noProjeto, function (f) { return supervisorDe(f) || "(sem supervisor)"; });
