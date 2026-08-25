@@ -2519,8 +2519,12 @@
       var ex = porChave[f.chave];
       if (ex) {
         CAMPOS_MANUAIS.forEach(function (campo) { if (ex[campo]) f[campo] = ex[campo]; });
-        // Identificação e termo: arquivo sem a coluna não apaga o que existe.
-        ["nome", "cpf", "telefone", "email", "email_norm", "regiao", "termo_link", "termo_bolsa"]
+        // Identificação, termo e cadastro: arquivo sem a coluna (ou com ela
+        // vazia) não apaga o que existe. O "Realizado" do cadastro costuma vir
+        // da sincronização, que lê o formulário de verdade — um CSV antigo não
+        // pode desfazer isso em silêncio.
+        ["nome", "cpf", "telefone", "email", "email_norm", "regiao",
+          "termo_link", "termo_bolsa", "cadastro_bolsista"]
           .forEach(function (campo) { if (!f[campo] && ex[campo]) f[campo] = ex[campo]; });
       }
       mapa[f.chave] = f; // deduplica por CPF/e-mail/nome

@@ -117,10 +117,13 @@ cadastrado.
 
 > **O que a sincronização preenche:** apenas **Cadastro de bolsista** (quem
 > aparece no formulário de cadastro) e o **termo de bolsa** (link e situação).
-> **Treinamentos não vêm da sincronização** — a planilha-ponte só carrega CPF e
-> link do termo. Eles chegam pelo **CSV de formação** ou são marcados à mão em
-> *Editar*. Se quiser que os treinamentos também sincronizem, dá para acrescentar
-> duas colunas à ponte; é só pedir.
+> **Treinamento é marcado à mão**, por decisão do projeto: em *Editar*, escolha
+> *Realizado*, preencha a data e o facilitador.
+
+Marca feita à mão **não é desfeita** por reimportação: treinamento, data,
+facilitador e grupo são tratados como campos do painel — o CSV atualiza o resto
+da ficha e deixa esses como estão. O mesmo vale para o *Cadastro de bolsista*
+marcado pela sincronização: um CSV com a coluna vazia não apaga o "Realizado".
 
 ### Sincronizar com as planilhas
 
