@@ -502,6 +502,25 @@
     barra.appendChild(acoes);
     painel.appendChild(barra);
 
+    // No celular a tabela vira cartão e o cabeçalho some — sem ele não há onde
+    // clicar para ordenar. Este seletor faz o mesmo papel e só aparece lá.
+    var ordBarra = el("div", { class: "ordenar-mobile" });
+    ordBarra.appendChild(el("span", { class: "ordenar-mobile__rot", text: "Ordenar por:" }));
+    var selOrd = el("select", { class: "viz-select ordenar-mobile__select" });
+    COLUNAS.forEach(function (c) {
+      selOrd.appendChild(el("option", { value: c.chave + "|desc", text: c.titulo + " ↓" }));
+      selOrd.appendChild(el("option", { value: c.chave + "|asc", text: c.titulo + " ↑" }));
+    });
+    selOrd.value = ordenacao[tipo].col + "|" + (ordenacao[tipo].asc ? "asc" : "desc");
+    selOrd.addEventListener("change", function () {
+      var partes = selOrd.value.split("|");
+      ordenacao[tipo].col = partes[0];
+      ordenacao[tipo].asc = partes[1] === "asc";
+      renderTabela(tipo);
+    });
+    ordBarra.appendChild(selOrd);
+    painel.appendChild(ordBarra);
+
     painel.appendChild(el("div", { class: "tabela-wrap", id: "tabela-" + tipo }));
     renderTabela(tipo);
   }
@@ -517,7 +536,9 @@
     }
 
     var o = ordenacao[tipo];
-    var tabela = el("table", { class: "tabela" });
+    // `tabela--cand` traz o modo cartão do celular (cabeçalho escondido, cada
+    // linha vira um cartão com os rótulos ao lado dos valores).
+    var tabela = el("table", { class: "tabela tabela--cand tabela--entrev" });
     var thead = el("thead");
     var trh = el("tr");
     COLUNAS.forEach(function (c) {
@@ -537,8 +558,12 @@
     var tbody = el("tbody");
     lista.forEach(function (r) {
       var tr = el("tr", { class: "tabela__tr" });
-      COLUNAS.forEach(function (c) {
-        var td = el("td", { class: "tabela__td" + (c.num ? " tabela__td--num" : "") });
+      COLUNAS.forEach(function (c, iCol) {
+        var td = el("td", {
+          // A primeira coluna (o nome) vira o cabeçalho do cartão no celular.
+          class: "tabela__td" + (c.num ? " tabela__td--num" : "") + (iCol === 0 ? " cand-td-nome" : ""),
+          "data-label": c.titulo,
+        });
         var cls = c.tag && c.tagClasse ? c.tagClasse(r) : "";
         if (cls) {
           var span = el("span", { class: cls, text: c.valor(r) });
@@ -554,7 +579,7 @@
         }
         tr.appendChild(td);
       });
-      var tdAcao = el("td", { class: "tabela__td" });
+      var tdAcao = el("td", { class: "tabela__td cand-td-editar", "data-label": "Ficha" });
       var btn = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Detalhes" });
       btn.addEventListener("click", function () { abrirModal(r); });
       tdAcao.appendChild(btn);
@@ -3998,6 +4023,12 @@
         mostrar($("#painel-formacao"), alvo === "formacao");
         mostrar($("#painel-dados"), alvo === "dados");
         aplicarLarguraDaAba(alvo);
+        // No celular a barra de abas rola de lado: traz a aba escolhida para o
+        // meio, senão a ativa pode ficar meio fora da tela depois do clique.
+        if (aba.scrollIntoView) {
+          try { aba.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" }); }
+          catch (e) { aba.scrollIntoView(); }
+        }
       });
     });
   }

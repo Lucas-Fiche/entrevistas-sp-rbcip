@@ -1351,3 +1351,72 @@ input[type="date"].viz-data {
   white-space: nowrap;
 }
 .barra__pct { font-size: 12px; font-weight: 600; color: var(--cor-texto-suave); }
+
+/* ---------- Abas no celular ----------
+ * Empilhadas em três linhas, elas pareciam uma lista de links, não abas.
+ * Aqui viram uma faixa horizontal rolável de pílulas: a ativa é preenchida,
+ * as outras têm contorno — o padrão que todo app usa, e que se lê de relance. */
+@media (max-width: 760px) {
+  .abas {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 8px;
+    padding: 0 0 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--cor-borda);
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .abas::-webkit-scrollbar { display: none; }
+  .aba {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    margin-bottom: 0;
+    padding: 9px 14px;
+    font-size: 14px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 999px;
+    background: var(--cor-branco);
+    color: var(--cor-texto);
+  }
+  .aba--ativa {
+    background: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: #fff;
+  }
+  .aba--ativa .aba__contagem {
+    background: rgba(255, 255, 255, 0.24);
+    color: #fff;
+  }
+  /* Cabeçalho mais compacto: o conteúdo começa mais perto do topo. */
+  .dash { padding-top: 16px; }
+  .dash__titulo { font-size: 21px; }
+  .dash__sub { font-size: 13px; }
+  .dash__usuario { gap: 8px; font-size: 13px; }
+  .dash__usuario .btn { padding: 6px 11px; font-size: 12.5px; }
+}
+
+/* ---------- Ordenar (só no celular) ----------
+ * No cartão não existe cabeçalho para clicar; este seletor faz o mesmo papel. */
+.ordenar-mobile { display: none; }
+@media (max-width: 760px) {
+  .ordenar-mobile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 14px;
+  }
+  .ordenar-mobile__rot { font-size: 13px; color: var(--cor-texto-suave); flex: none; }
+  .ordenar-mobile__select { width: auto; flex: 1; min-width: 0; }
+}
+
+/* Cartões das entrevistas: mesmo formato dos candidatos, com a recomendação e
+   o status em destaque (são o que se procura ao abrir a aba no celular). */
+@media (max-width: 760px) {
+  .tabela--entrev .tabela__td--num { text-align: right; }
+  .tabela--entrev td[data-label="Registrado em"] { font-size: 13px; color: var(--cor-texto-suave); }
+  .tabela--entrev td.cand-td-editar { justify-content: flex-end; }
+  .tabela--entrev td.cand-td-editar::before { display: none; }
+  .tabela--entrev td.cand-td-editar .btn { width: 100%; }
+}

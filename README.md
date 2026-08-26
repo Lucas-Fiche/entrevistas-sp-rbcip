@@ -197,7 +197,8 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 - **Capital** e **Interior:** tabela das entrevistas com busca, ordenação por
   coluna (padrão: ranking por pontuação), **Recomendação colorida** (verde =
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
-  **Baixar CSV / Baixar Excel**.
+  **Baixar CSV / Baixar Excel**. No celular cada entrevista vira um **cartão**,
+  com um seletor "Ordenar por" no lugar do clique no cabeçalho.
 - **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**) e três
   sub-abas, uma por etapa do funil:
   - **Inscrições no SIPE** — funil do processo, inscrições por região e
