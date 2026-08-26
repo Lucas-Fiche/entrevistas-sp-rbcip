@@ -156,7 +156,13 @@ body.tela-cheia .dash {
   gap: 8px;
 }
 
-.aba:hover { color: var(--cor-texto); }
+/* Só em quem tem mouse de verdade: no celular o botão tocado fica "em hover"
+ * até você tocar em outro lugar, e como `.aba:hover` pesa mais que
+ * `.aba--ativa`, o texto da aba aberta voltava a ficar escuro sobre o azul.
+ * A aba aberta também não reage ao hover — ela já está no destino. */
+@media (hover: hover) and (pointer: fine) {
+  .aba:not(.aba--ativa):hover { color: var(--cor-texto); }
+}
 
 .aba--ativa {
   color: var(--cor-primaria);
@@ -235,7 +241,11 @@ body.tela-cheia .dash {
 .tabela__th--num, .tabela__td--num { text-align: center; }
 
 .tabela__tr:nth-child(even) { background: #f7fafb; }
-.tabela__tr:hover { background: var(--cor-primaria-clara); }
+/* Realce de linha só com mouse: no toque o hover fica grudado e a última linha
+ * tocada continuaria azulada depois. */
+@media (hover: hover) and (pointer: fine) {
+  .tabela__tr:hover { background: var(--cor-primaria-clara); }
+}
 
 .tabela__td {
   padding: 11px 14px;
@@ -1202,7 +1212,9 @@ input[type="date"].viz-data {
   transition: background 0.15s ease;
 }
 .metas__resumo::-webkit-details-marker { display: none; }
-.metas__resumo:hover { background: var(--cor-primaria-clara); }
+@media (hover: hover) and (pointer: fine) {
+  .metas__resumo:hover { background: var(--cor-primaria-clara); }
+}
 .metas__resumo:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--cor-primaria-clara);
