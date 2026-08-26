@@ -253,7 +253,9 @@ O bloco **Metas e vagas** (nas abas *Candidatos*, *Formação* e na sub-aba
 "tem vaga?" com os selos de *vagas em aberto* e *regiões sem vaga*, e um clique
 abre a tabela por região. Ela mostra a conta aberta — `3 (2 ativos + 1 aguardando)` — para o número ser sempre conferível.
 Regiões sem meta, sem bolsista e sem fila ficam fora da tabela; o rodapé diz
-quantas são.
+quantas são. No celular a tabela vira **um cartão por região**, com o nome no
+topo e *Meta / Ocupadas / Vagas / Reserva* em pares rótulo-valor — as cinco
+colunas não cabem na tela do telefone.
 
 ### Editar as metas
 

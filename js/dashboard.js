@@ -2756,19 +2756,31 @@
       // Região sem meta, sem bolsista e sem fila não tem o que mostrar: entra
       // só na contagem do rodapé (e continua na lista de edição de metas).
       if (meta === null && !oc.total && !reserva.length) { ocultas++; return; }
+      // Os `data-label` fazem cada linha virar um cartão no celular (a tabela
+      // de cinco colunas não cabe na tela do telefone).
       var tr = el("tr");
       tr.appendChild(el("td", { class: "metas__reg", text: r }));
-      tr.appendChild(el("td", { text: meta === null ? "—" : String(meta) }));
-      tr.appendChild(el("td", {
+      tr.appendChild(el("td", { "data-label": "Meta", text: meta === null ? "—" : String(meta) }));
+      // Número grande + detalhe em letra miúda: no celular o detalhe cai numa
+      // linha só embaixo, em vez de quebrar o "(2 ativo(s) + 0 aguardando)".
+      var tdO = el("td", {
+        "data-label": "Ocupadas",
         title: oc.ativos + " ativo(s) + " + oc.aguardando + " aguardando termo",
-        text: oc.total + (oc.total ? " (" + oc.ativos + " ativo(s) + " + oc.aguardando + " aguardando)" : ""),
-      }));
-      var tdV = el("td");
+      });
+      tdO.appendChild(el("span", { class: "metas__oc", text: String(oc.total) }));
+      if (oc.total) {
+        tdO.appendChild(el("span", {
+          class: "metas__oc-det",
+          text: oc.ativos + " ativo(s) + " + oc.aguardando + " aguardando",
+        }));
+      }
+      tr.appendChild(tdO);
+      var tdV = el("td", { "data-label": "Vagas" });
       if (meta === null) tdV.appendChild(el("span", { class: "cand-pendente", text: "sem meta" }));
       else if (vagas > 0) tdV.appendChild(el("span", { class: "tag tag--verde", text: vagas + " vaga(s)" }));
       else tdV.appendChild(el("span", { class: "tag tag--ambar", text: vagas === 0 ? "sem vaga" : "excedente de " + (-vagas) }));
       tr.appendChild(tdV);
-      var tdR = el("td");
+      var tdR = el("td", { "data-label": "Reserva" });
       if (!reserva.length) tdR.appendChild(el("span", { class: "cand-pendente", text: "—" }));
       else {
         var bR = el("button", {
