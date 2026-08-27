@@ -74,6 +74,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── bounce.sql        # Coluna de falha de entrega de e-mail (bounce)
 │   ├── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
+│   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só troca o grupo na Capital)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
@@ -93,7 +94,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
     ├── GUIA-ENTREVISTADORES.md    # Guia simples para quem faz as entrevistas
     ├── APPS-SCRIPT-CONVOCACAO.md  # Envio automático dos e-mails de convocação
     ├── ABA-FORMACAO.md            # Aba Formação + o CPF como chave do sistema
-    └── ADMIN-E-EDICAO.md          # Super admin, edição das fichas, divergência de região
+    └── ADMIN-E-EDICAO.md          # Perfis de acesso, edição das fichas, divergência de região
 ```
 
 ---
@@ -221,6 +222,15 @@ O acesso é controlado pelo **Row Level Security** do Postgres (definido em
 - **Papel `authenticated`** (login no dashboard): **SELECT**. Lê os dados após login.
 - A **publishable key** pode ficar exposta no front-end (`js/config.js`) — quem
   controla o acesso é o RLS. **Nunca** use a chave *secret*/*service_role* no site.
+
+Dentro de quem tem login, há **três perfis** (detalhes em
+`docs/ADMIN-E-EDICAO.md`):
+
+| Perfil | Onde é definido | O que pode |
+| --- | --- | --- |
+| **Admin** | `app_admins` (`sql/admin.sql`) | Tudo: importar, editar, convocar, desligar, metas. |
+| **Supervisor** | `app_supervisores` (`sql/perfil-supervisor.sql`) | Vê Candidatos, Entrevistas e Formação (sem a aba *Visualização de dados*) e altera **só o Grupo** de bolsistas da **Capital**, pela função `definir_grupo`. |
+| **Somente leitura** | qualquer outro login | Vê tudo, não grava nada. |
 
 ---
 

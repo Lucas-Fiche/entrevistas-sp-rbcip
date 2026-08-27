@@ -28,7 +28,46 @@ leitura**: sem importar CSV, sem editar fichas e sem enviar convocações.
 > Para remover alguém: `delete from public.app_admins where email = '...';`
 
 No canto superior direito do painel aparece um selo ao lado do seu e-mail:
-**ADMIN** ou **SOMENTE LEITURA**. É por ele que você confere se a permissão pegou.
+**ADMIN**, **SUPERVISOR** ou **SOMENTE LEITURA**. É por ele que você confere se a
+permissão pegou.
+
+---
+
+## 1b. O perfil SUPERVISOR
+
+Rode **`sql/perfil-supervisor.sql`** no SQL Editor do Supabase. Ele cria a lista
+**`app_supervisores`** e a função `definir_grupo`. Para dar o perfil a alguém:
+
+```sql
+insert into public.app_supervisores (email) values ('fulano@rbcip.org');
+```
+
+Para tirar: `delete from public.app_supervisores where email = '...';`
+
+O que o supervisor **vê**: as abas *Candidatos*, *Entrevistas Capital*,
+*Entrevistas Interior* e *Formação*, em leitura. A aba **Visualização de dados
+não aparece** para ele.
+
+O que o supervisor **altera**: uma coisa só — o **Grupo** de um bolsista da
+**Capital**, na aba *Formação*. A linha ganha a coluna **Ação** com o botão
+**✎ Trocar grupo**, e a janela que abre tem esse único campo. No Interior não há
+botão nenhum: lá a lotação é a região, e região é do administrador.
+
+Tudo o mais continua fora do alcance dele: importar planilhas, sincronizar,
+baixar as planilhas por região, enviar convocações, editar os outros campos da
+ficha, desligar bolsista, mexer em metas ou em supervisores.
+
+> **Por que uma função de banco e não uma permissão de escrita.** O Row Level
+> Security do Postgres decide por **linha**, não por **coluna**: liberar a linha
+> da ficha para o supervisor liberaria a ficha inteira — treinamento, termo,
+> desligamento. Então a permissão de gravar continua só do administrador, e o
+> supervisor grava pela função `definir_grupo`, que é a única porta e só sabe
+> escrever numa coluna, em fichas da Capital. Vale mesmo que alguém tente
+> contornar a tela.
+>
+> Enquanto `sql/perfil-supervisor.sql` não for rodado, ninguém tem o perfil e o
+> painel se comporta como antes (admin e somente leitura). Se a lista existir
+> mas a função não, o supervisor vê a mensagem dizendo qual arquivo falta rodar.
 
 ---
 

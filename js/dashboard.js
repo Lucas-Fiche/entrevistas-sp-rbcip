@@ -77,7 +77,8 @@
   var client = null;
   var linhas = [];
   var usuarioEmail = "";
-  var admin = true; // definido no login (ver resolverAdmin)
+  var admin = true;      // definido no login (ver resolverAdmin)
+  var supervisor = false; // perfil supervisor (sql/perfil-supervisor.sql)
   // Ordenação padrão: por data da entrevista, mais recente no topo (desempate por horário de registro).
   var ordenacao = { capital: { col: "data", asc: false }, interior: { col: "data", asc: false } };
   var busca = { capital: "", interior: "" };
@@ -254,28 +255,56 @@
     $("#usuario-email").textContent = usuarioEmail;
     resolverAdmin().then(function () {
       marcarSeloAdmin();
+      aplicarPerfilNasAbas();
       carregarDados();
     });
   }
 
-  // ---------- Permissão de edição (super admin) ----------
-  // A regra que vale é a tabela `app_admins` no banco (sql/admin.sql). Se ela
-  // ainda não existir, cai na lista de js/config.js; se as duas faltarem, todo
-  // usuário logado edita (comportamento antigo, para não travar o sistema).
+  // ---------- Perfis (admin · supervisor · somente leitura) ----------
+  // A regra que vale é a do banco: `app_admins` (sql/admin.sql) e
+  // `app_supervisores` (sql/perfil-supervisor.sql). Se `app_admins` ainda não
+  // existir, cai na lista de js/config.js; se as duas faltarem, todo usuário
+  // logado edita (comportamento antigo, para não travar o sistema).
   function resolverAdmin() {
-    if (!client) { admin = true; return Promise.resolve(); }
-    return client.from("app_admins").select("email").then(function (resp) {
-      if (resp.error || !resp.data) return listaConfig();
-      var lista = resp.data.map(function (a) { return normEmail(a.email); });
-      admin = lista.indexOf(normEmail(usuarioEmail)) !== -1;
-    }).catch(listaConfig);
+    if (!client) { admin = true; supervisor = false; return Promise.resolve(); }
+    return Promise.all([lerAdmins(), lerSupervisores()]);
 
+    function lerAdmins() {
+      return client.from("app_admins").select("email").then(function (resp) {
+        if (resp.error || !resp.data) return listaConfig();
+        var lista = resp.data.map(function (a) { return normEmail(a.email); });
+        admin = lista.indexOf(normEmail(usuarioEmail)) !== -1;
+      }).catch(listaConfig);
+    }
+    // A tabela pode ainda não existir (SQL não rodado): nesse caso simplesmente
+    // não há supervisores, e ninguém fica sem acesso por causa disso.
+    function lerSupervisores() {
+      return client.from("app_supervisores").select("email").then(function (resp) {
+        if (resp.error || !resp.data) { supervisor = false; return; }
+        var lista = resp.data.map(function (s) { return normEmail(s.email); });
+        supervisor = lista.indexOf(normEmail(usuarioEmail)) !== -1;
+      }).catch(function () { supervisor = false; });
+    }
     function listaConfig() {
       var lista = (cfg.ADMIN_EMAILS || []).map(normEmail);
       admin = !lista.length || lista.indexOf(normEmail(usuarioEmail)) !== -1;
     }
   }
   function ehAdmin() { return admin; }
+  // Supervisor de verdade é quem está na lista E não é admin (o admin já pode
+  // tudo; contar duas vezes só confundiria os avisos da tela).
+  function ehSupervisor() { return supervisor && !admin; }
+  // A aba Visualização de dados não faz parte do trabalho do supervisor.
+  function podeVerDados() { return !ehSupervisor(); }
+  // Único campo que o supervisor altera: o grupo de um bolsista da Capital.
+  function podeEditarGrupo(f) {
+    if (ehAdmin()) return true;
+    return ehSupervisor() && (!f || f.tipo === "capital");
+  }
+
+  function nomeDoPerfil() {
+    return ehAdmin() ? "admin" : ehSupervisor() ? "supervisor" : "somente leitura";
+  }
 
   function marcarSeloAdmin() {
     var alvo = $("#usuario-email");
@@ -285,13 +314,46 @@
       selo = el("span", { id: "selo-perfil", class: "selo-perfil" });
       alvo.parentNode.insertBefore(selo, alvo.nextSibling);
     }
-    selo.textContent = ehAdmin() ? "admin" : "somente leitura";
-    selo.className = "selo-perfil" + (ehAdmin() ? " selo-perfil--admin" : "");
+    selo.textContent = nomeDoPerfil();
+    selo.className = "selo-perfil" +
+      (ehAdmin() ? " selo-perfil--admin" : ehSupervisor() ? " selo-perfil--supervisor" : "");
+  }
+
+  // Esconde a aba Visualização de dados de quem é supervisor. Some o botão e o
+  // painel: sem botão não há como chegar lá, e sem painel não há o que vazar
+  // se alguém forçar a classe pelo inspetor.
+  function aplicarPerfilNasAbas() {
+    var botao = document.querySelector('.aba[data-aba="dados"]');
+    var painel = $("#painel-dados");
+    var mostra = podeVerDados();
+    if (botao) mostrar(botao, mostra);
+    if (!mostra && painel) {
+      painel.innerHTML = "";
+      mostrar(painel, false);
+      // Se a aba escondida era a que estava aberta, volta para a primeira.
+      if (botao && botao.classList.contains("aba--ativa")) {
+        var primeira = document.querySelector('.aba[data-aba="candidatos"]');
+        if (primeira) primeira.click();
+      }
+    }
   }
 
   // Aviso para quem não pode editar — diz também COMO liberar o acesso.
   function avisoSomenteLeitura() {
     var caixa = el("div", { class: "cand-leitura" });
+    if (ehSupervisor()) {
+      caixa.appendChild(el("p", {
+        class: "cand-leitura__titulo",
+        text: "Perfil supervisor — " + (usuarioEmail || "este usuário") + " vê tudo e altera o grupo.",
+      }));
+      caixa.appendChild(el("p", {
+        class: "cand-leitura__texto",
+        text: "A única alteração liberada para o supervisor é o Grupo dos bolsistas da Capital, " +
+          "na aba Formação. Importar planilhas, enviar convocações, editar os demais campos e " +
+          "desligar bolsistas são ações do administrador.",
+      }));
+      return caixa;
+    }
     caixa.appendChild(el("p", {
       class: "cand-leitura__titulo",
       text: "Modo somente leitura — " + (usuarioEmail || "este usuário") + " não é administrador.",
@@ -3430,6 +3492,9 @@
       campos.push({ id: "regiao", rot: "Região", opcoes: chavesSupervisao("interior"),
         dica: "Define o supervisor automaticamente." });
     }
+    // Supervisor edita o grupo e nada mais: os outros campos nem aparecem no
+    // formulário, para não haver caixa que ele preenche e o banco recusa.
+    if (!ehAdmin()) return campos;
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
     // Um treinamento só, para os dois projetos: conta qualquer treinamento
     // realizado. Fica no campo que a planilha chama de "Treinamento
@@ -3449,7 +3514,7 @@
   }
 
   function abrirEdicaoFormacao(f) {
-    if (!ehAdmin()) return;
+    if (!podeEditarGrupo(f)) return;
     var alvo = $("#modal-conteudo");
     alvo.innerHTML = "";
     alvo.appendChild(el("h2", { class: "modal__titulo", text: (f.nome || "(sem nome)") }));
@@ -3458,6 +3523,12 @@
       text: (f.tipo === "capital" ? "Capital" : "Interior") + " · " + formatarCPF(f.cpf) +
         " · situação: " + situacaoFormacao(f) + " (calculada pelo termo e pelo desligamento)",
     }));
+    if (!ehAdmin()) {
+      alvo.appendChild(el("p", {
+        class: "modal__meta",
+        text: "Perfil supervisor: aqui você troca o grupo. Os demais campos da ficha são do administrador.",
+      }));
+    }
 
     var form = el("form", { class: "edicao" });
     var entradas = {};
@@ -3498,17 +3569,21 @@
         if (valor !== (f[c.id] || "")) patch[c.id] = valor || null;
       });
       if (!Object.keys(patch).length) { msg.textContent = "Nada foi alterado."; return; }
-      patch.updated_at = new Date().toISOString();
       salvar.disabled = true;
       msg.className = "edicao__msg";
       msg.textContent = "Salvando…";
-      client.from(formTabela()).update(patch).eq("id", f.id).then(function (resp) {
+      // O supervisor não tem permissão de update na tabela (e não deve ter: o
+      // RLS decide por linha, e liberar a linha liberaria a ficha inteira). Ele
+      // grava pela função `definir_grupo`, que só sabe mexer no grupo.
+      var gravar = ehAdmin()
+        ? client.from(formTabela()).update(
+            Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq("id", f.id)
+        : client.rpc("definir_grupo", { p_id: f.id, p_grupo: patch.grupo || null });
+      Promise.resolve(gravar).then(function (resp) {
         salvar.disabled = false;
-        if (resp.error) {
+        if (resp && resp.error) {
           msg.className = "edicao__msg edicao__msg--erro";
-          msg.textContent = /row-level security|permission/i.test(resp.error.message || "")
-            ? "Sem permissão para editar. Só administradores podem alterar dados."
-            : "Não foi possível salvar: " + (resp.error.message || resp.error);
+          msg.textContent = mensagemDeErroAoSalvarFormacao(resp.error);
           return;
         }
         Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
@@ -3518,8 +3593,25 @@
     });
 
     alvo.appendChild(form);
-    alvo.appendChild(blocoDesligamento(f));
+    // Desligar é ação de administrador: o supervisor nem vê a zona de risco.
+    if (ehAdmin()) alvo.appendChild(blocoDesligamento(f));
     mostrar($("#modal"), true);
+  }
+
+  // Diz o que aconteceu em vez de "erro ao salvar": quase sempre é ou falta de
+  // permissão, ou um SQL que ainda não foi rodado no Supabase.
+  function mensagemDeErroAoSalvarFormacao(erro) {
+    var texto = (erro && (erro.message || erro.hint || erro)) || "";
+    if (/function .*definir_grupo|PGRST202|schema cache/i.test(String(texto) + (erro && erro.code || ""))) {
+      return "A função definir_grupo ainda não existe no banco. Peça ao administrador para rodar " +
+        "sql/perfil-supervisor.sql no Supabase — sem ela o supervisor não consegue gravar o grupo.";
+    }
+    if (/row-level security|permission|42501|Sem permiss/i.test(String(texto))) {
+      return ehSupervisor()
+        ? "Sem permissão. O supervisor só pode alterar o grupo de bolsistas da Capital."
+        : "Sem permissão para editar. Só administradores podem alterar dados.";
+    }
+    return "Não foi possível salvar: " + texto;
   }
 
   // ---------- Desligamento (ação própria, separada da edição) ----------
@@ -3938,7 +4030,11 @@
     cols.push("Termo de bolsa");
     // Na lista de desligados, o que importa é quando saiu e por quê.
     if (formVer === "desligados") cols.push("Desligado em", "Motivo");
-    if (ehAdmin()) cols.push("Editar");
+    // O supervisor só tem coluna de ação na Capital, e ela só troca o grupo.
+    // O cabeçalho dela é "Ação" e não "Grupo" porque já existe uma coluna
+    // Grupo (a que mostra o valor) — duas com o mesmo nome confundem.
+    var editavel = podeEditarGrupo({ tipo: formTipo });
+    if (editavel) cols.push(ehAdmin() ? "Editar" : "Ação");
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
     var trh = el("tr");
@@ -4001,9 +4097,15 @@
         tr.appendChild(el("td", { class: "tabela__td", "data-label": "Motivo", text: f.desligado_motivo || "—" }));
       }
 
-      if (ehAdmin()) {
-        var tdEd = el("td", { class: "tabela__td cand-td-editar", "data-label": "Editar" });
-        var btnEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✎ Editar" });
+      if (editavel) {
+        var tdEd = el("td", {
+          class: "tabela__td cand-td-editar",
+          "data-label": ehAdmin() ? "Editar" : "Ação",
+        });
+        var btnEd = el("button", {
+          class: "btn btn--secundario btn--pequeno", type: "button",
+          text: ehAdmin() ? "✎ Editar" : "✎ Trocar grupo",
+        });
         btnEd.addEventListener("click", function () { abrirEdicaoFormacao(f); });
         tdEd.appendChild(btnEd);
         tr.appendChild(tdEd);
@@ -4705,6 +4807,9 @@
 
   function renderDados() {
     var painel = $("#painel-dados");
+    // Supervisor não tem esta aba: além de o botão sumir, o painel nem chega a
+    // ser montado — não existe conteúdo escondido para alguém revelar.
+    if (!podeVerDados()) { painel.innerHTML = ""; return; }
     painel.innerHTML = "";
 
     // ----- Barra de filtros (tipo, período e região) -----
