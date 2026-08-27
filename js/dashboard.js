@@ -243,9 +243,39 @@
   }
 
   function mostrarLogin(msg) {
+    // Voltar para o login — por "Sair" ou porque a sessão caiu — tem de levar
+    // embora tudo que era da sessão anterior. O menu ficava aberto por cima da
+    // tela de login, mostrando o e-mail e o perfil de quem acabou de sair.
+    limparTelaDaSessao();
     mostrar($("#dashboard"), false);
     mostrar($("#login"), true);
     if (msg) { var e = $("#login-erro"); e.textContent = msg; mostrar(e, true); }
+  }
+
+  function limparTelaDaSessao() {
+    fecharMenu(false);   // sem devolver o foco: o botão que o abriu sumiu junto
+    fecharModal();
+    var pag = $("#pagina");
+    if (pag) { pag.innerHTML = ""; mostrar(pag, false); }
+    var abas = $("#abas");
+    if (abas) mostrar(abas, true);
+    paginaAberta = "";
+    marcarItemDoMenu("");
+    ["#usuario-email", "#menu-email"].forEach(function (sel) {
+      var n = $(sel);
+      if (n) n.textContent = "";
+    });
+    ["#selo-perfil", "#menu-perfil"].forEach(function (sel) {
+      var n = $(sel);
+      if (n) { n.textContent = ""; n.className = "selo-perfil"; }
+    });
+    // Os painéis guardam o HTML já montado da sessão anterior. Sem limpar,
+    // o próximo login mostra por um instante a tela de quem saiu — com os
+    // botões do perfil dele — até `carregarDados` terminar.
+    ["candidatos", "capital", "interior", "formacao", "dados"].forEach(function (p) {
+      var n = $("#painel-" + p);
+      if (n) n.innerHTML = "";
+    });
   }
 
   function entrarDashboard(session) {
@@ -402,7 +432,11 @@
 
     $("#btn-sair").addEventListener("click", function () {
       client.auth.signOut().then(function () {
-        linhas = [];
+        // Nada da sessão anterior sobrevive ao logout, nem em memória.
+        linhas = []; candidatos = []; formacao = []; metas = [];
+        supervisores = []; importacoes = []; sincronizacoes = [];
+        usuarioEmail = "";
+        esquecerCasamentos();
         mostrarLogin();
       });
     });
@@ -429,12 +463,17 @@
     if (primeiro) primeiro.focus();
   }
 
-  function fecharMenu() {
-    if (!menuAberto()) return;
+  // `devolverFoco` = false ao sair da conta: o ☰ que abriu o menu está escondido
+  // junto com o painel, e mandar o foco para um elemento invisível o joga para
+  // o começo da página em vez de para o formulário de login.
+  function fecharMenu(devolverFoco) {
+    if (!menuAberto()) { focoAntesDoMenu = null; return; }
     mostrar($("#menu-lateral"), false);
     mostrar($("#menu-fundo"), false);
     $("#btn-menu").setAttribute("aria-expanded", "false");
-    if (focoAntesDoMenu && focoAntesDoMenu.focus) focoAntesDoMenu.focus();
+    if (devolverFoco !== false && focoAntesDoMenu && focoAntesDoMenu.focus) {
+      focoAntesDoMenu.focus();
+    }
     focoAntesDoMenu = null;
   }
 
