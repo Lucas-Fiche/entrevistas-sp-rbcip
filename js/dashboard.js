@@ -338,7 +338,19 @@
     }
   }
 
-  // Aviso para quem não pode editar — diz também COMO liberar o acesso.
+  // Trava de verdade das ações de escrita. Cada botão já é escondido de quem
+  // não pode usá-lo, mas a checagem mora TAMBÉM aqui: se um botão escapar
+  // (como escapou o "Convocar cadastro"), o pior que acontece é nada acontecer.
+  function exigirAdmin(oQue) {
+    if (ehAdmin()) return true;
+    alert((oQue || "Esta ação") + " é restrita aos administradores.\n\n" +
+      "Seu acesso é de " + nomeDoPerfil() + ".");
+    return false;
+  }
+
+  // Aviso para quem não pode editar. Para quem é só leitor não há aviso: o selo
+  // no topo já diz "somente leitura", e o texto antigo explicava a um não-admin
+  // como um admin libera acesso — informação que não é dele e não ajuda em nada.
   function avisoSomenteLeitura() {
     var caixa = el("div", { class: "cand-leitura" });
     if (ehSupervisor()) {
@@ -354,16 +366,14 @@
       }));
       return caixa;
     }
-    caixa.appendChild(el("p", {
-      class: "cand-leitura__titulo",
-      text: "Modo somente leitura — " + (usuarioEmail || "este usuário") + " não é administrador.",
-    }));
-    caixa.appendChild(el("p", {
-      class: "cand-leitura__texto",
-      text: "Importar planilhas, editar fichas e enviar convocações são ações restritas aos administradores. " +
-        "Para liberar este e-mail, inclua-o na tabela app_admins do Supabase (veja sql/admin.sql).",
-    }));
-    return caixa;
+    return null;
+  }
+
+  // Só acrescenta o aviso quando existe um: `avisoSomenteLeitura` devolve null
+  // para o perfil de leitura.
+  function porAviso(painel) {
+    var aviso = avisoSomenteLeitura();
+    if (aviso) painel.appendChild(aviso);
   }
 
   function configurarLogin() {
@@ -733,6 +743,7 @@
 
   // ---------- Link das atas (pasta no Google Drive) ----------
   function salvarAtaLink(id, url) {
+    if (!ehAdmin()) return Promise.reject(new Error("Ação restrita aos administradores."));
     if (!client) return Promise.reject(new Error("Sessão indisponível. Entre novamente."));
     return client
       .from(cfg.TABELA || "entrevistas")
@@ -809,6 +820,7 @@
     return r.cpf || (r.respostas && r.respostas.cpf_candidato) || "";
   }
   function salvarCpfEntrevista(id, cpf) {
+    if (!ehAdmin()) return Promise.reject(new Error("Ação restrita aos administradores."));
     if (!client) return Promise.reject(new Error("Sessão indisponível. Entre novamente."));
     return client
       .from(cfg.TABELA || "entrevistas")
@@ -1832,6 +1844,7 @@
 
   // Pergunta ao Apps Script quais e-mails voltaram com falha de entrega (bounces).
   function verificarEntregas(btn) {
+    if (!exigirAdmin("Verificar entregas")) return;
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Verificando…'; }
     chamarBackend({ acao: "bounces", dias: 14 }).then(function (res) {
@@ -1857,6 +1870,7 @@
   }
 
   function convocarEntrevistaTodos(btn) {
+    if (!exigirAdmin("Convocar para entrevista")) return;
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     var pendentes = candidatos.filter(function (c) { return c.tipo === candTipo && c.email && !jaConvocadoEntrevista(c); });
     if (!pendentes.length) { alert("Não há candidatos pendentes de convocação para entrevista."); return; }
@@ -1889,6 +1903,7 @@
   // a marca de falha é apagada e a data é atualizada — fica registrado que
   // desta vez funcionou.
   function convocarEntrevistaIndividual(cand, btn) {
+    if (!exigirAdmin("Convocar para entrevista")) return;
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
     var reenvio = !!cand.email_bounce;
@@ -1942,6 +1957,7 @@
 
   // Pede à pessoa que refaça o cadastro na plataforma do projeto certo.
   function pedirCadastroRegiao(cand, tipoCerto, btn) {
+    if (!exigirAdmin("Solicitar inscrição na outra região")) return;
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
     var link = linkPlataforma(tipoCerto);
@@ -2081,6 +2097,7 @@
   }
 
   function convocarCadastro(cand, btn) {
+    if (!exigirAdmin("Convocar para cadastro")) return;
     if (!backendConvocacao()) { alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (!cand.email) { alert("Candidato sem e-mail cadastrado."); return; }
     var reenvioCad = !!cand.email_bounce;
@@ -2181,7 +2198,7 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    if (!ehAdmin()) painel.appendChild(avisoSomenteLeitura());
+    if (!ehAdmin()) porAviso(painel);
 
     // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
@@ -2218,8 +2235,13 @@
     barra.appendChild(file);
     barra.appendChild(btn);
     barra.appendChild(status);
-    if (ehAdmin()) painel.appendChild(barra);
-    painel.appendChild(blocoUltimaImportacao("candidatos", candTipo));
+    // O registro de importação (quem enviou qual arquivo, e o histórico) é
+    // controle de quem importa. Para os outros perfis é ruído — e expõe o
+    // e-mail de outra pessoa sem nenhuma serventia.
+    if (ehAdmin()) {
+      painel.appendChild(barra);
+      painel.appendChild(blocoUltimaImportacao("candidatos", candTipo));
+    }
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });
@@ -2248,8 +2270,10 @@
     // Atenção: a convocação geral considera TODOS do tipo, não só os filtrados
     // pela busca — o número no botão e a confirmação deixam isso explícito.
     var pendEntr = doTipo.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
+    // Convocar em massa, verificar entregas e baixar a planilha são ações de
+    // administrador: para os outros perfis a barra nem é construída (escondê-la
+    // com CSS deixava os botões no HTML, ao alcance de um clique no inspetor).
     var acoes = el("div", { class: "cand-acoes" });
-    if (!ehAdmin()) acoes.classList.add("oculto");
     var btnGeral = el("button", {
       class: "btn btn--pequeno",
       type: "button",
@@ -2270,7 +2294,7 @@
     if (!backendConvocacao()) {
       acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
     }
-    painel.appendChild(acoes);
+    if (ehAdmin()) painel.appendChild(acoes);
 
     // --- Metas e vagas (fechado: aqui é consulta, não leitura diária) ---
     painel.appendChild(blocoMetas(candTipo));
@@ -2497,10 +2521,16 @@
             text: "aguarda inscrição " + emRegiao(certoCad),
           }));
         }
-      } else if (selecionado) {
+      } else if (selecionado && ehAdmin() && c.email) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
         btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
         tdConvC.appendChild(btnCad);
+      } else if (selecionado) {
+        // Sem permissão (ou sem e-mail): mostra o ESTADO, não o botão. Quem só
+        // lê precisa saber que falta convocar — não precisa poder convocar.
+        tdConvC.appendChild(tagPendente("pendente",
+          c.email ? "Selecionado, aguardando a convocação para o cadastro de bolsista."
+            : "Selecionado, mas sem e-mail cadastrado — não há para onde enviar a convocação."));
       } else {
         tdConvC.appendChild(el("span", { class: "cand-pendente", text: "—" }));
       }
@@ -2961,11 +2991,15 @@
     }));
 
     var lista = reservaDe(tipo, regiao);
+    // Quem não é administrador vê a fila (é informação: quem está esperando e
+    // em que ordem), mas sem a coluna de ação — não há o que ele possa fazer
+    // ali, e uma coluna vazia só parece um botão que sumiu.
+    var podeConvocar = ehAdmin();
     var tabela = el("table", { class: "metas__tab" });
-    tabela.appendChild(el("thead", {}, [el("tr", {}, [
-      el("th", { text: "#" }), el("th", { text: "Nome" }), el("th", { text: "Nota" }),
-      el("th", { text: "Entrevista" }), el("th", { text: "" }),
-    ])]));
+    var cab = [el("th", { text: "#" }), el("th", { text: "Nome" }), el("th", { text: "Nota" }),
+      el("th", { text: "Entrevista" })];
+    if (podeConvocar) cab.push(el("th", { text: "" }));
+    tabela.appendChild(el("thead", {}, [el("tr", {}, cab)]));
     var corpo = el("tbody");
     lista.forEach(function (c, i) {
       var ent = casarEntrevista(c);
@@ -2974,17 +3008,25 @@
       tr.appendChild(el("td", { class: "metas__reg", text: c.nome || "(sem nome)" }));
       tr.appendChild(el("td", { text: ent && ent.pontuacao_total != null ? ent.pontuacao_total + "/" + (ent.pontuacao_maxima || 36) : "—" }));
       tr.appendChild(el("td", { text: ent ? formatarData(ent.data_entrevista) : "—" }));
-      var tdA = el("td");
-      if (ehAdmin() && c.email) {
-        var b = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
-        b.addEventListener("click", function () { fecharModal(); convocarCadastro(c, b); });
-        tdA.appendChild(b);
+      if (podeConvocar) {
+        var tdA = el("td");
+        if (c.email) {
+          var b = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
+          b.addEventListener("click", function () { fecharModal(); convocarCadastro(c, b); });
+          tdA.appendChild(b);
+        }
+        tr.appendChild(tdA);
       }
-      tr.appendChild(tdA);
       corpo.appendChild(tr);
     });
     tabela.appendChild(corpo);
     alvo.appendChild(lista.length ? tabela : el("p", { class: "vazio", text: "Ninguém na fila." }));
+    if (!podeConvocar && lista.length) {
+      alvo.appendChild(el("p", {
+        class: "metas__nota",
+        text: "Convocar para o cadastro é ação do administrador.",
+      }));
+    }
     mostrar($("#modal"), true);
   }
 
@@ -3193,6 +3235,7 @@
   }
 
   function sincronizarFormacao(btn) {
+    if (!exigirAdmin("Sincronizar planilhas")) return;
     if (!backendConvocacao()) { alert("Sincronização ainda não configurada. Veja docs/APPS-SCRIPT-CONVOCACAO.md."); return; }
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Sincronizando…'; }
 
@@ -3431,6 +3474,7 @@
   }
 
   function completarPelaInscricao(btn) {
+    if (!exigirAdmin("Completar pela inscrição")) return;
     var lista = formacao.filter(function (f) { return f.tipo === formTipo; });
     var mudancas = [], semFicha = [];
     lista.forEach(function (f) {
@@ -3843,7 +3887,7 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    if (!ehAdmin()) painel.appendChild(avisoSomenteLeitura());
+    if (!ehAdmin()) porAviso(painel);
 
     // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
@@ -3880,9 +3924,11 @@
     barra.appendChild(file);
     barra.appendChild(btn);
     barra.appendChild(status);
-    if (ehAdmin()) painel.appendChild(barra);
-    painel.appendChild(blocoUltimaImportacao("formacao", formTipo));
-    painel.appendChild(blocoUltimaSincronizacao());
+    if (ehAdmin()) {
+      painel.appendChild(barra);
+      painel.appendChild(blocoUltimaImportacao("formacao", formTipo));
+      painel.appendChild(blocoUltimaSincronizacao());
+    }
 
     // --- Sub-filtro Capital / Interior ---
     var filtro = el("div", { class: "cand-filtro" });

@@ -31,6 +31,26 @@ No canto superior direito do painel aparece um selo ao lado do seu e-mail:
 **ADMIN**, **SUPERVISOR** ou **SOMENTE LEITURA**. É por ele que você confere se a
 permissão pegou.
 
+### O que o perfil SOMENTE LEITURA vê
+
+Todas as abas e todos os números — e **nenhum botão de ação**. Não aparecem: a
+barra de importar CSV, o registro das importações e sincronizações, *Convocar
+todos para entrevista*, *Verificar entregas*, *Baixar CSV*, *Convocar cadastro*
+(nem o individual, nem o da fila de reserva), *Solicitar inscrição*, *Editar*,
+*Editar metas*, *Supervisores* e *Sincronizar planilhas*.
+
+No lugar do botão de convocação, a coluna mostra o **estado** — `⏱ pendente` com
+a explicação no "passe o mouse". Quem só lê precisa saber que falta convocar
+alguém; não precisa poder convocar.
+
+O bloco **Metas e vagas** continua inteiro: metas, ocupação, vagas e a fila de
+reserva (quem está esperando e em que ordem). O que some de dentro da fila é a
+coluna de convocar.
+
+> A checagem de permissão está **nos dois lugares**: o botão não é desenhado e a
+> ação também se recusa a rodar. Se um botão escapar de alguma condição — como
+> escapou o *Convocar cadastro* —, o clique não envia nada.
+
 ---
 
 ## 1b. O perfil SUPERVISOR
