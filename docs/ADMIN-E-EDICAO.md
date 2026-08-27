@@ -119,7 +119,8 @@ ficha, desligar bolsista, mexer em metas ou em supervisores.
 
 ## 1c. O menu lateral (☰), Gerenciar usuários e Meu perfil
 
-O botão das três barrinhas, no canto superior esquerdo, abre o menu com:
+O botão das três barrinhas, no canto superior **direito** (ao lado de
+*Atualizar* no computador, e na linha do título no celular), abre o menu com:
 
 - **Formulários** — volta para a página dos formulários de entrevista;
 - **Gerenciar usuários** — só aparece para administradores;

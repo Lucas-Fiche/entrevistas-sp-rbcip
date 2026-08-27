@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Entrevistas RBCIP</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260827d" />
-  <link rel="stylesheet" href="css/dashboard.css?v=20260827d" />
+  <link rel="stylesheet" href="css/styles.css?v=20260827e" />
+  <link rel="stylesheet" href="css/dashboard.css?v=20260827e" />
 </head>
 <body>
   <header class="brand-bar">
@@ -37,9 +37,6 @@
   <!-- ---------- Dashboard ---------- -->
   <main class="dash oculto" id="dashboard">
     <header class="dash__topo">
-      <button class="menu-btn" id="btn-menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-lateral">
-        <span class="menu-btn__barras" aria-hidden="true"></span>
-      </button>
       <div class="dash__ident">
         <h1 class="dash__titulo">Dashboard de Entrevistas</h1>
         <p class="dash__sub">Processo Seletivo RBCIP</p>
@@ -50,6 +47,11 @@
         <button class="btn btn--secundario btn--pequeno" id="btn-largura" type="button" title="Alternar entre largura padrão e tela cheia">⛶ Tela cheia</button>
         <button class="btn btn--secundario btn--pequeno" id="btn-atualizar" type="button">Atualizar</button>
       </div>
+      <!-- Último do cabeçalho: no desktop cai à direita de "Atualizar". No
+           celular o CSS reordena para ele ficar na linha do título. -->
+      <button class="menu-btn" id="btn-menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-lateral">
+        <span class="menu-btn__barras" aria-hidden="true"></span>
+      </button>
     </header>
 
     <nav class="abas" id="abas">
@@ -105,9 +107,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=20260827d"></script>
-  <script src="js/forms-schema.js?v=20260827d"></script>
-  <script src="js/export.js?v=20260827d"></script>
-  <script src="js/dashboard.js?v=20260827d"></script>
+  <script src="js/config.js?v=20260827e"></script>
+  <script src="js/forms-schema.js?v=20260827e"></script>
+  <script src="js/export.js?v=20260827e"></script>
+  <script src="js/dashboard.js?v=20260827e"></script>
 </body>
 </html>
