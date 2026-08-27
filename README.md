@@ -74,7 +74,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── bounce.sql        # Coluna de falha de entrega de e-mail (bounce)
 │   ├── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
-│   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só troca o grupo na Capital)
+│   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só define grupo vazio na Capital)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
@@ -229,7 +229,7 @@ Dentro de quem tem login, há **três perfis** (detalhes em
 | Perfil | Onde é definido | O que pode |
 | --- | --- | --- |
 | **Admin** | `app_admins` (`sql/admin.sql`) | Tudo: importar, editar, convocar, desligar, metas. |
-| **Supervisor** | `app_supervisores` (`sql/perfil-supervisor.sql`) | Vê Candidatos, Entrevistas e Formação (sem a aba *Visualização de dados*) e altera **só o Grupo** de bolsistas da **Capital**, pela função `definir_grupo`. |
+| **Supervisor** | `app_supervisores` (`sql/perfil-supervisor.sql`) | Vê Candidatos, Entrevistas e Formação (sem a aba *Visualização de dados*) e **define o Grupo** de bolsistas da **Capital** que ainda não têm grupo, pela função `definir_grupo`. Trocar um grupo já definido é só do admin. |
 | **Somente leitura** | qualquer outro login | Vê tudo, não grava nada. |
 
 ---

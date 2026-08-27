@@ -1063,17 +1063,6 @@ input[type="date"].viz-data {
   color: #1b6b2e;
   box-shadow: inset 0 0 0 1px #bfdcc4;
 }
-.cand-leitura {
-  border: 1px solid var(--cor-borda);
-  border-left: 4px solid var(--cor-primaria);
-  border-radius: var(--raio);
-  background: var(--cor-branco);
-  padding: 14px 16px;
-  margin-bottom: 18px;
-}
-.cand-leitura__titulo { margin: 0 0 4px; font-weight: 600; font-size: 15px; }
-.cand-leitura__texto { margin: 0; font-size: 14px; color: var(--cor-texto-suave); }
-
 /* Aviso de inscrição num lado e entrevista no outro (+ ação de correção) */
 .cand-divergencia {
   display: flex;

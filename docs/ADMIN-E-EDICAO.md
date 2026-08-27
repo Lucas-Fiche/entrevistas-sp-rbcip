@@ -56,22 +56,48 @@ coluna de convocar.
 ## 1b. O perfil SUPERVISOR
 
 Rode **`sql/perfil-supervisor.sql`** no SQL Editor do Supabase. Ele cria a lista
-**`app_supervisores`** e a função `definir_grupo`. Para dar o perfil a alguém:
+**`app_supervisores`** e a função `definir_grupo`. É idempotente: pode rodar de
+novo sempre que o arquivo mudar, sem apagar nada.
 
-```sql
-insert into public.app_supervisores (email) values ('fulano@rbcip.org');
-```
+São **dois passos**, e o SQL é só o segundo:
 
-Para tirar: `delete from public.app_supervisores where email = '...';`
+1. **Criar o login.** Supabase → **Authentication → Users → Add user**: e-mail e
+   senha, marcando *Auto Confirm User*. A senha é definida aí — não existe
+   senha guardada em nenhuma tabela, e o painel não tem cadastro nem
+   "esqueci minha senha".
+2. **Dar o perfil**, com o **mesmo e-mail** do login:
+
+   ```sql
+   insert into public.app_supervisores (email) values ('fulano@rbcip.org');
+   ```
+
+Para tirar o perfil: `delete from public.app_supervisores where email = '...';`
+(o login continua existindo — a pessoa passa a entrar como somente leitura).
+
+> **Se o selo aparecer como SOMENTE LEITURA**, o endereço do login não é o mesmo
+> da tabela. Maiúsculas e minúsculas não importam; o endereço, sim. Confira com
+> `select email from public.app_supervisores order by email;`
 
 O que o supervisor **vê**: as abas *Candidatos*, *Entrevistas Capital*,
 *Entrevistas Interior* e *Formação*, em leitura. A aba **Visualização de dados
 não aparece** para ele.
 
-O que o supervisor **altera**: uma coisa só — o **Grupo** de um bolsista da
-**Capital**, na aba *Formação*. A linha ganha a coluna **Ação** com o botão
-**✎ Trocar grupo**, e a janela que abre tem esse único campo. No Interior não há
-botão nenhum: lá a lotação é a região, e região é do administrador.
+O que o supervisor **altera**: uma coisa só — **definir o Grupo de um bolsista da
+Capital que ainda não tem grupo**, na aba *Formação*. A linha ganha a coluna
+**Ação**:
+
+- bolsista **sem grupo** → botão **+ Definir grupo**, e a janela que abre tem
+  esse único campo (sem a opção "em branco": ele preenche, não apaga);
+- bolsista **que já tem grupo** → um traço. **Trocar alguém de grupo é só do
+  administrador**, inclusive quando foi o próprio supervisor que definiu.
+
+No Interior não há botão nenhum: lá a lotação é a região, e região é do
+administrador.
+
+> **Por que preencher pode e trocar não.** Preencher um campo vazio é completar
+> um cadastro. Trocar um grupo já definido é remanejar gente entre supervisores
+> — decisão de coordenação, com efeito sobre a distribuição das equipes. São
+> ações de peso diferente, e só a primeira é rotina do supervisor.
 
 Tudo o mais continua fora do alcance dele: importar planilhas, sincronizar,
 baixar as planilhas por região, enviar convocações, editar os outros campos da

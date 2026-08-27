@@ -296,10 +296,20 @@
   function ehSupervisor() { return supervisor && !admin; }
   // A aba Visualização de dados não faz parte do trabalho do supervisor.
   function podeVerDados() { return !ehSupervisor(); }
-  // Único campo que o supervisor altera: o grupo de um bolsista da Capital.
+  // Único campo que o supervisor mexe: o grupo de um bolsista da Capital — e
+  // só para PREENCHER quem ainda não tem grupo. Trocar alguém de grupo é
+  // remanejar gente entre supervisores, decisão da coordenação; por isso é do
+  // administrador. A mesma regra está na função `definir_grupo` do banco.
+  function semGrupo(f) { return !String((f && f.grupo) || "").trim(); }
   function podeEditarGrupo(f) {
     if (ehAdmin()) return true;
-    return ehSupervisor() && (!f || f.tipo === "capital");
+    if (!ehSupervisor()) return false;
+    return !!f && f.tipo === "capital" && semGrupo(f);
+  }
+  // Existe coluna de ação nesta aba? (Ela pode existir com linhas sem botão:
+  // o supervisor vê o botão só em quem está sem grupo.)
+  function temColunaDeGrupo(tipo) {
+    return ehAdmin() || (ehSupervisor() && tipo === "capital");
   }
 
   function nomeDoPerfil() {
@@ -346,34 +356,6 @@
     alert((oQue || "Esta ação") + " é restrita aos administradores.\n\n" +
       "Seu acesso é de " + nomeDoPerfil() + ".");
     return false;
-  }
-
-  // Aviso para quem não pode editar. Para quem é só leitor não há aviso: o selo
-  // no topo já diz "somente leitura", e o texto antigo explicava a um não-admin
-  // como um admin libera acesso — informação que não é dele e não ajuda em nada.
-  function avisoSomenteLeitura() {
-    var caixa = el("div", { class: "cand-leitura" });
-    if (ehSupervisor()) {
-      caixa.appendChild(el("p", {
-        class: "cand-leitura__titulo",
-        text: "Perfil supervisor — " + (usuarioEmail || "este usuário") + " vê tudo e altera o grupo.",
-      }));
-      caixa.appendChild(el("p", {
-        class: "cand-leitura__texto",
-        text: "A única alteração liberada para o supervisor é o Grupo dos bolsistas da Capital, " +
-          "na aba Formação. Importar planilhas, enviar convocações, editar os demais campos e " +
-          "desligar bolsistas são ações do administrador.",
-      }));
-      return caixa;
-    }
-    return null;
-  }
-
-  // Só acrescenta o aviso quando existe um: `avisoSomenteLeitura` devolve null
-  // para o perfil de leitura.
-  function porAviso(painel) {
-    var aviso = avisoSomenteLeitura();
-    if (aviso) painel.appendChild(aviso);
   }
 
   function configurarLogin() {
@@ -2198,8 +2180,6 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    if (!ehAdmin()) porAviso(painel);
-
     // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
     barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar inscrições:" }));
@@ -3536,9 +3516,16 @@
       campos.push({ id: "regiao", rot: "Região", opcoes: chavesSupervisao("interior"),
         dica: "Define o supervisor automaticamente." });
     }
-    // Supervisor edita o grupo e nada mais: os outros campos nem aparecem no
-    // formulário, para não haver caixa que ele preenche e o banco recusa.
-    if (!ehAdmin()) return campos;
+    // Supervisor mexe no grupo e nada mais: os outros campos nem aparecem no
+    // formulário, para não haver caixa que ele preenche e o banco recusa. E
+    // como ele só PREENCHE grupo vazio, some também a opção "— em branco —":
+    // deixar em branco seria apagar, o que não é dele.
+    if (!ehAdmin()) {
+      campos[0].semBranco = true;
+      campos[0].dica = "Define o supervisor automaticamente. Depois de definido, " +
+        "só o administrador troca de grupo.";
+      return campos;
+    }
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
     // Um treinamento só, para os dois projetos: conta qualquer treinamento
     // realizado. Fica no campo que a planilha chama de "Treinamento
@@ -3570,7 +3557,8 @@
     if (!ehAdmin()) {
       alvo.appendChild(el("p", {
         class: "modal__meta",
-        text: "Perfil supervisor: aqui você troca o grupo. Os demais campos da ficha são do administrador.",
+        text: "Perfil supervisor: aqui você define o grupo de quem ainda não tem. " +
+          "Depois de definido, trocar de grupo e os demais campos da ficha são do administrador.",
       }));
     }
 
@@ -3583,12 +3571,17 @@
       var entrada;
       if (c.opcoes) {
         entrada = el("select", { class: "edicao__entrada", id: "fm_" + c.id });
-        entrada.appendChild(el("option", { value: "", text: "— em branco —" }));
+        // `semBranco`: campo que só pode ser PREENCHIDO (supervisor definindo o
+        // grupo). Sem a opção vazia, e sem começar em nenhuma escolha feita.
+        entrada.appendChild(el("option", {
+          value: "", text: c.semBranco ? "— escolha —" : "— em branco —",
+        }));
         c.opcoes.forEach(function (o) { entrada.appendChild(el("option", { value: o, text: o })); });
         if (atual && c.opcoes.indexOf(atual) === -1) {
           entrada.appendChild(el("option", { value: atual, text: atual }));
         }
         entrada.value = atual;
+        if (c.semBranco) entrada.required = true;
       } else {
         entrada = el("input", { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: atual });
       }
@@ -3650,9 +3643,14 @@
       return "A função definir_grupo ainda não existe no banco. Peça ao administrador para rodar " +
         "sql/perfil-supervisor.sql no Supabase — sem ela o supervisor não consegue gravar o grupo.";
     }
+    // A função do banco devolve o motivo redigido (ex.: "já está no grupo
+    // Verde…"); repetir a frase dela é melhor do que um texto genérico.
+    if (/já está no grupo|não pode deixar o campo em branco|só existe na Capital/i.test(String(texto))) {
+      return String(texto);
+    }
     if (/row-level security|permission|42501|Sem permiss/i.test(String(texto))) {
       return ehSupervisor()
-        ? "Sem permissão. O supervisor só pode alterar o grupo de bolsistas da Capital."
+        ? "Sem permissão. O supervisor só define o grupo de bolsistas da Capital que ainda não têm grupo."
         : "Sem permissão para editar. Só administradores podem alterar dados.";
     }
     return "Não foi possível salvar: " + texto;
@@ -3887,8 +3885,6 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    if (!ehAdmin()) porAviso(painel);
-
     // --- Barra de importação (só admin) ---
     var barra = el("div", { class: "cand-importar" });
     barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar formação:" }));
@@ -4076,10 +4072,10 @@
     cols.push("Termo de bolsa");
     // Na lista de desligados, o que importa é quando saiu e por quê.
     if (formVer === "desligados") cols.push("Desligado em", "Motivo");
-    // O supervisor só tem coluna de ação na Capital, e ela só troca o grupo.
-    // O cabeçalho dela é "Ação" e não "Grupo" porque já existe uma coluna
-    // Grupo (a que mostra o valor) — duas com o mesmo nome confundem.
-    var editavel = podeEditarGrupo({ tipo: formTipo });
+    // O supervisor só tem coluna de ação na Capital. O cabeçalho dela é "Ação"
+    // e não "Grupo" porque já existe uma coluna Grupo (a que mostra o valor) —
+    // duas com o mesmo nome confundem.
+    var editavel = temColunaDeGrupo(formTipo);
     if (editavel) cols.push(ehAdmin() ? "Editar" : "Ação");
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
@@ -4148,12 +4144,21 @@
           class: "tabela__td cand-td-editar",
           "data-label": ehAdmin() ? "Editar" : "Ação",
         });
-        var btnEd = el("button", {
-          class: "btn btn--secundario btn--pequeno", type: "button",
-          text: ehAdmin() ? "✎ Editar" : "✎ Trocar grupo",
-        });
-        btnEd.addEventListener("click", function () { abrirEdicaoFormacao(f); });
-        tdEd.appendChild(btnEd);
+        if (podeEditarGrupo(f)) {
+          var btnEd = el("button", {
+            class: "btn btn--secundario btn--pequeno", type: "button",
+            text: ehAdmin() ? "✎ Editar" : "+ Definir grupo",
+          });
+          btnEd.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+          tdEd.appendChild(btnEd);
+        } else {
+          // Supervisor diante de quem já tem grupo: nada a fazer aqui.
+          tdEd.appendChild(el("span", {
+            class: "cand-pendente",
+            title: "Já está no grupo " + f.grupo + ". Trocar de grupo é ação do administrador.",
+            text: "—",
+          }));
+        }
         tr.appendChild(tdEd);
       }
       tbody.appendChild(tr);
