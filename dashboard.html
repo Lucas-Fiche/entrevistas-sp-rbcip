@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Entrevistas RBCIP</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260827c" />
-  <link rel="stylesheet" href="css/dashboard.css?v=20260827c" />
+  <link rel="stylesheet" href="css/styles.css?v=20260827d" />
+  <link rel="stylesheet" href="css/dashboard.css?v=20260827d" />
 </head>
 <body>
   <header class="brand-bar">
@@ -37,17 +37,18 @@
   <!-- ---------- Dashboard ---------- -->
   <main class="dash oculto" id="dashboard">
     <header class="dash__topo">
-      <div>
+      <button class="menu-btn" id="btn-menu" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu-lateral">
+        <span class="menu-btn__barras" aria-hidden="true"></span>
+      </button>
+      <div class="dash__ident">
         <h1 class="dash__titulo">Dashboard de Entrevistas</h1>
         <p class="dash__sub">Processo Seletivo RBCIP</p>
       </div>
       <div class="dash__usuario">
         <span class="dash__versao" id="app-versao" title="Versão carregada no navegador"></span>
         <span id="usuario-email"></span>
-        <a class="btn btn--secundario btn--pequeno" href="index.html">Formulários</a>
         <button class="btn btn--secundario btn--pequeno" id="btn-largura" type="button" title="Alternar entre largura padrão e tela cheia">⛶ Tela cheia</button>
         <button class="btn btn--secundario btn--pequeno" id="btn-atualizar" type="button">Atualizar</button>
-        <button class="btn btn--secundario btn--pequeno" id="btn-sair" type="button">Sair</button>
       </div>
     </header>
 
@@ -67,7 +68,32 @@
     <section class="painel oculto" id="painel-interior"></section>
     <section class="painel oculto" id="painel-formacao"></section>
     <section class="painel oculto" id="painel-dados"></section>
+
+    <!-- Páginas do menu lateral (Gerenciar usuários, Meu perfil). Não são
+         abas: ocupam a tela inteira e voltam pelo botão "← Voltar". -->
+    <section class="pagina oculto" id="pagina"></section>
   </main>
+
+  <!-- ---------- Menu lateral ---------- -->
+  <div class="menu-fundo oculto" id="menu-fundo"></div>
+  <nav class="menu-lat oculto" id="menu-lateral" aria-label="Menu principal">
+    <div class="menu-lat__topo">
+      <span class="menu-lat__rotulo">Menu</span>
+      <button class="menu-lat__fechar" id="menu-fechar" type="button" aria-label="Fechar menu">×</button>
+    </div>
+    <div class="menu-lat__quem">
+      <span class="menu-lat__email" id="menu-email"></span>
+      <span class="selo-perfil" id="menu-perfil"></span>
+    </div>
+    <ul class="menu-lat__lista">
+      <li><a class="menu-lat__item" href="index.html"><span class="menu-lat__ico" aria-hidden="true">📄</span>Formulários</a></li>
+      <li id="menu-li-usuarios"><button class="menu-lat__item" type="button" data-pagina="usuarios"><span class="menu-lat__ico" aria-hidden="true">👥</span>Gerenciar usuários</button></li>
+      <li><button class="menu-lat__item" type="button" data-pagina="perfil"><span class="menu-lat__ico" aria-hidden="true">👤</span>Meu perfil</button></li>
+    </ul>
+    <div class="menu-lat__rodape">
+      <button class="btn btn--secundario menu-lat__sair" id="btn-sair" type="button">Sair</button>
+    </div>
+  </nav>
 
   <!-- ---------- Modal de detalhes ---------- -->
   <div class="modal oculto" id="modal">
@@ -79,9 +105,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=20260827c"></script>
-  <script src="js/forms-schema.js?v=20260827c"></script>
-  <script src="js/export.js?v=20260827c"></script>
-  <script src="js/dashboard.js?v=20260827c"></script>
+  <script src="js/config.js?v=20260827d"></script>
+  <script src="js/forms-schema.js?v=20260827d"></script>
+  <script src="js/export.js?v=20260827d"></script>
+  <script src="js/dashboard.js?v=20260827d"></script>
 </body>
 </html>

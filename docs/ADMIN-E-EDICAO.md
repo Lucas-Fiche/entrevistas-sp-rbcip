@@ -117,6 +117,59 @@ ficha, desligar bolsista, mexer em metas ou em supervisores.
 
 ---
 
+## 1c. O menu lateral (☰), Gerenciar usuários e Meu perfil
+
+O botão das três barrinhas, no canto superior esquerdo, abre o menu com:
+
+- **Formulários** — volta para a página dos formulários de entrevista;
+- **Gerenciar usuários** — só aparece para administradores;
+- **Meu perfil**;
+- **Sair**.
+
+Fecha com o **×**, com a tecla **Esc** ou clicando fora. **Tela cheia** e
+**Atualizar** continuam no alto da página, ao lado do seu e-mail.
+
+### Gerenciar usuários
+
+Depende de **`sql/usuarios.sql`** (rode uma vez no SQL Editor). A página mostra:
+
+- **Resumo** — quantas contas existem, quantas de cada perfil e quantas nunca
+  acessaram;
+- **Contas** — e-mail, perfil, último acesso, data de criação e se o e-mail foi
+  confirmado. O seletor da última coluna **troca o perfil na hora**;
+- **Histórico** — quem ganhou ou perdeu acesso, quando e por quem. Mudanças
+  feitas direto no SQL Editor aparecem como *SQL Editor*, porque ali não existe
+  usuário logado.
+
+Duas coisas que essa página **não** faz, de propósito:
+
+- **Criar e apagar contas** continua no Supabase, em *Authentication → Users* —
+  é lá que a senha inicial é definida. Dar perfil a um e-mail sem conta é
+  recusado, com a mensagem dizendo isso.
+- **Você não consegue rebaixar a si mesmo.** As opções ficam bloqueadas no
+  seletor e o banco recusa a operação. É assim que se evita o clique que tranca
+  o último administrador do lado de fora; para sair da administração, peça a
+  outro administrador.
+
+> **Como a lista de contas chega ao navegador.** Os dados de login vivem em
+> `auth.users`, que o site não pode ler — só a chave secreta leria, e ela nunca
+> entra no repositório nem no navegador. A função `listar_usuarios` resolve
+> isso: roda com os poderes do dono, confere que quem chamou é admin e devolve
+> apenas e-mail, datas e confirmação. Senha e token não saem de lá.
+
+### Meu perfil
+
+Aberta por qualquer perfil. Mostra quem está logado, **qual é o seu perfil**,
+duas listas — *você pode* e *você não pode* — com as permissões daquele perfil,
+e o formulário de **alterar senha** (mínimo de 8 caracteres, digitada duas vezes;
+vale já no próximo login, em qualquer aparelho).
+
+No topo da página fica o aviso de que o sistema **apoia** a gestão do processo
+seletivo e **não substitui o SIPE nem o ALOK**, que seguem como ferramentas
+oficiais do projeto.
+
+---
+
 ## 2. Editar a ficha de um candidato
 
 Na aba **Candidatos**, cada linha tem o botão **✎ Editar** (só aparece para

@@ -75,6 +75,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── formacao.sql      # Tabela de bolsistas (aba Formação: treinamento e termo)
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
 │   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só define grupo vazio na Capital)
+│   ├── usuarios.sql      # Página "Gerenciar usuários": contas, perfis e histórico
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
@@ -200,6 +201,11 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**. No celular cada entrevista vira um **cartão**,
   com um seletor "Ordenar por" no lugar do clique no cabeçalho.
+- **Menu lateral (☰):** *Formulários*, *Gerenciar usuários* (só admin), *Meu
+  perfil* e *Sair*. **Gerenciar usuários** lista as contas com perfil, último
+  acesso e o histórico de mudanças de acesso, e permite trocar o perfil de
+  alguém. **Meu perfil** mostra o perfil de quem está logado, o que ele permite
+  e onde **trocar a própria senha**.
 - **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**) e três
   sub-abas, uma por etapa do funil:
   - **Inscrições no SIPE** — funil do processo, inscrições por região e

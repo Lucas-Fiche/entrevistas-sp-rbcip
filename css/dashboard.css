@@ -90,11 +90,13 @@ body.tela-cheia .dash {
 .dash__topo {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
   margin-bottom: 20px;
 }
+/* O bloco do título empurra o resto para a direita; assim o botão do menu fica
+   colado à esquerda e o usuário na outra ponta, sem depender de espaçadores. */
+.dash__ident { flex: 1 1 auto; min-width: 0; }
 
 .dash__titulo {
   margin: 0;
@@ -462,12 +464,15 @@ input[type="date"].viz-data {
 @media (max-width: 640px) {
   .dash { padding: 16px 12px 60px; }
 
-  /* Cabeçalho: título em cima, usuário/botões embaixo */
-  .dash__topo { flex-direction: column; align-items: stretch; gap: 10px; }
-  .dash__usuario { justify-content: flex-start; }
-  /* e-mail em sua própria linha para os 3 botões ficarem juntos.
-   * Só o e-mail: a versão e o selo de perfil ficam do tamanho do texto. */
-  .dash__usuario > #usuario-email { flex-basis: 100%; }
+  /* Cabeçalho: botão do menu + título na primeira linha, usuário embaixo */
+  .dash__topo { align-items: center; gap: 10px 12px; }
+  .dash__ident { flex: 1 1 auto; }
+  /* Com "Formulários" e "Sair" agora no menu lateral, sobraram dois botões:
+   * identificação numa linha, botões na de baixo. */
+  .dash__usuario { flex-basis: 100%; justify-content: flex-start; gap: 8px; }
+  /* Os dois botões dividem a linha em vez de um deles sobrar sozinho embaixo —
+   * e ficam largos o bastante para o dedo. */
+  .dash__usuario > .btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
 
   /* Filtros: cada grupo ocupa a linha inteira; campos se ajustam */
   .viz-filtros { gap: 12px; }
@@ -1512,4 +1517,285 @@ input[type="date"].viz-data {
   .tabela--entrev td.cand-td-editar { justify-content: flex-end; }
   .tabela--entrev td.cand-td-editar::before { display: none; }
   .tabela--entrev td.cand-td-editar .btn { width: 100%; }
+}
+
+/* ============================================================
+ *  MENU LATERAL (☰) e páginas do menu
+ * ============================================================ */
+
+/* Botão das três barrinhas. As barras são feitas com um pseudo-elemento em
+   cima e outro embaixo do próprio span do meio — três traços, um elemento. */
+.menu-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid var(--cor-borda);
+  border-radius: 10px;
+  background: var(--cor-branco);
+  color: var(--cor-primaria);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(16, 42, 58, 0.05);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu-btn:hover { background: var(--cor-primaria-clara); border-color: var(--cor-primaria); }
+}
+.menu-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--cor-primaria-clara);
+}
+.menu-btn__barras,
+.menu-btn__barras::before,
+.menu-btn__barras::after {
+  display: block;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.menu-btn__barras { position: relative; }
+.menu-btn__barras::before,
+.menu-btn__barras::after { content: ""; position: absolute; left: 0; }
+.menu-btn__barras::before { top: -6px; }
+.menu-btn__barras::after  { top: 6px; }
+
+/* Véu que escurece a página com o menu aberto (e fecha ao ser clicado). */
+.menu-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(16, 30, 40, 0.42);
+}
+
+.menu-lat {
+  position: fixed;
+  z-index: 61;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 288px;
+  max-width: 86vw;
+  display: flex;
+  flex-direction: column;
+  background: var(--cor-branco);
+  border-right: 1px solid var(--cor-borda);
+  box-shadow: 4px 0 24px rgba(16, 42, 58, 0.18);
+  overflow-y: auto;
+}
+/* `.oculto` é display:none, então o menu fechado não recebe foco nem clique;
+   quando aparece, entra deslizando. */
+@media (prefers-reduced-motion: no-preference) {
+  .menu-lat:not(.oculto) { animation: menu-entra 0.18s ease-out; }
+}
+@keyframes menu-entra { from { transform: translateX(-100%); } to { transform: none; } }
+
+.menu-lat__topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+.menu-lat__rotulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.menu-lat__fechar {
+  border: none;
+  background: none;
+  font-size: 26px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  color: var(--cor-texto-suave);
+}
+.menu-lat__fechar:hover { color: var(--cor-texto); }
+
+.menu-lat__quem {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  background: var(--cor-primaria-clara);
+  border-bottom: 1px solid var(--cor-borda);
+}
+.menu-lat__email {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--cor-primaria-escura);
+  overflow-wrap: anywhere;
+}
+
+.menu-lat__lista { list-style: none; margin: 8px 0; padding: 0; flex: 1 1 auto; }
+.menu-lat__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  text-align: left;
+  text-decoration: none;
+  color: var(--cor-texto);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu-lat__item:hover { background: #f2f6f8; }
+}
+.menu-lat__item:focus-visible {
+  outline: none;
+  background: #f2f6f8;
+  border-left-color: var(--cor-primaria);
+}
+.menu-lat__item--ativo {
+  background: var(--cor-primaria-clara);
+  border-left-color: var(--cor-primaria);
+  color: var(--cor-primaria-escura);
+  font-weight: 600;
+}
+.menu-lat__ico { font-size: 17px; width: 22px; text-align: center; flex: none; }
+
+.menu-lat__rodape { padding: 14px 16px; border-top: 1px solid var(--cor-borda); }
+.menu-lat__sair { width: 100%; }
+
+/* ---------- Páginas abertas pelo menu ---------- */
+.pagina__topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.pagina__titulo { margin: 0; font-size: 22px; }
+.pagina__sub {
+  margin: 0 0 22px;
+  color: var(--cor-texto-suave);
+  font-size: 14px;
+  max-width: 70ch;
+}
+.pagina__secao { margin-bottom: 28px; }
+.pagina__secao-titulo {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.pagina__secao-sub {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  color: var(--cor-texto-suave);
+  max-width: 70ch;
+}
+
+/* Cartão branco usado nas páginas (perfil, senha, permissões) */
+.cartao {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-branco);
+  padding: 18px 20px;
+}
+.cartao + .cartao { margin-top: 14px; }
+.cartao__form { max-width: 380px; }
+
+/* Identificação do perfil, no topo de "Meu perfil" */
+.perfil-cab {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.perfil-cab__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--cor-primaria);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+}
+.perfil-cab__email { font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+.perfil-cab__linha { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+/* Lista de permissões: o que pode e o que não pode, lado a lado */
+.permissoes { display: grid; gap: 10px 22px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.permissoes__col { min-width: 0; }
+.permissoes__rot {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.permissoes__lista { list-style: none; margin: 0; padding: 0; }
+.permissoes__lista li {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 5px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.permissoes__marca { flex: none; font-weight: 700; line-height: 1.45; }
+.permissoes__marca--sim { color: var(--cor-sucesso); }
+.permissoes__marca--nao { color: var(--cor-texto-suave); }
+
+/* Aviso institucional (o sistema não substitui SIPE/ALOK) */
+.aviso-sistema {
+  border: 1px solid #f2d7b2;
+  border-left: 4px solid #c77700;
+  border-radius: var(--raio);
+  background: #fffaf3;
+  padding: 14px 16px;
+  margin-bottom: 22px;
+}
+.aviso-sistema__titulo {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8a4b08;
+}
+.aviso-sistema__texto {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cor-texto);
+  max-width: 78ch;
+}
+
+/* Gerenciar usuários */
+.usuarios-resumo { margin-bottom: 18px; }
+.usu-email { font-weight: 600; overflow-wrap: anywhere; }
+.usu-eu {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--cor-primaria);
+  margin-left: 6px;
+}
+.usu-nunca { color: var(--cor-texto-suave); font-style: italic; }
+.usu-select { width: 100%; max-width: 170px; }
+.hist__quem { font-weight: 600; }
+.hist-sql { font-style: italic; color: var(--cor-texto-suave); }
+
+@media (max-width: 640px) {
+  .pagina__titulo { font-size: 19px; }
+  .cartao { padding: 15px 14px; }
+  .usu-select { max-width: none; }
 }

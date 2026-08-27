@@ -316,23 +316,37 @@
     return ehAdmin() ? "admin" : ehSupervisor() ? "supervisor" : "somente leitura";
   }
 
+  function classeDoSelo() {
+    return "selo-perfil" +
+      (ehAdmin() ? " selo-perfil--admin" : ehSupervisor() ? " selo-perfil--supervisor" : "");
+  }
+
   function marcarSeloAdmin() {
     var alvo = $("#usuario-email");
-    if (!alvo || !alvo.parentNode) return;
-    var selo = $("#selo-perfil");
-    if (!selo) {
-      selo = el("span", { id: "selo-perfil", class: "selo-perfil" });
-      alvo.parentNode.insertBefore(selo, alvo.nextSibling);
+    if (alvo && alvo.parentNode) {
+      var selo = $("#selo-perfil");
+      if (!selo) {
+        selo = el("span", { id: "selo-perfil", class: "selo-perfil" });
+        alvo.parentNode.insertBefore(selo, alvo.nextSibling);
+      }
+      selo.textContent = nomeDoPerfil();
+      selo.className = classeDoSelo();
     }
-    selo.textContent = nomeDoPerfil();
-    selo.className = "selo-perfil" +
-      (ehAdmin() ? " selo-perfil--admin" : ehSupervisor() ? " selo-perfil--supervisor" : "");
+    // O menu lateral repete quem está logado: aberto, ele cobre o cabeçalho.
+    var mEmail = $("#menu-email");
+    if (mEmail) mEmail.textContent = usuarioEmail || "";
+    var mPerfil = $("#menu-perfil");
+    if (mPerfil) { mPerfil.textContent = nomeDoPerfil(); mPerfil.className = classeDoSelo(); }
   }
 
   // Esconde a aba Visualização de dados de quem é supervisor. Some o botão e o
   // painel: sem botão não há como chegar lá, e sem painel não há o que vazar
   // se alguém forçar a classe pelo inspetor.
   function aplicarPerfilNasAbas() {
+    // "Gerenciar usuários" é do administrador — some do menu para os demais.
+    var liUsuarios = $("#menu-li-usuarios");
+    if (liUsuarios) mostrar(liUsuarios, ehAdmin());
+
     var botao = document.querySelector('.aba[data-aba="dados"]');
     var painel = $("#painel-dados");
     var mostra = podeVerDados();
@@ -394,6 +408,116 @@
     });
     $("#btn-atualizar").addEventListener("click", carregarDados);
     configurarLargura();
+    configurarMenu();
+  }
+
+  // ---------- Menu lateral (☰) ----------
+  var focoAntesDoMenu = null;
+
+  function menuAberto() {
+    var m = $("#menu-lateral");
+    return !!m && !m.classList.contains("oculto");
+  }
+
+  function abrirMenu() {
+    focoAntesDoMenu = document.activeElement;
+    mostrar($("#menu-lateral"), true);
+    mostrar($("#menu-fundo"), true);
+    $("#btn-menu").setAttribute("aria-expanded", "true");
+    // O foco entra no menu: quem navega por teclado não fica preso atrás dele.
+    var primeiro = $("#menu-lateral").querySelector(".menu-lat__fechar");
+    if (primeiro) primeiro.focus();
+  }
+
+  function fecharMenu() {
+    if (!menuAberto()) return;
+    mostrar($("#menu-lateral"), false);
+    mostrar($("#menu-fundo"), false);
+    $("#btn-menu").setAttribute("aria-expanded", "false");
+    if (focoAntesDoMenu && focoAntesDoMenu.focus) focoAntesDoMenu.focus();
+    focoAntesDoMenu = null;
+  }
+
+  function configurarMenu() {
+    $("#btn-menu").addEventListener("click", function () {
+      if (menuAberto()) fecharMenu(); else abrirMenu();
+    });
+    $("#menu-fechar").addEventListener("click", fecharMenu);
+    $("#menu-fundo").addEventListener("click", fecharMenu);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && menuAberto()) fecharMenu();
+    });
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".menu-lat__item[data-pagina]"),
+      function (b) {
+        b.addEventListener("click", function () {
+          abrirPagina(b.getAttribute("data-pagina"));
+          fecharMenu();
+        });
+      }
+    );
+    // "Formulários" é um link de verdade (abre outra página): só fecha o menu.
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.menu-lat__item[href]'),
+      function (a) { a.addEventListener("click", fecharMenu); }
+    );
+  }
+
+  // ---------- Páginas do menu (Gerenciar usuários · Meu perfil) ----------
+  // Não são abas: ocupam o lugar das abas e voltam pelo "← Voltar". Guardar
+  // qual está aberta permite recarregar a página depois de uma ação.
+  var paginaAberta = "";
+
+  function abrirPagina(qual) {
+    if (qual === "usuarios" && !ehAdmin()) return;
+    paginaAberta = qual;
+    mostrar($("#abas"), false);
+    ["candidatos", "capital", "interior", "formacao", "dados"].forEach(function (p) {
+      mostrar($("#painel-" + p), false);
+    });
+    var pag = $("#pagina");
+    mostrar(pag, true);
+    marcarItemDoMenu(qual);
+    if (qual === "usuarios") renderUsuarios();
+    else renderMeuPerfil();
+    window.scrollTo(0, 0);
+  }
+
+  function fecharPagina() {
+    paginaAberta = "";
+    var pag = $("#pagina");
+    pag.innerHTML = "";
+    mostrar(pag, false);
+    mostrar($("#abas"), true);
+    marcarItemDoMenu("");
+    // Devolve a aba que estava aberta antes (o clique refaz painel e largura).
+    var ativa = document.querySelector(".aba--ativa") ||
+      document.querySelector('.aba[data-aba="candidatos"]');
+    if (ativa) ativa.click();
+  }
+
+  function marcarItemDoMenu(qual) {
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".menu-lat__item[data-pagina]"),
+      function (b) {
+        b.classList.toggle("menu-lat__item--ativo", b.getAttribute("data-pagina") === qual);
+      }
+    );
+  }
+
+  // Cabeçalho comum das duas páginas: título, botão de voltar e subtítulo.
+  function cabecalhoDaPagina(titulo, sub) {
+    var topo = el("div", { class: "pagina__topo" });
+    var voltar = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "← Voltar",
+    });
+    voltar.addEventListener("click", fecharPagina);
+    topo.appendChild(voltar);
+    topo.appendChild(el("h2", { class: "pagina__titulo", text: titulo }));
+    var frag = document.createDocumentFragment();
+    frag.appendChild(topo);
+    if (sub) frag.appendChild(el("p", { class: "pagina__sub", text: sub }));
+    return frag;
   }
 
   // ---------- Largura da tela (padrão × tela cheia) ----------
@@ -5044,6 +5168,489 @@
     renderPainelCandidatos();
     renderPainelFormacao();
     renderDados();
+  }
+
+  // ============================================================
+  //  PÁGINA: MEU PERFIL
+  // ============================================================
+
+  var AVISO_SISTEMA =
+    "Este sistema foi desenvolvido para apoiar a equipe na gestão das etapas do " +
+    "processo seletivo do projeto de São Paulo. Ele não substitui o SIPE nem o ALOK, " +
+    "que permanecem as ferramentas oficiais do projeto e são a fonte de referência " +
+    "para os registros institucionais.";
+
+  // O que cada perfil pode e não pode. É a mesma regra aplicada nas telas e no
+  // banco, escrita aqui em português para quem usa conferir o próprio acesso.
+  function permissoesDoPerfil() {
+    if (ehAdmin()) {
+      return {
+        pode: [
+          "Ver todas as abas, incluindo a Visualização de dados",
+          "Importar as planilhas de inscrição e de formação",
+          "Enviar convocações de entrevista e de cadastro",
+          "Editar fichas de candidatos e de bolsistas",
+          "Definir e trocar o grupo dos bolsistas da Capital",
+          "Desligar bolsistas e reverter desligamentos",
+          "Definir metas por região e consultar a fila de reserva",
+          "Sincronizar as planilhas e baixar os arquivos por região",
+          "Gerenciar usuários e perfis de acesso",
+        ],
+        naoPode: [],
+      };
+    }
+    if (ehSupervisor()) {
+      return {
+        pode: [
+          "Ver as abas Candidatos, Entrevistas Capital, Entrevistas Interior e Formação",
+          "Consultar metas, vagas e a fila de reserva",
+          "Definir o grupo de bolsistas da Capital que ainda não têm grupo",
+        ],
+        naoPode: [
+          "Ver a aba Visualização de dados",
+          "Trocar o grupo de quem já tem grupo definido",
+          "Importar planilhas ou sincronizar",
+          "Enviar convocações",
+          "Editar os demais campos das fichas",
+          "Desligar bolsistas",
+          "Alterar metas ou supervisores",
+        ],
+      };
+    }
+    return {
+      pode: [
+        "Ver todas as abas, incluindo a Visualização de dados",
+        "Consultar metas, vagas e a fila de reserva",
+        "Baixar os detalhes de uma entrevista em PDF",
+      ],
+      naoPode: [
+        "Importar planilhas ou sincronizar",
+        "Enviar convocações",
+        "Editar qualquer ficha",
+        "Definir ou trocar grupos",
+        "Desligar bolsistas",
+        "Alterar metas ou supervisores",
+      ],
+    };
+  }
+
+  function blocoAvisoSistema() {
+    var caixa = el("div", { class: "aviso-sistema" });
+    caixa.appendChild(el("p", { class: "aviso-sistema__titulo", text: "Sobre este sistema" }));
+    caixa.appendChild(el("p", { class: "aviso-sistema__texto", text: AVISO_SISTEMA }));
+    return caixa;
+  }
+
+  function renderMeuPerfil() {
+    var alvo = $("#pagina");
+    alvo.innerHTML = "";
+    alvo.appendChild(cabecalhoDaPagina("Meu perfil",
+      "Seu acesso ao painel: qual perfil você tem, o que ele permite e onde trocar sua senha."));
+    alvo.appendChild(blocoAvisoSistema());
+
+    // --- Quem é você ---
+    var cab = el("div", { class: "cartao" });
+    var linha = el("div", { class: "perfil-cab" });
+    linha.appendChild(el("span", {
+      class: "perfil-cab__avatar", "aria-hidden": "true",
+      text: (usuarioEmail || "?").charAt(0).toUpperCase(),
+    }));
+    var ident = el("div");
+    ident.appendChild(el("div", { class: "perfil-cab__email", text: usuarioEmail || "(sem e-mail)" }));
+    var sub = el("div", { class: "perfil-cab__linha" });
+    sub.appendChild(el("span", { class: classeDoSelo(), text: nomeDoPerfil() }));
+    sub.appendChild(el("span", { class: "pagina__secao-sub", text: descricaoDoPerfil() }));
+    ident.appendChild(sub);
+    linha.appendChild(ident);
+    cab.appendChild(linha);
+    alvo.appendChild(cab);
+
+    // --- O que este perfil permite ---
+    var secPerm = el("section", { class: "pagina__secao" });
+    secPerm.appendChild(el("h3", { class: "pagina__secao-titulo", text: "Permissões do seu perfil" }));
+    secPerm.appendChild(el("p", {
+      class: "pagina__secao-sub",
+      text: "As mesmas regras valem na tela e no banco de dados — esconder um botão não " +
+        "libera nem bloqueia nada por si só.",
+    }));
+    var perm = permissoesDoPerfil();
+    var grade = el("div", { class: "cartao permissoes" });
+    grade.appendChild(colunaDePermissoes("Você pode", perm.pode, true));
+    if (perm.naoPode.length) grade.appendChild(colunaDePermissoes("Você não pode", perm.naoPode, false));
+    secPerm.appendChild(grade);
+    if (!ehAdmin()) {
+      secPerm.appendChild(el("p", {
+        class: "pagina__secao-sub",
+        text: "Precisa de mais acesso? Fale com um administrador do painel.",
+      }));
+    }
+    alvo.appendChild(secPerm);
+
+    // --- Trocar a senha ---
+    alvo.appendChild(blocoTrocarSenha());
+  }
+
+  function descricaoDoPerfil() {
+    if (ehAdmin()) return "Acesso completo ao painel.";
+    if (ehSupervisor()) return "Leitura de tudo, com uma edição liberada.";
+    return "Somente leitura.";
+  }
+
+  function colunaDePermissoes(rotulo, itens, positiva) {
+    var col = el("div", { class: "permissoes__col" });
+    col.appendChild(el("p", { class: "permissoes__rot", text: rotulo }));
+    var ul = el("ul", { class: "permissoes__lista" });
+    itens.forEach(function (t) {
+      var li = el("li");
+      li.appendChild(el("span", {
+        class: "permissoes__marca " + (positiva ? "permissoes__marca--sim" : "permissoes__marca--nao"),
+        "aria-hidden": "true",
+        text: positiva ? "✓" : "✕",
+      }));
+      li.appendChild(el("span", { text: t }));
+      ul.appendChild(li);
+    });
+    col.appendChild(ul);
+    return col;
+  }
+
+  var SENHA_MINIMA = 8;
+
+  function blocoTrocarSenha() {
+    var sec = el("section", { class: "pagina__secao" });
+    sec.appendChild(el("h3", { class: "pagina__secao-titulo", text: "Alterar senha" }));
+    sec.appendChild(el("p", {
+      class: "pagina__secao-sub",
+      text: "Escolha a senha que quiser, com pelo menos " + SENHA_MINIMA +
+        " caracteres. A troca vale já no próximo login, em qualquer aparelho.",
+    }));
+
+    var cartao = el("div", { class: "cartao" });
+    var form = el("form", { class: "edicao cartao__form" });
+    // Sem `required`/`minlength`: a validação nativa do navegador aparece num
+    // balão fora do fluxo da página e, em alguns navegadores, em inglês. As
+    // conferências ficam no submit, com a mensagem em português logo abaixo.
+    var nova = el("input", {
+      class: "edicao__entrada", type: "password", id: "senha-nova",
+      autocomplete: "new-password",
+    });
+    var conf = el("input", {
+      class: "edicao__entrada", type: "password", id: "senha-conf",
+      autocomplete: "new-password",
+    });
+    [["Nova senha", nova], ["Repita a nova senha", conf]].forEach(function (par) {
+      var campo = el("div", { class: "edicao__campo" });
+      campo.appendChild(el("label", { class: "edicao__rot", for: par[1].id, text: par[0] }));
+      campo.appendChild(par[1]);
+      form.appendChild(campo);
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar nova senha" });
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      msg.className = "edicao__msg";
+      if (nova.value.length < SENHA_MINIMA) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "A senha precisa ter pelo menos " + SENHA_MINIMA + " caracteres.";
+        return;
+      }
+      // Conferir a repetição evita o pior caso: gravar um erro de digitação e
+      // descobrir só no próximo login, já sem a senha antiga.
+      if (nova.value !== conf.value) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "As duas senhas não são iguais.";
+        return;
+      }
+      salvar.disabled = true;
+      msg.textContent = "Salvando…";
+      client.auth.updateUser({ password: nova.value }).then(function (resp) {
+        salvar.disabled = false;
+        if (resp && resp.error) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = "Não foi possível trocar a senha: " +
+            (resp.error.message || resp.error);
+          return;
+        }
+        nova.value = ""; conf.value = "";
+        msg.textContent = "✓ Senha alterada. Use a nova senha no próximo login.";
+      }).catch(function (erro) {
+        salvar.disabled = false;
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "Não foi possível trocar a senha: " + (erro.message || erro);
+      });
+    });
+
+    cartao.appendChild(form);
+    sec.appendChild(cartao);
+    return sec;
+  }
+
+  // ============================================================
+  //  PÁGINA: GERENCIAR USUÁRIOS  (só admin)
+  // ============================================================
+
+  var PERFIS = [
+    { id: "admin", rot: "Administrador" },
+    { id: "supervisor", rot: "Supervisor" },
+    { id: "leitor", rot: "Somente leitura" },
+  ];
+
+  function rotuloDoPerfil(id) {
+    var achado = PERFIS.filter(function (p) { return p.id === id; })[0];
+    return achado ? achado.rot : id;
+  }
+
+  function classeDoSeloPerfil(id) {
+    return "selo-perfil" + (id === "admin" ? " selo-perfil--admin"
+      : id === "supervisor" ? " selo-perfil--supervisor" : "");
+  }
+
+  function renderUsuarios() {
+    var alvo = $("#pagina");
+    alvo.innerHTML = "";
+    alvo.appendChild(cabecalhoDaPagina("Gerenciar usuários",
+      "Quem tem conta no painel, que acesso cada um tem, quando entrou pela última " +
+      "vez e o histórico de mudanças de perfil."));
+    var corpo = el("div", { id: "usuarios-corpo" });
+    corpo.appendChild(el("p", { class: "dash__carregando", text: "Carregando usuários…" }));
+    alvo.appendChild(corpo);
+
+    Promise.all([
+      client.rpc("listar_usuarios"),
+      client.from("app_perfil_log").select("em,quem,alvo,acao,perfil"),
+    ]).then(function (r) {
+      desenharUsuarios(corpo, r[0], r[1]);
+    }).catch(function (erro) {
+      corpo.innerHTML = "";
+      corpo.appendChild(avisoDeSqlFaltando(erro));
+    });
+  }
+
+  // Quando o SQL ainda não foi rodado, dizer QUAL arquivo falta é mais útil do
+  // que repetir a mensagem crua do Postgres.
+  function avisoDeSqlFaltando(erro) {
+    var texto = String((erro && (erro.message || erro.hint)) || erro || "");
+    var caixa = el("div", { class: "aviso-sistema" });
+    caixa.appendChild(el("p", { class: "aviso-sistema__titulo", text: "Falta rodar um arquivo SQL" }));
+    caixa.appendChild(el("p", {
+      class: "aviso-sistema__texto",
+      text: "Esta página depende de sql/usuarios.sql, que ainda não existe no banco. " +
+        "Rode o arquivo no SQL Editor do Supabase e recarregue. Detalhe técnico: " + texto,
+    }));
+    return caixa;
+  }
+
+  function desenharUsuarios(corpo, respUsuarios, respLog) {
+    corpo.innerHTML = "";
+    if (respUsuarios && respUsuarios.error) {
+      corpo.appendChild(avisoDeSqlFaltando(respUsuarios.error));
+      return;
+    }
+    var usuarios = (respUsuarios && respUsuarios.data) || [];
+    if (!usuarios.length) {
+      corpo.appendChild(el("p", {
+        class: "cand-vazio",
+        text: "Nenhuma conta encontrada. Contas são criadas no Supabase, " +
+          "em Authentication → Users.",
+      }));
+      return;
+    }
+
+    // --- Resumo ---
+    var conta = function (p) { return usuarios.filter(function (u) { return u.perfil === p; }).length; };
+    var nunca = usuarios.filter(function (u) { return !u.ultimo_acesso; }).length;
+    corpo.appendChild(el("div", { class: "stats usuarios-resumo" }, [
+      statCard("Contas", usuarios.length),
+      statCard("Administradores", conta("admin")),
+      statCard("Supervisores", conta("supervisor")),
+      statCard("Somente leitura", conta("leitor")),
+      nunca ? statCard("Nunca acessaram", nunca) : null,
+    ]));
+
+    // --- Tabela de contas ---
+    var sec = el("section", { class: "pagina__secao" });
+    sec.appendChild(el("h3", { class: "pagina__secao-titulo", text: "Contas" }));
+    sec.appendChild(el("p", {
+      class: "pagina__secao-sub",
+      text: "Trocar o perfil aqui vale na hora. Criar ou apagar uma conta continua " +
+        "sendo no Supabase, em Authentication → Users — é lá que a senha é definida.",
+    }));
+
+    var cols = ["E-mail", "Perfil", "Último acesso", "Conta criada", "E-mail confirmado", "Alterar perfil"];
+    var tabela = el("table", { class: "tabela tabela--cand tabela--usuarios" });
+    var trh = el("tr");
+    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
+    tabela.appendChild(el("thead", {}, [trh]));
+
+    var tbody = el("tbody");
+    usuarios.forEach(function (u) {
+      var euMesmo = normEmail(u.email) === normEmail(usuarioEmail);
+      var tr = el("tr", { class: "tabela__tr" });
+
+      var tdEmail = el("td", { class: "tabela__td cand-td-nome" });
+      tdEmail.appendChild(el("span", { class: "usu-email", text: u.email }));
+      if (euMesmo) tdEmail.appendChild(el("span", { class: "usu-eu", text: "você" }));
+      tr.appendChild(tdEmail);
+
+      var tdPerfil = el("td", { class: "tabela__td", "data-label": "Perfil" });
+      tdPerfil.appendChild(el("span", {
+        class: classeDoSeloPerfil(u.perfil), text: rotuloDoPerfil(u.perfil),
+      }));
+      tr.appendChild(tdPerfil);
+
+      var tdAcesso = el("td", { class: "tabela__td col-firme", "data-label": "Último acesso" });
+      if (u.ultimo_acesso) tdAcesso.appendChild(el("span", { text: formatarDataHora(u.ultimo_acesso) }));
+      else tdAcesso.appendChild(el("span", { class: "usu-nunca", text: "nunca entrou" }));
+      tr.appendChild(tdAcesso);
+
+      tr.appendChild(el("td", {
+        class: "tabela__td col-firme", "data-label": "Conta criada",
+        text: formatarDataHora(u.criado_em),
+      }));
+
+      var tdConf = el("td", { class: "tabela__td", "data-label": "E-mail confirmado" });
+      tdConf.appendChild(u.confirmado
+        ? el("span", { class: "tag tag--verde", text: "Confirmado" })
+        : tagPendente("não confirmado",
+            "A conta existe, mas o e-mail não foi confirmado. No Supabase, em " +
+            "Authentication → Users, marque Auto Confirm User."));
+      tr.appendChild(tdConf);
+
+      var tdAcao = el("td", { class: "tabela__td", "data-label": "Alterar perfil" });
+      tdAcao.appendChild(seletorDePerfil(u, euMesmo));
+      tr.appendChild(tdAcao);
+
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    sec.appendChild(wrap);
+    corpo.appendChild(sec);
+
+    // --- Histórico ---
+    corpo.appendChild(secaoHistorico(respLog));
+  }
+
+  function seletorDePerfil(u, euMesmo) {
+    var sel = el("select", { class: "viz-select usu-select" });
+    PERFIS.forEach(function (p) {
+      var op = el("option", { value: p.id, text: p.rot });
+      // O banco recusa (e deve recusar) tirar o próprio acesso de admin; aqui a
+      // opção nem fica escolhível, para o erro não ser a forma de descobrir.
+      if (euMesmo && p.id !== "admin") op.disabled = true;
+      sel.appendChild(op);
+    });
+    sel.value = u.perfil;
+    if (euMesmo) {
+      sel.title = "Você não pode remover o próprio acesso de administrador. " +
+        "Peça a outro administrador.";
+    }
+    sel.addEventListener("change", function () {
+      var novo = sel.value;
+      if (novo === u.perfil) return;
+      if (!confirm("Alterar o perfil de " + u.email + "\n\nde " + rotuloDoPerfil(u.perfil) +
+          " para " + rotuloDoPerfil(novo) + "?")) {
+        sel.value = u.perfil;
+        return;
+      }
+      sel.disabled = true;
+      client.rpc("definir_perfil", { p_email: u.email, p_perfil: novo }).then(function (resp) {
+        sel.disabled = false;
+        if (resp && resp.error) {
+          alert("Não foi possível alterar: " + (resp.error.message || resp.error));
+          sel.value = u.perfil;
+          return;
+        }
+        u.perfil = novo;
+        // Mexeu no próprio acesso? O painel inteiro muda: recarrega o perfil.
+        if (normEmail(u.email) === normEmail(usuarioEmail)) {
+          resolverAdmin().then(function () {
+            marcarSeloAdmin();
+            aplicarPerfilNasAbas();
+            renderUsuarios();
+          });
+        } else {
+          renderUsuarios();
+        }
+      }).catch(function (erro) {
+        sel.disabled = false;
+        sel.value = u.perfil;
+        alert("Não foi possível alterar: " + (erro.message || erro));
+      });
+    });
+    return sel;
+  }
+
+  function secaoHistorico(respLog) {
+    var sec = el("section", { class: "pagina__secao" });
+    sec.appendChild(el("h3", { class: "pagina__secao-titulo", text: "Histórico de alterações de perfil" }));
+    sec.appendChild(el("p", {
+      class: "pagina__secao-sub",
+      text: "Quem ganhou ou perdeu acesso, quando e por quem. Mudanças feitas direto " +
+        "no SQL Editor aparecem sem autor, porque ali não há usuário logado.",
+    }));
+
+    if (respLog && respLog.error) {
+      sec.appendChild(el("p", {
+        class: "cand-vazio",
+        text: "Histórico indisponível: rode sql/usuarios.sql no Supabase.",
+      }));
+      return sec;
+    }
+    var itens = ((respLog && respLog.data) || []).slice().sort(function (a, b) {
+      return String(b.em).localeCompare(String(a.em));
+    });
+    if (!itens.length) {
+      sec.appendChild(el("p", {
+        class: "cand-vazio",
+        text: "Nenhuma alteração registrada ainda. O histórico começa a partir de " +
+          "quando sql/usuarios.sql foi rodado.",
+      }));
+      return sec;
+    }
+
+    var tabela = el("table", { class: "tabela tabela--cand tabela--hist" });
+    var trh = el("tr");
+    ["Quando", "Quem alterou", "Conta", "O que mudou"].forEach(function (c) {
+      trh.appendChild(el("th", { class: "tabela__th", text: c }));
+    });
+    tabela.appendChild(el("thead", {}, [trh]));
+    var tbody = el("tbody");
+    itens.slice(0, 200).forEach(function (h) {
+      var tr = el("tr", { class: "tabela__tr" });
+      tr.appendChild(el("td", {
+        class: "tabela__td cand-td-nome col-firme", text: formatarDataHora(h.em),
+      }));
+      var tdQuem = el("td", { class: "tabela__td", "data-label": "Quem alterou" });
+      tdQuem.appendChild(h.quem
+        ? el("span", { class: "hist__quem", text: h.quem })
+        : el("span", { class: "hist-sql", title: "Alteração feita direto no banco, sem usuário logado.", text: "SQL Editor" }));
+      tr.appendChild(tdQuem);
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Conta", text: h.alvo }));
+      var tdO = el("td", { class: "tabela__td", "data-label": "O que mudou" });
+      tdO.appendChild(el("span", {
+        class: "tag " + (h.acao === "concedido" ? "tag--verde" : "tag--cinza"),
+        text: (h.acao === "concedido" ? "+ " : "− ") + rotuloDoPerfil(h.perfil),
+      }));
+      tr.appendChild(tdO);
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    sec.appendChild(wrap);
+    if (itens.length > 200) {
+      sec.appendChild(el("p", {
+        class: "cand-resumo",
+        text: "Mostrando as 200 alterações mais recentes de " + itens.length + ".",
+      }));
+    }
+    return sec;
   }
 
   // ---------- Início ----------
