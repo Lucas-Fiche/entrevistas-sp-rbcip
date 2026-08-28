@@ -432,7 +432,64 @@ o rodapé de cada tabela mostra qual ordem está em uso.
 
 ---
 
-## 8. Largura da tela
+## 8. Histórico e o quadro de entradas e saídas
+
+Rode **`sql/historico.sql`** no SQL Editor do Supabase. Ele faz duas coisas.
+
+### A data de entrada
+
+Cria a coluna **`data_entrada`** em `formacao` — quando a pessoa passou a
+atuar. A saída (`desligado_em`) já existia; faltava a entrada, e sem as duas
+não há como dizer quantos entrevistadores havia num mês passado.
+
+- Quem for **convocado para o cadastro** daqui para a frente já nasce com a
+  data preenchida (o dia da convocação).
+- As fichas **anteriores ao sistema** vêm sem data. Na aba *Formação*, o botão
+  **📅 Datas de entrada (N)** abre a lista de quem está sem data, com um campo
+  por pessoa e um atalho "preencher todas com" — útil quando a turma inteira
+  começou no mesmo dia. Datas fora do formato `dd/mm/aaaa` são recusadas antes
+  de gravar, porque uma data errada aqui vira número errado no relatório sem
+  ninguém perceber.
+
+### Entradas e saídas mês a mês
+
+Nova sub-aba em *Visualização de dados* → **Entradas e saídas**. Para cada mês:
+quantas pessoas entraram, quantas saíram, o saldo e **quantas estavam no
+projeto no fim do mês**. Respeita os filtros de **tipo** (Capital/Interior) e
+**região**; o filtro de período não se aplica, porque a tabela já é mês a mês.
+Tem botão de **baixar .xlsx**, para responder pedidos por e-mail sem redigitar
+nada.
+
+A conta é simples e conferível:
+
+```
+no projeto no fim do mês = entrou até o fim do mês
+                           E (não saiu, ou saiu depois do fim do mês)
+```
+
+> **Quem não tem data de entrada fica de fora de todas as contas** — e o
+> relatório diz quantas fichas são, com todas as letras. Um quadro com gente
+> faltando e sem aviso é pior do que quadro nenhum.
+
+### O registro de tudo
+
+A tabela **`historico`** guarda **toda** alteração em `formacao` e
+`candidatos`: qual ficha, qual campo, o valor de antes, o de depois, quando e
+por quem. É gravada por **gatilho no banco**, então vale para o painel, para a
+importação de CSV, para a sincronização das planilhas e até para o SQL Editor —
+não existe caminho de alteração que escape.
+
+Cada ficha mostra o seu histórico no fim da janela de edição (**Histórico desta
+ficha**). Alterações feitas direto no banco aparecem como *SQL Editor*, porque
+ali não há usuário logado.
+
+> **O histórico começa quando você roda o arquivo.** O que aconteceu antes não
+> existe em lugar nenhum e não pode ser reconstruído; para os meses já
+> passados, o caminho é preencher a data de entrada das fichas à mão.
+
+---
+
+## 9. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A

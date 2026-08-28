@@ -1805,3 +1805,34 @@ input[type="date"].viz-data {
   .cartao { padding: 15px 14px; }
   .usu-select { max-width: none; }
 }
+
+/* ---------- Histórico de uma ficha (dentro do modal de edição) ---------- */
+.hist-ficha { margin-top: 22px; }
+.hist-ficha__lista { list-style: none; margin: 0; padding: 0; }
+.hist-ficha__item {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid #eef2f4;
+  font-size: 13.5px;
+}
+.hist-ficha__quando {
+  flex: 0 0 130px;
+  color: var(--cor-texto-suave);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+.hist-ficha__texto { flex: 1 1 240px; min-width: 0; overflow-wrap: anywhere; }
+.hist-ficha__de { color: var(--cor-texto-suave); text-decoration: line-through; }
+.hist-ficha__seta { color: var(--cor-texto-suave); }
+.hist-ficha__para { font-weight: 600; }
+.hist-ficha__quem { flex: 0 0 auto; font-size: 12px; color: var(--cor-texto-suave); }
+
+@media (max-width: 640px) {
+  .hist-ficha__quando { flex-basis: 100%; }
+}
+
+/* Tabela de entradas e saídas por mês */
+.tabela--mov { min-width: 520px; }

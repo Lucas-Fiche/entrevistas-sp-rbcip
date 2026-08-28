@@ -2229,10 +2229,14 @@
       // de supervisores escrevem, e é por esse nome que as duas se encontram.
       regiao: cand.tipo === "interior" ? (regiaoCurta(cand.regiao) || null) : null,
       candidato_id: cand.id || null,
+      // A entrada no projeto é aqui: convocada para o cadastro, a pessoa passa
+      // a ocupar vaga. Sem esta data, nenhuma contagem por mês é possível
+      // depois — foi exatamente o que se perdeu na época das planilhas.
+      data_entrada: hojeBR(),
       origem: { criado_por: "convocação de cadastro", em: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     };
-    return upsertResiliente(formTabela(), [ficha], ["candidato_id", "ordem", "importado_em"])
+    return upsertResiliente(formTabela(), [ficha], ["candidato_id", "ordem", "importado_em", "data_entrada"])
       .then(function () { return carregarFormacao(); })
       .catch(function (e) {
         // A convocação já foi enviada: uma falha aqui não pode virar erro geral.
@@ -3478,7 +3482,7 @@
     if (!lista.length) return null;
 
     var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome",
-      "CPF", "Telefone", "Email", "Cadastro de Bolsista", "Supervisor"];
+      "CPF", "Telefone", "Email", "Entrada no projeto", "Cadastro de Bolsista", "Supervisor"];
     cabecalho.push("Treinamento", "Data do Treinamento");
     cabecalho.push("Termo de Bolsa", "Documento do Termo de Bolsa",
       "Facilitador", "Desligado em", "Motivo do desligamento");
@@ -3490,7 +3494,7 @@
         (tipo === "capital" ? (f.grupo || "") : regiaoCurta(f.regiao).replace("—", "")),
         f.nome || "",
         f.cpf || "", f.telefone || "", f.email || "",
-        f.cadastro_bolsista || "", supervisorDe(f) || "",
+        f.data_entrada || "", f.cadastro_bolsista || "", supervisorDe(f) || "",
       ];
       linha.push(treinamentoDe(f), dataTreinamentoDe(f));
       linha.push(f.termo_link ? "Emitido" : (f.termo_bolsa || "Não Emitido"), f.termo_link || "",
@@ -3689,6 +3693,7 @@
         "só o administrador troca de grupo.";
       return campos;
     }
+    campos.push({ id: "data_entrada", rot: "Data de entrada no projeto", dica: "dd/mm/aaaa — a partir dela a pessoa conta como entrevistador nos relatórios." });
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
     // Um treinamento só, para os dois projetos: conta qualquer treinamento
     // realizado. Fica no campo que a planilha chama de "Treinamento
@@ -3794,8 +3799,228 @@
 
     alvo.appendChild(form);
     // Desligar é ação de administrador: o supervisor nem vê a zona de risco.
-    if (ehAdmin()) alvo.appendChild(blocoDesligamento(f));
+    if (ehAdmin()) {
+      alvo.appendChild(blocoDesligamento(f));
+      alvo.appendChild(blocoHistoricoDaFicha(f));
+    }
     mostrar($("#modal"), true);
+  }
+
+  // ---------- Datas de entrada das fichas antigas ----------
+  // Quem entrou antes do sistema não tem data em lugar nenhum. Sem ela, a
+  // pessoa não aparece em nenhuma contagem por mês — e um relatório com gente
+  // faltando é pior do que relatório nenhum. Daí esta tela.
+  function abrirDatasDeEntrada(tipo) {
+    if (!ehAdmin()) return;
+    var pendentes = formacao.filter(function (f) {
+      return f.tipo === tipo && !f.data_entrada;
+    }).sort(porOrdemPlanilha);
+
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Datas de entrada — " +
+      (tipo === "capital" ? "Capital" : "Interior") }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: "Quando cada pessoa passou a atuar no projeto. É essa data que permite responder " +
+        "“quantos entrevistadores tínhamos em maio?”. Quem for convocado daqui para a frente " +
+        "já nasce com a data preenchida.",
+    }));
+    if (!pendentes.length) {
+      alvo.appendChild(el("p", { class: "vazio", text: "Todas as fichas já têm data de entrada." }));
+      mostrar($("#modal"), true);
+      return;
+    }
+
+    // Atalho: o caso comum é uma turma inteira ter começado no mesmo dia.
+    var atalho = el("div", { class: "cand-acoes" });
+    var campoTodos = el("input", {
+      class: "edicao__entrada", type: "text", placeholder: "dd/mm/aaaa", id: "ent-todos",
+    });
+    var bTodos = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "Aplicar a todas",
+    });
+    atalho.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Preencher todas com:" }));
+    atalho.appendChild(campoTodos);
+    atalho.appendChild(bTodos);
+    alvo.appendChild(atalho);
+
+    var form = el("form", { class: "edicao" });
+    var tabela = el("table", { class: "tabela tabela--cand metas__tab" });
+    tabela.appendChild(el("thead", {}, [el("tr", {}, [
+      el("th", { text: "Nome" }),
+      el("th", { text: tipo === "capital" ? "Grupo" : "Região" }),
+      el("th", { text: "Entrada (dd/mm/aaaa)" }),
+    ])]));
+    var corpo = el("tbody");
+    var entradas = [];
+    pendentes.forEach(function (f) {
+      var inp = el("input", { class: "edicao__entrada", type: "text", placeholder: "dd/mm/aaaa" });
+      entradas.push({ ficha: f, inp: inp });
+      var tr = el("tr");
+      tr.appendChild(el("td", { class: "metas__reg", text: f.nome || "(sem nome)" }));
+      tr.appendChild(el("td", { text: regiaoCurta(chaveSupervisao(f)) || "—" }));
+      tr.appendChild(el("td", {}, [inp]));
+      corpo.appendChild(tr);
+    });
+    tabela.appendChild(corpo);
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    form.appendChild(wrap);
+
+    bTodos.addEventListener("click", function () {
+      entradas.forEach(function (e) { e.inp.value = campoTodos.value; });
+    });
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar datas" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var mudancas = [], invalidas = [];
+      entradas.forEach(function (item) {
+        var v = item.inp.value.trim();
+        if (!v) return;
+        // Uma data mal digitada gravada aqui vira número errado no relatório
+        // depois, sem ninguém perceber. Melhor recusar agora.
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(v) || !normalizarDataHora(v)) {
+          invalidas.push(item.ficha.nome || "(sem nome)");
+          return;
+        }
+        mudancas.push({ ficha: item.ficha, data: v });
+      });
+      if (invalidas.length) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "Data inválida em: " + invalidas.slice(0, 5).join(", ") +
+          (invalidas.length > 5 ? " e mais " + (invalidas.length - 5) : "") + ". Use dd/mm/aaaa.";
+        return;
+      }
+      if (!mudancas.length) { msg.textContent = "Nenhuma data preenchida."; return; }
+      salvar.disabled = true;
+      msg.className = "edicao__msg";
+      msg.textContent = "Salvando " + mudancas.length + " data(s)…";
+      Promise.all(mudancas.map(function (m) {
+        return atualizarResiliente(formTabela(), m.ficha.id,
+          { data_entrada: m.data, updated_at: new Date().toISOString() }, ["data_entrada"]);
+      })).then(function (resultados) {
+        // `atualizarResiliente` grava sem os campos que o banco não tem, para
+        // não travar o painel. Aqui isso significaria gravar NADA — então o
+        // silêncio vira aviso, em vez de um "salvo" que não salvou.
+        var semColuna = resultados.some(function (r) {
+          return r && r.ignorados && r.ignorados.indexOf("data_entrada") !== -1;
+        });
+        if (semColuna) throw new Error("SEM_COLUNA");
+        return carregarFormacao().then(fecharModal);
+      }).catch(function (erro) {
+        salvar.disabled = false;
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = String(erro && erro.message) === "SEM_COLUNA"
+          ? "Nada foi salvo: a coluna data_entrada ainda não existe no banco. " +
+            "Rode sql/historico.sql no SQL Editor do Supabase e tente de novo."
+          : "Não foi possível salvar: " + ((erro && erro.message) || erro);
+      });
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+  }
+
+  // ---------- Histórico de uma ficha ----------
+  // Vem da tabela `historico`, preenchida por gatilho no banco: pega o que foi
+  // feito no painel, na importação de CSV, na sincronização e até no SQL
+  // Editor. Nenhum caminho de alteração escapa.
+  var ROTULO_CAMPO = {
+    grupo: "Grupo", regiao: "Região", supervisor: "Supervisor",
+    nome: "Nome", cpf: "CPF", telefone: "Telefone", email: "E-mail",
+    status: "Status", cadastro_bolsista: "Cadastro de bolsista",
+    treinamento_presencial: "Treinamento", treinamento_online: "Treinamento (online)",
+    data_treinamento_presencial: "Data do treinamento",
+    data_treinamento_online: "Data do treinamento (online)",
+    facilitador: "Facilitador", termo_bolsa: "Termo de bolsa",
+    termo_link: "Documento do termo", data_entrada: "Entrada no projeto",
+    desligado_em: "Desligado em", desligado_motivo: "Motivo do desligamento",
+    candidato_id: "Vínculo com a inscrição",
+  };
+
+  function blocoHistoricoDaFicha(f) {
+    var sec = el("section", { class: "pagina__secao hist-ficha" });
+    sec.appendChild(el("h3", { class: "pagina__secao-titulo", text: "Histórico desta ficha" }));
+    var corpo = el("p", { class: "pagina__secao-sub", text: "Carregando…" });
+    sec.appendChild(corpo);
+    if (!client || !f.id) { corpo.textContent = "Sem histórico para mostrar."; return sec; }
+
+    // O histórico é informação de apoio: se a leitura falhar por qualquer
+    // motivo, ela avisa e some — nunca derruba o formulário de edição, que é o
+    // que a pessoa veio fazer aqui.
+    var consulta;
+    try {
+      consulta = client.from("historico").select("em,evento,campo,de,para,quem").eq("registro_id", f.id);
+    } catch (e) {
+      corpo.textContent = "Não foi possível ler o histórico: " + (e.message || e);
+      return sec;
+    }
+    Promise.resolve(consulta)
+      .then(function (resp) {
+        resp = resp || {};
+        if (resp.error) {
+          corpo.textContent = /historico|does not exist|PGRST/i.test(resp.error.message || "")
+            ? "O histórico começa depois de rodar sql/historico.sql no Supabase."
+            : "Não foi possível ler o histórico: " + (resp.error.message || resp.error);
+          return;
+        }
+        var itens = (resp.data || []).slice().sort(function (a, b) {
+          return String(b.em).localeCompare(String(a.em));
+        });
+        sec.removeChild(corpo);
+        if (!itens.length) {
+          sec.appendChild(el("p", {
+            class: "pagina__secao-sub",
+            text: "Nada registrado ainda. O histórico guarda o que mudar a partir de agora.",
+          }));
+          return;
+        }
+        var lista = el("ul", { class: "hist-ficha__lista" });
+        itens.slice(0, 60).forEach(function (h) {
+          lista.appendChild(itemDoHistorico(h));
+        });
+        sec.appendChild(lista);
+        if (itens.length > 60) {
+          sec.appendChild(el("p", {
+            class: "grafico__nota",
+            text: "Mostrando as 60 alterações mais recentes de " + itens.length + ".",
+          }));
+        }
+      })
+      .catch(function (e) {
+        corpo.textContent = "Não foi possível ler o histórico: " + (e.message || e);
+      });
+    return sec;
+  }
+
+  function itemDoHistorico(h) {
+    var li = el("li", { class: "hist-ficha__item" });
+    li.appendChild(el("span", { class: "hist-ficha__quando", text: formatarDataHora(h.em) }));
+    var texto = el("span", { class: "hist-ficha__texto" });
+    if (h.evento === "criado") {
+      texto.appendChild(el("strong", { text: "Ficha criada" }));
+    } else if (h.evento === "apagado") {
+      texto.appendChild(el("strong", { text: "Ficha apagada" }));
+    } else {
+      texto.appendChild(el("strong", { text: ROTULO_CAMPO[h.campo] || h.campo }));
+      texto.appendChild(el("span", { text: ": " }));
+      texto.appendChild(el("span", { class: "hist-ficha__de", text: h.de || "(vazio)" }));
+      texto.appendChild(el("span", { class: "hist-ficha__seta", "aria-hidden": "true", text: " → " }));
+      texto.appendChild(el("span", { class: "hist-ficha__para", text: h.para || "(vazio)" }));
+    }
+    li.appendChild(texto);
+    li.appendChild(h.quem
+      ? el("span", { class: "hist-ficha__quem", text: h.quem })
+      : el("span", { class: "hist-ficha__quem hist-sql", title: "Alteração feita direto no banco, sem usuário logado.", text: "SQL Editor" }));
+    return li;
   }
 
   // Diz o que aconteceu em vez de "erro ao salvar": quase sempre é ou falta de
@@ -4155,6 +4380,20 @@
       btnExpF.addEventListener("click", function () { exportarFormacao(formTipo); });
       acoesForm.appendChild(btnExpF);
       acoesForm.appendChild(menuBaixarXlsx(formTipo));
+      // O relatório de entradas e saídas só conta quem tem data de entrada. As
+      // fichas anteriores ao sistema não têm — este botão é o caminho para
+      // completá-las, e some quando não sobra nenhuma.
+      var semEntrada = doTipo.filter(function (f) { return !f.data_entrada; }).length;
+      if (semEntrada) {
+        var btnEnt = el("button", {
+          class: "btn btn--secundario btn--pequeno", type: "button",
+          text: "📅 Datas de entrada (" + semEntrada + ")",
+          title: "Preencher quando cada pessoa entrou no projeto — é o que permite contar " +
+            "os entrevistadores de meses passados",
+        });
+        btnEnt.addEventListener("click", function () { abrirDatasDeEntrada(formTipo); });
+        acoesForm.appendChild(btnEnt);
+      }
       var faltando = doTipo.filter(function (f) { return !f.cpf || !f.telefone || !f.email; }).length;
       if (faltando) {
         var btnCompl = el("button", {
@@ -4814,6 +5053,198 @@
     return lista;
   }
 
+  // ============================================================
+  //  Entradas e saídas mês a mês
+  //
+  //  Responde "quantos entrevistadores tínhamos em maio?" sem depender da
+  //  memória de ninguém: com a data de entrada e a de saída de cada pessoa, o
+  //  número de qualquer mês passado é uma conta.
+  //
+  //      ativos no fim do mês = entrou até o fim do mês
+  //                             e (não saiu, ou saiu depois do fim do mês)
+  // ============================================================
+  var MESES_PT = ["jan", "fev", "mar", "abr", "mai", "jun",
+                  "jul", "ago", "set", "out", "nov", "dez"];
+
+  // "15/07/2026" → "2026-07". Aceita também o formato ISO, caso a data tenha
+  // vindo da planilha em vez do painel.
+  function mesDe(txt) {
+    var iso = normalizarDataHora(txt);
+    return iso ? iso.slice(0, 7) : "";
+  }
+  function rotuloDoMes(ym) {
+    var p = ym.split("-");
+    return MESES_PT[Number(p[1]) - 1] + "/" + p[0];
+  }
+  function mesAtual() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0");
+  }
+  function proximoMes(ym) {
+    var a = Number(ym.slice(0, 4));
+    var m = Number(ym.slice(5, 7)) + 1;
+    if (m > 12) { m = 1; a++; }
+    return a + "-" + String(m).padStart(2, "0");
+  }
+
+  // Uma linha por mês, do primeiro movimento até hoje. `semData` conta as
+  // fichas que não entram em conta nenhuma — o número tem de aparecer na tela,
+  // senão o relatório mente por omissão.
+  function movimentacaoPorMes(lista) {
+    var comData = [], semData = 0;
+    lista.forEach(function (f) {
+      var entrou = mesDe(f.data_entrada);
+      if (!entrou) { semData++; return; }
+      comData.push({ entrou: entrou, saiu: mesDe(f.desligado_em) });
+    });
+    if (!comData.length) return { meses: [], semData: semData, total: lista.length };
+
+    var primeiro = comData.reduce(function (m, f) {
+      return !m || f.entrou < m ? f.entrou : m;
+    }, "");
+    var ultimo = mesAtual();
+    // Uma saída lançada com data futura não pode sumir do relatório.
+    comData.forEach(function (f) { if (f.saiu && f.saiu > ultimo) ultimo = f.saiu; });
+
+    var meses = [];
+    for (var ym = primeiro; ym <= ultimo; ym = proximoMes(ym)) {
+      var entradas = 0, saidas = 0, ativos = 0;
+      comData.forEach(function (f) {
+        if (f.entrou === ym) entradas++;
+        if (f.saiu === ym) saidas++;
+        if (f.entrou <= ym && (!f.saiu || f.saiu > ym)) ativos++;
+      });
+      meses.push({ ym: ym, rot: rotuloDoMes(ym), entradas: entradas, saidas: saidas, ativos: ativos });
+      if (meses.length > 240) break; // trava contra data absurda na planilha
+    }
+    return { meses: meses, semData: semData, total: lista.length };
+  }
+
+  function blocoMovimentacao() {
+    var bloco = el("section", { class: "viz-secao" });
+    var lista = formacaoDaViz();
+    if (!lista.length) {
+      bloco.appendChild(el("p", {
+        class: "vazio",
+        text: "Nenhum bolsista na Formação com os filtros atuais.",
+      }));
+      return bloco;
+    }
+
+    bloco.appendChild(el("p", {
+      class: "pagina__sub",
+      text: "Quantas pessoas entraram, quantas saíram e quantas estavam no projeto ao fim de " +
+        "cada mês. Vale para o filtro de tipo e região escolhido acima; o filtro de período " +
+        "não se aplica aqui, porque a tabela já é mês a mês.",
+    }));
+
+    var dados = movimentacaoPorMes(lista);
+    if (!dados.meses.length) {
+      bloco.appendChild(el("div", { class: "aviso-sistema" }, [
+        el("p", { class: "aviso-sistema__titulo", text: "Ainda não dá para montar o quadro por mês" }),
+        el("p", {
+          class: "aviso-sistema__texto",
+          text: "Nenhuma das " + lista.length + " fichas tem data de entrada preenchida. " +
+            "Na aba Formação, use “Datas de entrada” para preencher as fichas antigas de uma vez; " +
+            "as novas já nascem com a data no dia da convocação para o cadastro.",
+        }),
+      ]));
+      return bloco;
+    }
+
+    // --- Números do mês corrente, para leitura rápida ---
+    var ultimo = dados.meses[dados.meses.length - 1];
+    var doAno = dados.meses.filter(function (m) { return m.ym.slice(0, 4) === ultimo.ym.slice(0, 4); });
+    var somaE = doAno.reduce(function (s, m) { return s + m.entradas; }, 0);
+    var somaS = doAno.reduce(function (s, m) { return s + m.saidas; }, 0);
+    bloco.appendChild(el("div", { class: "stats" }, [
+      statCard("No projeto hoje", ultimo.ativos),
+      statCard("Entradas em " + ultimo.rot, ultimo.entradas),
+      statCard("Saídas em " + ultimo.rot, ultimo.saidas),
+      statCard("Entradas em " + ultimo.ym.slice(0, 4), somaE),
+      statCard("Saídas em " + ultimo.ym.slice(0, 4), somaS),
+    ]));
+
+    // --- Gráfico: entradas × saídas por mês ---
+    bloco.appendChild(graficoBarras("Pessoas no projeto ao fim de cada mês",
+      dados.meses.map(function (m) {
+        return { label: m.rot, valor: m.ativos,
+                 titulo: m.rot + ": " + m.ativos + " no projeto · +" + m.entradas + " entrada(s), −" + m.saidas + " saída(s)" };
+      })));
+
+    // --- Tabela mês a mês ---
+    var tabela = el("table", { class: "tabela tabela--cand tabela--mov" });
+    var trh = el("tr");
+    ["Mês", "Entradas", "Saídas", "Saldo", "No projeto no fim do mês"].forEach(function (c) {
+      trh.appendChild(el("th", { class: "tabela__th", text: c }));
+    });
+    tabela.appendChild(el("thead", {}, [trh]));
+    var corpo = el("tbody");
+    dados.meses.slice().reverse().forEach(function (m) {
+      var saldo = m.entradas - m.saidas;
+      var tr = el("tr", { class: "tabela__tr" });
+      tr.appendChild(el("td", { class: "tabela__td cand-td-nome col-firme", text: m.rot }));
+      tr.appendChild(el("td", { class: "tabela__td tabela__td--num", "data-label": "Entradas",
+        text: m.entradas ? "+" + m.entradas : "—" }));
+      tr.appendChild(el("td", { class: "tabela__td tabela__td--num", "data-label": "Saídas",
+        text: m.saidas ? "−" + m.saidas : "—" }));
+      var tdS = el("td", { class: "tabela__td tabela__td--num", "data-label": "Saldo" });
+      tdS.appendChild(saldo === 0
+        ? el("span", { class: "cand-pendente", text: "0" })
+        : el("span", {
+            class: "tag " + (saldo > 0 ? "tag--verde" : "tag--vermelho"),
+            text: (saldo > 0 ? "+" : "−") + Math.abs(saldo),
+          }));
+      tr.appendChild(tdS);
+      tr.appendChild(el("td", { class: "tabela__td tabela__td--num", "data-label": "No projeto no fim do mês",
+        text: String(m.ativos) }));
+      corpo.appendChild(tr);
+    });
+    tabela.appendChild(corpo);
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    bloco.appendChild(wrap);
+
+    // --- Rodapé: o que ficou de fora, e o botão de levar para a planilha ---
+    if (dados.semData) {
+      bloco.appendChild(el("p", {
+        class: "grafico__nota",
+        text: "⚠ " + dados.semData + " de " + dados.total + " ficha(s) não têm data de entrada e " +
+          "ficaram fora de todas as contas acima. Preencha em Formação → “Datas de entrada”.",
+      }));
+    }
+    var acoes = el("div", { class: "cand-acoes" });
+    var bx = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar .xlsx",
+      title: "Planilha com o quadro mês a mês, para responder pedidos por e-mail",
+    });
+    bx.addEventListener("click", function () { exportarMovimentacao(dados); });
+    acoes.appendChild(bx);
+    bloco.appendChild(acoes);
+    return bloco;
+  }
+
+  function exportarMovimentacao(dados) {
+    var recorte = (vizTipo === "todos" ? "Capital e Interior" : vizTipo === "capital" ? "Capital" : "Interior") +
+      (vizRegiao ? " · " + regiaoCurta(vizRegiao) : "");
+    var aoa = [
+      ["Entradas e saídas por mês — " + recorte],
+      ["Gerado em " + formatarDataHora(new Date().toISOString())],
+      [],
+      ["Mês", "Entradas", "Saídas", "Saldo", "No projeto no fim do mês"],
+    ];
+    dados.meses.forEach(function (m) {
+      aoa.push([m.rot, m.entradas, m.saidas, m.entradas - m.saidas, m.ativos]);
+    });
+    if (dados.semData) {
+      aoa.push([]);
+      aoa.push([dados.semData + " de " + dados.total +
+        " ficha(s) sem data de entrada ficaram fora destas contas."]);
+    }
+    var hoje = new Date().toISOString().slice(0, 10);
+    window.Exportador.xlsx("entradas-e-saidas_" + hoje + ".xlsx", "Movimentação", aoa);
+  }
+
   // Barra que se compara com uma meta: o preenchimento é a fração da meta, e o
   // rótulo mostra os dois números — "8 / 12" diz mais do que qualquer cor.
   function graficoProgresso(titulo, dados, nota) {
@@ -5098,6 +5529,7 @@
       { id: "inscricoes", rot: "Inscrições no SIPE" },
       { id: "entrevistas", rot: "Entrevistas" },
       { id: "formacao", rot: "Formação" },
+      { id: "movimentacao", rot: "Entradas e saídas" },
     ].forEach(function (a) {
       var b = el("button", {
         class: "cand-tab" + (vizAba === a.id ? " cand-tab--ativa" : ""),
@@ -5110,6 +5542,7 @@
 
     if (vizAba === "inscricoes") { painel.appendChild(blocoFunilCandidatos()); return; }
     if (vizAba === "formacao") { painel.appendChild(blocoFormacaoViz()); return; }
+    if (vizAba === "movimentacao") { painel.appendChild(blocoMovimentacao()); return; }
 
     var lista = filtrarViz();
     var avaliados = lista.filter(function (r) { return !r.nao_compareceu && !r.nao_cumpre_requisitos; });

@@ -76,6 +76,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
 │   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só define grupo vazio na Capital)
 │   ├── usuarios.sql      # Página "Gerenciar usuários": contas, perfis e histórico
+│   ├── historico.sql     # Data de entrada + registro de toda alteração (gatilho)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
@@ -212,6 +213,9 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
     **inscrições ao longo do tempo**;
   - **Entrevistas** — indicadores, **mapa de São Paulo**, recomendação,
     entrevistas ao longo do tempo e **nota média por entrevistador**;
+  - **Entradas e saídas** — quantas pessoas entraram, saíram e estavam no
+    projeto **ao fim de cada mês**, por Capital/Interior e região, com
+    exportação em .xlsx;
   - **Formação** — ocupação das metas por região, situação dos bolsistas,
     etapas concluídas, pendências, distribuição por grupo/região e por
     supervisor, e desligamentos por motivo.
