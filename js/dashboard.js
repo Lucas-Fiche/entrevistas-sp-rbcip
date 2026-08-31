@@ -2229,14 +2229,14 @@
       // de supervisores escrevem, e é por esse nome que as duas se encontram.
       regiao: cand.tipo === "interior" ? (regiaoCurta(cand.regiao) || null) : null,
       candidato_id: cand.id || null,
-      // A entrada no projeto é aqui: convocada para o cadastro, a pessoa passa
-      // a ocupar vaga. Sem esta data, nenhuma contagem por mês é possível
-      // depois — foi exatamente o que se perdeu na época das planilhas.
-      data_entrada: hojeBR(),
+      // A data de entrada NÃO é carimbada aqui. Convocar é convidar; a pessoa
+      // entra no projeto quando PREENCHE o Cadastro de Bolsista, e essa data
+      // vem do carimbo do próprio formulário, na sincronização. Usar o dia da
+      // convocação daria uma data adiantada em dias ou semanas.
       origem: { criado_por: "convocação de cadastro", em: new Date().toISOString() },
       updated_at: new Date().toISOString(),
     };
-    return upsertResiliente(formTabela(), [ficha], ["candidato_id", "ordem", "importado_em", "data_entrada"])
+    return upsertResiliente(formTabela(), [ficha], ["candidato_id", "ordem", "importado_em"])
       .then(function () { return carregarFormacao(); })
       .catch(function (e) {
         // A convocação já foi enviada: uma falha aqui não pode virar erro geral.
@@ -3390,11 +3390,18 @@
       var dados = res.dados || {};
       var cadastros = {};
       (dados.cadastros || []).forEach(function (c) { cadastros[soDigitos(c)] = true; });
+      // Data em que cada pessoa PREENCHEU o cadastro de bolsista (coluna F da
+      // ponte). É ela que vira a entrada no projeto. Script antigo não manda
+      // este campo — aí o painel só segue sem as datas, sem quebrar nada.
+      var datasCad = {};
+      Object.keys(dados.datas_cadastro || {}).forEach(function (c) {
+        datasCad[soDigitos(c)] = dados.datas_cadastro[c];
+      });
       var termos = dados.termos || {};
       var totalCad = Object.keys(cadastros).length;
 
       var mudancas = [];
-      var semCpf = 0, semTermo = 0;
+      var semCpf = 0, semTermo = 0, entradasPreenchidas = 0;
       formacao.forEach(function (f) {
         var cpf = soDigitos(f.cpf);
         if (cpf.length !== 11) { semCpf++; return; }
@@ -3403,6 +3410,14 @@
         // Preencheu o formulário de cadastro de bolsista?
         if (totalCad && cadastros[cpf] && !ehRealizado(f.cadastro_bolsista)) {
           patch.cadastro_bolsista = "Realizado";
+        }
+
+        // O dia do preenchimento é a entrada no projeto. Só completa o que está
+        // vazio: data já registrada (à mão, ou numa sincronização anterior) não
+        // é sobrescrita — quem corrigiu à mão tinha um motivo.
+        if (datasCad[cpf] && !f.data_entrada) {
+          patch.data_entrada = datasCad[cpf];
+          entradasPreenchidas++;
         }
 
         // Termo de bolsa emitido?
@@ -3427,9 +3442,12 @@
       var lidos = dados.lidos || {};
       var resumo = "Planilha-ponte" + (lidos.aba ? ' (aba "' + lidos.aba + '", ' + lidos.linhas + " linhas)" : "") + ":\n" +
         "· cadastros de bolsista: " + (lidos.cadastros !== undefined ? lidos.cadastros : totalCad) + " CPF(s)\n" +
+        "· datas de cadastro (coluna F): " +
+          (lidos.datas_cadastro !== undefined ? lidos.datas_cadastro : Object.keys(datasCad).length) + "\n" +
         "· termos Capital: " + (lidos.termos_capital !== undefined ? lidos.termos_capital : Object.keys(termos.capital || {}).length) + "\n" +
         "· termos Interior: " + (lidos.termos_interior !== undefined ? lidos.termos_interior : Object.keys(termos.interior || {}).length) + "\n\n" +
         "Fichas atualizadas: " + mudancas.length + "\n" +
+        "Datas de entrada preenchidas agora: " + entradasPreenchidas + "\n" +
         "Ainda sem termo: " + semTermo +
         (semCpf ? "\nSem CPF na ficha (não dá para casar): " + semCpf : "") +
         "\n\nSe algum número acima parecer errado, confira o IMPORTRANGE da coluna " +
@@ -3442,7 +3460,7 @@
         });
       }
       return Promise.all(mudancas.map(function (m) {
-        return client.from(formTabela()).update(m.patch).eq("id", m.ficha.id);
+        return atualizarResiliente(formTabela(), m.ficha.id, m.patch, ["data_entrada"]);
       })).then(function (resps) {
         var erro = resps.filter(function (r) { return r && r.error; })[0];
         return registrarSincronizacao(lidos, mudancas.length,
@@ -3693,7 +3711,9 @@
         "só o administrador troca de grupo.";
       return campos;
     }
-    campos.push({ id: "data_entrada", rot: "Data de entrada no projeto", dica: "dd/mm/aaaa — a partir dela a pessoa conta como entrevistador nos relatórios." });
+    campos.push({ id: "data_entrada", rot: "Data de entrada no projeto",
+      dica: "dd/mm/aaaa — o dia em que preencheu o Cadastro de Bolsista. Chega sozinha na " +
+        "sincronização; a partir dela a pessoa conta como entrevistador nos relatórios." });
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
     // Um treinamento só, para os dois projetos: conta qualquer treinamento
     // realizado. Fica no campo que a planilha chama de "Treinamento
@@ -3822,9 +3842,10 @@
       (tipo === "capital" ? "Capital" : "Interior") }));
     alvo.appendChild(el("p", {
       class: "modal__meta",
-      text: "Quando cada pessoa passou a atuar no projeto. É essa data que permite responder " +
-        "“quantos entrevistadores tínhamos em maio?”. Quem for convocado daqui para a frente " +
-        "já nasce com a data preenchida.",
+      text: "Quando cada pessoa passou a atuar no projeto — o dia em que preencheu o " +
+        "Cadastro de Bolsista. Essa data chega sozinha em “🔄 Sincronizar planilhas”, do " +
+        "carimbo do próprio formulário; use esta tela só para quem a sincronização não " +
+        "alcança (cadastro feito fora do formulário, ou CPF que não casa).",
     }));
     if (!pendentes.length) {
       alvo.appendChild(el("p", { class: "vazio", text: "Todas as fichas já têm data de entrada." }));
@@ -4388,8 +4409,8 @@
         var btnEnt = el("button", {
           class: "btn btn--secundario btn--pequeno", type: "button",
           text: "📅 Datas de entrada (" + semEntrada + ")",
-          title: "Preencher quando cada pessoa entrou no projeto — é o que permite contar " +
-            "os entrevistadores de meses passados",
+          title: "Completar à mão quem a sincronização não alcançou — é a data de entrada " +
+            "que permite contar os entrevistadores de meses passados",
         });
         btnEnt.addEventListener("click", function () { abrirDatasDeEntrada(formTipo); });
         acoesForm.appendChild(btnEnt);
@@ -5145,8 +5166,8 @@
         el("p", {
           class: "aviso-sistema__texto",
           text: "Nenhuma das " + lista.length + " fichas tem data de entrada preenchida. " +
-            "Na aba Formação, use “Datas de entrada” para preencher as fichas antigas de uma vez; " +
-            "as novas já nascem com a data no dia da convocação para o cadastro.",
+            "Na aba Formação, clique em “🔄 Sincronizar planilhas”: a data vem do carimbo do " +
+            "Cadastro de Bolsista. O que sobrar sem data, complete em “📅 Datas de entrada”.",
         }),
       ]));
       return bloco;

@@ -442,14 +442,42 @@ Cria a coluna **`data_entrada`** em `formacao` — quando a pessoa passou a
 atuar. A saída (`desligado_em`) já existia; faltava a entrada, e sem as duas
 não há como dizer quantos entrevistadores havia num mês passado.
 
-- Quem for **convocado para o cadastro** daqui para a frente já nasce com a
-  data preenchida (o dia da convocação).
-- As fichas **anteriores ao sistema** vêm sem data. Na aba *Formação*, o botão
-  **📅 Datas de entrada (N)** abre a lista de quem está sem data, com um campo
-  por pessoa e um atalho "preencher todas com" — útil quando a turma inteira
-  começou no mesmo dia. Datas fora do formato `dd/mm/aaaa` são recusadas antes
-  de gravar, porque uma data errada aqui vira número errado no relatório sem
-  ninguém perceber.
+**De onde vem a data: do próprio Cadastro de Bolsista.** É o dia em que a
+pessoa *preencheu* o formulário — não o dia em que você a convocou. Convocar é
+convidar; entre o convite e o preenchimento passam dias ou semanas, e carimbar
+a convocação daria uma data adiantada.
+
+Para isso, a **planilha-ponte ganha a coluna F: "Data do Cadastro de
+Bolsista"** — o carimbo de data/hora do formulário, puxado pelo mesmo
+`IMPORTRANGE` da coluna A (mesma linha = mesma pessoa). Republique o Apps
+Script depois de acrescentá-la (veja `docs/APPS-SCRIPT-CONVOCACAO.md`).
+
+Com a coluna no lugar, **🔄 Sincronizar planilhas** passa a preencher a data
+sozinha, e isso vale também **retroativamente**: quem já está marcado como
+"Cadastro Realizado" mas sem data recebe a data do dia em que preencheu. Na
+prática, a maior parte do preenchimento das fichas antigas acontece sozinha, na
+primeira sincronização depois da mudança.
+
+Três regras de segurança:
+
+- **Data já preenchida nunca é sobrescrita** — nem à mão, nem por outra
+  sincronização. Quem corrigiu tinha um motivo.
+- Se o mesmo CPF aparecer duas vezes na ponte, vale a **data mais antiga**: se
+  a pessoa preencheu o formulário de novo, quem marca a entrada é a primeira
+  vez.
+- Célula vazia ou ilegível vira **nada**, nunca uma data inventada.
+
+**O que a sincronização não alcança** — cadastro feito fora do formulário, CPF
+que não casa, ficha importada de um controle antigo — fica para o botão
+**📅 Datas de entrada (N)** na aba *Formação*: lista quem está sem data, com um
+campo por pessoa e um atalho "preencher todas com", útil quando a turma inteira
+começou no mesmo dia. Datas fora do formato `dd/mm/aaaa` são recusadas antes de
+gravar, porque uma data errada aqui vira número errado no relatório sem ninguém
+perceber.
+
+O resumo da sincronização passa a dizer quantas datas vieram da coluna F e
+quantas entradas foram preenchidas naquela rodada — se o número vier zerado, o
+problema está no `IMPORTRANGE`, e aparece ali em vez de nos dados.
 
 ### Entradas e saídas mês a mês
 
