@@ -30,23 +30,48 @@ Você faz isto **uma vez**. Depois, todo clique de convocação envia sozinho.
 
 ```javascript
 // ===== Configuração =====
-var SUPABASE_URL = "https://gnqzcmzyupetpvlhsfsu.supabase.co";
-var SUPABASE_ANON_KEY = "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_";
+//
+// >>> LEIA ANTES DE RECOLAR O CÓDIGO <<<
+// Os valores em branco aqui embaixo são o MODELO do repositório. Recolar o
+// script inteiro por cima do seu apaga o que você tinha preenchido, e a
+// sincronização passa a falhar com "Preencha PLANILHA_PONTE no script".
+//
+// Para isso não se repetir, guarde-os nas PROPRIEDADES DO SCRIPT: o código lê
+// de lá primeiro, e propriedade nenhuma se perde quando o código é trocado.
+//   Apps Script → engrenagem "Configurações do projeto" → Propriedades do
+//   script → Adicionar propriedade, uma para cada:
+//       PLANILHA_PONTE   (o id da planilha-ponte)
+//       ABA_PONTE        (opcional; em branco = primeira aba)
+//       ROBO_EMAIL       ROBO_SENHA      (só para a sincronização automática)
+//       EMAIL_RECIBO     (opcional)
+// Feito isso, pode recolar o código quantas vezes quiser sem perder nada.
+
+function prop(nome, padrao) {
+  try {
+    var v = PropertiesService.getScriptProperties().getProperty(nome);
+    if (v !== null && String(v).trim() !== "") return String(v).trim();
+  } catch (e) { /* projeto sem propriedades: cai no valor de baixo */ }
+  return padrao || "";
+}
+
+var SUPABASE_URL = prop("SUPABASE_URL", "https://gnqzcmzyupetpvlhsfsu.supabase.co");
+var SUPABASE_ANON_KEY = prop("SUPABASE_ANON_KEY", "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_");
 
 // >>> COLOQUE AQUI o e-mail que deve receber o RECIBO de cada envio. <<<
-var EMAIL_RECIBO = "lucas@rbcip.org";
+var EMAIL_RECIBO = prop("EMAIL_RECIBO", "lucas@rbcip.org");
 
 // ===== Planilha-ponte lida pela aba Formação =====
 // O script lê UMA planilha só: a "ponte" (Dados para o Sistema), que você
 // alimenta com IMPORTRANGE a partir das planilhas oficiais. Assim o script
 // nunca depende do layout delas e enxerga apenas CPF e link do termo.
-// O ID é o trecho da URL entre /d/ e /edit. Fica SÓ AQUI, nunca no repositório.
-var PLANILHA_PONTE = "";
+// O ID é o trecho da URL entre /d/ e /edit. Fica SÓ AQUI (ou nas propriedades
+// do script), nunca no repositório.
+var PLANILHA_PONTE = prop("PLANILHA_PONTE", "");
 
 // Nome da aba da ponte. Deixe "" para usar a primeira.
 // (O script informa no resumo qual aba leu — confira sempre que o número
 //  parecer estranho: ler a aba errada é o erro que não dá mensagem.)
-var ABA_PONTE = "";
+var ABA_PONTE = prop("ABA_PONTE", "");
 
 // Colunas da ponte (linha 1 = cabeçalho):
 //   A: CPF do Cadastro de Bolsista
@@ -67,9 +92,10 @@ var ABA_PONTE = "";
 // NUNCA use aqui a chave service_role: ela ignora o RLS e não é revogável sem
 // trocar a chave do projeto inteiro. Se esta senha vazar, basta apagar o
 // usuário no Supabase.
-// Estes dados ficam SÓ AQUI, nunca no repositório do sistema.
-var ROBO_EMAIL = "";
-var ROBO_SENHA = "";
+// Estes dados ficam SÓ AQUI (ou nas propriedades do script), nunca no
+// repositório do sistema.
+var ROBO_EMAIL = prop("ROBO_EMAIL", "");
+var ROBO_SENHA = prop("ROBO_SENHA", "");
 
 // Health-check simples (abrir a URL no navegador deve mostrar {"ok":true}).
 function doGet() {
@@ -192,7 +218,12 @@ function limparEmail(s) {
 // que permite perceber na hora que algo veio do lugar errado, em vez de
 // descobrir pelos dados errados no painel.
 function dadosFormacao() {
-  if (!PLANILHA_PONTE) throw new Error("Preencha PLANILHA_PONTE no script.");
+  if (!PLANILHA_PONTE) {
+    throw new Error("PLANILHA_PONTE esta vazia. Preencha em Configuracoes do " +
+      "projeto -> Propriedades do script (PLANILHA_PONTE = id da planilha), ou " +
+      "na linha var PLANILHA_PONTE do codigo. Recolar o script por cima apaga " +
+      "o valor que estava no codigo; a propriedade sobrevive.");
+  }
   var ss = SpreadsheetApp.openById(PLANILHA_PONTE);
   var sh = ABA_PONTE ? ss.getSheetByName(ABA_PONTE) : ss.getSheets()[0];
   if (!sh) throw new Error('Aba "' + ABA_PONTE + '" nao existe na planilha-ponte.');
@@ -420,6 +451,42 @@ function json(obj) {
 
 4. Clique no ícone de **salvar** (disquete) e dê um nome ao projeto
    (ex.: *Convocações RBCIP*).
+
+---
+
+## Atualizar o script depois (sem perder a configuração)
+
+Quando este documento mudar, **não recole o código inteiro por reflexo**: o
+bloco de configuração aqui é o modelo do repositório, com `PLANILHA_PONTE`,
+`ROBO_EMAIL` e `ROBO_SENHA` **em branco de propósito** (esses valores nunca
+entram no repositório). Colar por cima apaga o que você tinha, e a
+sincronização passa a falhar com:
+
+> Não foi possível sincronizar: Error: Preencha PLANILHA_PONTE no script.
+
+### Como resolver agora
+
+Abra o Apps Script e preencha o ID de novo. Duas formas:
+
+- **Recomendada — Propriedades do script.** Engrenagem **Configurações do
+  projeto** → **Propriedades do script** → *Adicionar propriedade*:
+  `PLANILHA_PONTE` = o id da planilha-ponte (o trecho da URL entre `/d/` e
+  `/edit`). Faça o mesmo com `ROBO_EMAIL` e `ROBO_SENHA` se usa a
+  sincronização automática. O código lê as propriedades **antes** dos valores
+  escritos nele, então a partir daí **recolar o código nunca mais apaga a sua
+  configuração**.
+- **Alternativa:** editar de novo as linhas `var PLANILHA_PONTE = ...` no
+  código. Funciona, mas se perde na próxima atualização.
+
+Depois, **Implantar → Gerenciar implantações → editar (lápis) → Versão: Nova
+versão → Implantar**. Sem isso o Web App continua servindo o código antigo.
+
+### Antes de colar, salve o que é seu
+
+Se preferir continuar guardando tudo no código, copie estes valores para um
+bloco de notas antes de colar e reponha depois:
+
+`PLANILHA_PONTE` · `ABA_PONTE` · `ROBO_EMAIL` · `ROBO_SENHA` · `EMAIL_RECIBO`
 
 ---
 

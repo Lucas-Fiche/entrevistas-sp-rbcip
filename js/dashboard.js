@@ -3478,9 +3478,27 @@
       });
     }).catch(function (e) {
       renderPainelFormacao();
-      alert("Não foi possível sincronizar: " + (e.message || e) +
-        "\n\nConfira se os IDs das planilhas estão preenchidos no Apps Script e se ele foi publicado em nova versão.");
+      alert("Não foi possível sincronizar: " + (e.message || e) + "\n\n" + dicaDaSincronizacao(e));
     });
+  }
+
+  // O erro mais comum não é o script estar errado: é ele ter sido recolado por
+  // cima, apagando o ID da planilha que só existia naquele código.
+  function dicaDaSincronizacao(erro) {
+    var texto = String((erro && erro.message) || erro || "");
+    if (/PLANILHA_PONTE|planilha-ponte/i.test(texto)) {
+      return "O ID da planilha-ponte está em branco no Apps Script. Isso costuma " +
+        "acontecer depois de recolar o código por cima: o valor que estava ali se perde.\n\n" +
+        "Preencha de novo em Apps Script → Configurações do projeto → Propriedades do " +
+        "script (PLANILHA_PONTE = id da planilha) — assim ele sobrevive às próximas " +
+        "atualizações do código — e publique uma nova versão.";
+    }
+    if (/ROBO_EMAIL|ROBO_SENHA|robô|robo/i.test(texto)) {
+      return "Falta a conta do robô (ROBO_EMAIL / ROBO_SENHA) no Apps Script. " +
+        "Guarde-a nas Propriedades do script para não se perder ao atualizar o código.";
+    }
+    return "Confira se os IDs das planilhas estão preenchidos no Apps Script e se ele " +
+      "foi publicado em nova versão.";
   }
 
   // ---------- Exportar a planilha de formação ----------
