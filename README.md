@@ -210,7 +210,8 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   e onde **trocar a própria senha**.
 - **Termos de Bolsa** (admin e financeiro): quem já tem termo e quem ainda não,
   com o recorte **Aptos** — cadastro de bolsista e treinamento feitos, faltando
-  só o termo. Exporta em .xlsx e permite avisar o financeiro por e-mail.
+  só o termo. Exporta em .xlsx, mostra se o envio automático está ligado e
+  permite avisar o financeiro na hora.
 - **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**) e três
   sub-abas, uma por etapa do funil:
   - **Inscrições no SIPE** — funil do processo, inscrições por região e

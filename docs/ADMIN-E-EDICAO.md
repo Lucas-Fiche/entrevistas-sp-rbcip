@@ -155,12 +155,28 @@ Só o administrador vê os dois botões da aba: **⬇ Baixar .xlsx** e
 Quando alguém fica apto, o pessoal do financeiro recebe um e-mail dizendo que
 a pessoa concluiu cadastro e treinamento e só depende do termo para atuar.
 
-O envio acontece por dois caminhos, e os dois usam a mesma regra:
+### Ligando o envio automático (uma vez)
 
-- **sozinho**, na sincronização automática do Apps Script (de 6 em 6 horas),
-  sem ninguém precisar abrir o painel;
+No Apps Script, abra o editor, escolha a função **`instalarGatilhoAviso`** no
+seletor do topo e clique em **Executar**. Pronto: o aviso passa a sair **de hora
+em hora**, sozinho, sem ninguém abrir o painel. Para desligar, o mesmo caminho
+com `removerGatilhoAviso`.
+
+O envio acontece por três caminhos, e todos usam a mesma regra:
+
+- **de hora em hora**, pelo gatilho acima — é o modo recomendado, porque o
+  treinamento é marcado à mão no painel a qualquer momento;
+- **de 6 em 6 horas**, junto com a sincronização das planilhas, se você já tinha
+  instalado `instalarGatilhoSincronizacao`. Ter os dois não duplica e-mail:
+  cada pessoa entra em um aviso só;
 - **na hora**, pelo botão **✉ Avisar o financeiro** da aba, quando não se quer
   esperar o próximo ciclo.
+
+> **A aba diz se a automação está de pé.** Abaixo dos botões, para o
+> administrador, aparece `✓ Envio automático ligado` (e de quanto em quanto
+> tempo) ou `⚠ Envio automático desligado — nenhum aviso sai sozinho`, com o
+> que fazer para ligar. Sem essa linha, "automático" e "ninguém rodando" seriam
+> a mesma tela silenciosa. O estado é reconferido a cada **Atualizar**.
 
 Duas garantias contra o aviso virar spam ou sumir:
 

@@ -124,6 +124,12 @@ function doPost(e) {
       return json({ ok: true, dados: dadosFormacao() });
     }
 
+    // 1e) Estado da automação: quais gatilhos estão instalados. Sem isto, o
+    // painel não teria como distinguir "automático ligado" de "ninguém rodando".
+    if (body.acao === "status_automacao") {
+      return json({ ok: true, gatilhos: gatilhosInstalados() });
+    }
+
     // 1d) Aviso ao financeiro: quem ficou apto e só depende do termo de bolsa.
     // O mesmo trabalho que a rotina automática faz sozinha — este caminho
     // existe para o painel poder avisar na hora, sem esperar o próximo ciclo.
@@ -314,6 +320,57 @@ function instalarGatilhoSincronizacao() {
   }
   ScriptApp.newTrigger("sincronizacaoAutomatica").timeBased().everyHours(6).create();
   return "Gatilho instalado: a cada 6 horas.";
+}
+
+// Quais rotinas automáticas estão de pé, e de quanto em quanto tempo.
+function gatilhosInstalados() {
+  var achados = {};
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    var fn = triggers[i].getHandlerFunction();
+    if (fn === "sincronizacaoAutomatica" || fn === "avisoAutomatico") achados[fn] = true;
+  }
+  return {
+    sincronizacao: !!achados.sincronizacaoAutomatica,
+    aviso: !!achados.avisoAutomatico,
+  };
+}
+
+// ===== Aviso ao financeiro: gatilho próprio, de hora em hora =====
+// A sincronização já avisa ao fim de cada rodada, mas ela roda de 6 em 6 horas
+// porque lê planilhas. O aviso só lê o Supabase, é barato, e o treinamento é
+// marcado à mão no painel a qualquer momento — então vale ter um gatilho só
+// dele, mais frequente. Instalar os dois não duplica e-mail: cada pessoa entra
+// em um aviso só.
+//
+// Rode UMA VEZ, pelo editor, para ligar.
+function instalarGatilhoAviso() {
+  removerGatilhoAviso();
+  ScriptApp.newTrigger("avisoAutomatico").timeBased().everyHours(1).create();
+  return "Gatilho do aviso instalado: de hora em hora.";
+}
+
+function removerGatilhoAviso() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === "avisoAutomatico") {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  return "Gatilho do aviso removido.";
+}
+
+function avisoAutomatico() {
+  try {
+    var r = avisarAptos();
+    return r.avisados;
+  } catch (err) {
+    // Rotina automática que falha calada é o pior caso: avisa quem cuida.
+    try {
+      GmailApp.sendEmail(EMAIL_RECIBO, "RBCIP — aviso ao financeiro FALHOU", String(err));
+    } catch (e) {}
+    throw err;
+  }
 }
 
 // Desliga a automação (a sincronização manual continua funcionando).

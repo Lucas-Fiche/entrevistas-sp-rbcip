@@ -1857,3 +1857,8 @@ input[type="date"].viz-data {
 @media (max-width: 760px) {
   .tabela--termos .cand-td-nome { min-width: 0; }
 }
+
+/* Linha de estado do envio automático (aba Termos de Bolsa) */
+.automacao { margin-top: 2px; }
+.automacao--ok { color: var(--cor-sucesso); }
+.automacao--off { color: #8a4b08; }

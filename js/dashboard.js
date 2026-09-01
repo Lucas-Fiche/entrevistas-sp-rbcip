@@ -654,6 +654,9 @@
   }
 
   function carregarDados() {
+    // "Atualizar" reconfere também o estado da automação: instalou o gatilho no
+    // Apps Script e voltou ao painel, o aviso muda sem precisar recarregar.
+    statusAutomacao = null;
     var carregando = $("#carregando");
     var erro = $("#dash-erro");
     mostrar(erro, false);
@@ -4436,6 +4439,7 @@
       bExp.addEventListener("click", function () { exportarTermos(); });
       acoes.appendChild(bExp);
       painel.appendChild(acoes);
+      painel.appendChild(blocoAutomacaoAviso());
     }
 
     // --- Recorte da lista ---
@@ -4558,6 +4562,68 @@
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
+  }
+
+  // O aviso é automático — mas só se o gatilho estiver instalado no Apps
+  // Script. Sem esta linha, "automático desligado" e "automático ligado, nada a
+  // avisar" seriam a mesma tela silenciosa, e o botão viraria obrigação sem
+  // ninguém perceber.
+  var statusAutomacao = null; // null = ainda não consultado
+
+  function blocoAutomacaoAviso() {
+    var caixa = el("p", { class: "cand-resumo automacao" });
+    if (!backendConvocacao()) {
+      caixa.appendChild(el("span", {
+        text: "Envio automático indisponível: o Apps Script ainda não está configurado " +
+          "(veja docs/APPS-SCRIPT-CONVOCACAO.md).",
+      }));
+      return caixa;
+    }
+    if (statusAutomacao) {
+      caixa.appendChild(textoDaAutomacao(statusAutomacao));
+      return caixa;
+    }
+    caixa.appendChild(el("span", { text: "Verificando o envio automático…" }));
+    chamarBackend({ acao: "status_automacao" }).then(function (res) {
+      statusAutomacao = (res && res.gatilhos) || {};
+      caixa.innerHTML = "";
+      caixa.appendChild(textoDaAutomacao(statusAutomacao));
+    }).catch(function () {
+      // Script antigo não conhece a ação: dizer isso é melhor do que afirmar
+      // que está ligado ou desligado sem saber.
+      caixa.innerHTML = "";
+      caixa.appendChild(el("span", {
+        text: "Não foi possível conferir o envio automático. Se o Apps Script for de uma " +
+          "versão anterior, republique-o para o painel conseguir checar.",
+      }));
+    });
+    return caixa;
+  }
+
+  function textoDaAutomacao(g) {
+    var span = el("span");
+    if (g.aviso) {
+      span.appendChild(el("strong", { class: "automacao--ok", text: "✓ Envio automático ligado" }));
+      span.appendChild(el("span", {
+        text: " — o financeiro é avisado de hora em hora, sem ninguém clicar. " +
+          "O botão acima serve para não esperar a próxima rodada.",
+      }));
+      return span;
+    }
+    if (g.sincronizacao) {
+      span.appendChild(el("strong", { class: "automacao--ok", text: "✓ Envio automático ligado" }));
+      span.appendChild(el("span", {
+        text: " — junto com a sincronização das planilhas, de 6 em 6 horas. Para avisar de " +
+          "hora em hora, rode instalarGatilhoAviso() uma vez no Apps Script.",
+      }));
+      return span;
+    }
+    span.appendChild(el("strong", { class: "automacao--off", text: "⚠ Envio automático desligado" }));
+    span.appendChild(el("span", {
+      text: " — nenhum aviso sai sozinho: só pelo botão acima. Para ligar, abra o Apps Script " +
+        "e rode a função instalarGatilhoAviso() uma vez (menu Executar).",
+    }));
+    return span;
   }
 
   function exportarTermos() {
