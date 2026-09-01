@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — Entrevistas RBCIP</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260828c" />
-  <link rel="stylesheet" href="css/dashboard.css?v=20260828c" />
+  <link rel="stylesheet" href="css/styles.css?v=20260901a" />
+  <link rel="stylesheet" href="css/dashboard.css?v=20260901a" />
 </head>
 <body>
   <header class="brand-bar">
@@ -60,6 +60,8 @@
       <button class="aba" data-aba="interior" type="button">Entrevistas Interior <span class="aba__contagem" id="cont-interior">0</span></button>
       <button class="aba" data-aba="formacao" type="button">Formação <span class="aba__contagem" id="cont-formacao">0</span></button>
       <button class="aba" data-aba="dados" type="button">Visualização de dados</button>
+      <!-- Só para admin e financeiro; o JS esconde para os demais perfis. -->
+      <button class="aba oculto" data-aba="termos" type="button">Termos de Bolsa <span class="aba__contagem" id="cont-termos">0</span></button>
     </nav>
 
     <div class="banner banner--erro oculto" id="dash-erro"></div>
@@ -70,6 +72,7 @@
     <section class="painel oculto" id="painel-interior"></section>
     <section class="painel oculto" id="painel-formacao"></section>
     <section class="painel oculto" id="painel-dados"></section>
+    <section class="painel oculto" id="painel-termos"></section>
 
     <!-- Páginas do menu lateral (Gerenciar usuários, Meu perfil). Não são
          abas: ocupam a tela inteira e voltam pelo botão "← Voltar". -->
@@ -107,9 +110,9 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/config.js?v=20260828c"></script>
-  <script src="js/forms-schema.js?v=20260828c"></script>
-  <script src="js/export.js?v=20260828c"></script>
-  <script src="js/dashboard.js?v=20260828c"></script>
+  <script src="js/config.js?v=20260901a"></script>
+  <script src="js/forms-schema.js?v=20260901a"></script>
+  <script src="js/export.js?v=20260901a"></script>
+  <script src="js/dashboard.js?v=20260901a"></script>
 </body>
 </html>

@@ -124,6 +124,14 @@ function doPost(e) {
       return json({ ok: true, dados: dadosFormacao() });
     }
 
+    // 1d) Aviso ao financeiro: quem ficou apto e só depende do termo de bolsa.
+    // O mesmo trabalho que a rotina automática faz sozinha — este caminho
+    // existe para o painel poder avisar na hora, sem esperar o próximo ciclo.
+    if (body.acao === "avisar_aptos") {
+      var r = avisarAptos();
+      return json({ ok: true, avisados: r.avisados, destinatarios: r.destinatarios });
+    }
+
     // 2) Envia cada mensagem pelo Gmail.
     var mensagens = body.mensagens || [];
     var recebidas = mensagens.length;
@@ -366,11 +374,21 @@ function sincronizacaoAutomatica() {
 
     registrarSincronizacao(token, lidos, mudaram.length, null);
 
+    // Depois de sincronizar, avisa o financeiro de quem ficou apto. Uma falha
+    // aqui não pode desfazer a sincronização, que já deu certo.
+    var aviso = { avisados: 0 };
+    try { aviso = avisarAptos(token); } catch (eAviso) {
+      try {
+        GmailApp.sendEmail(EMAIL_RECIBO, "RBCIP — aviso ao financeiro FALHOU", String(eAviso));
+      } catch (e4) {}
+    }
+
     // Só avisa quando algo mudou — senão vira e-mail diário ignorado.
-    if (mudaram.length) {
+    if (mudaram.length || aviso.avisados) {
       GmailApp.sendEmail(EMAIL_RECIBO,
         "RBCIP — sincronizacao automatica: " + mudaram.length + " ficha(s)",
-        "Atualizadas:\n" + mudaram.join("\n") +
+        "Atualizadas:\n" + (mudaram.join("\n") || "(nenhuma)") +
+        "\n\nAvisos de 'apto, aguardando termo' enviados ao financeiro: " + aviso.avisados +
         "\n\nLidos da ponte: " + JSON.stringify(lidos));
     }
     return mudaram.length;
@@ -382,6 +400,76 @@ function sincronizacaoAutomatica() {
     } catch (e3) {}
     throw err;
   }
+}
+
+// ===== Aviso ao financeiro: "apto, só falta o termo" =====
+// Apto = cadastro de bolsista preenchido E treinamento realizado E sem termo
+// E não desligado. A regra também existe no banco, na view aptos_para_termo
+// (sql/perfil-financeiro.sql); aqui ela é aplicada sobre as mesmas colunas.
+//
+// Cada pessoa entra em UM aviso só: depois de enviada, a ficha recebe
+// aviso_apto_em e não volta na próxima rodada. Sem isso o financeiro receberia
+// a mesma lista de 6 em 6 horas e pararia de ler.
+function avisarAptos(token) {
+  var t = token || tokenDoRobo();
+
+  var financeiro = supabase(t, "app_financeiro?select=email") || [];
+  var destinatarios = [];
+  for (var i = 0; i < financeiro.length; i++) {
+    if (financeiro[i].email) destinatarios.push(String(financeiro[i].email).trim());
+  }
+
+  var fichas = supabase(t,
+    "formacao?select=id,nome,tipo,cpf,email,grupo,regiao,data_entrada,cadastro_bolsista," +
+    "treinamento_presencial,treinamento_online,termo_link,desligado_em,aviso_apto_em") || [];
+
+  var aptos = [];
+  for (var j = 0; j < fichas.length; j++) {
+    var f = fichas[j];
+    if (f.aviso_apto_em) continue;
+    if (f.desligado_em) continue;
+    if (f.termo_link) continue;
+    if (String(f.cadastro_bolsista || "").toLowerCase() !== "realizado") continue;
+    var treino = String(f.treinamento_presencial || f.treinamento_online || "").toLowerCase();
+    if (treino !== "realizado") continue;
+    aptos.push(f);
+  }
+  if (!aptos.length) return { avisados: 0, destinatarios: destinatarios };
+
+  // Sem ninguém no financeiro, NÃO marca as fichas: se marcasse, essas pessoas
+  // nunca mais entrariam num aviso, e o primeiro financeiro cadastrado
+  // começaria já sem saber delas.
+  if (!destinatarios.length) return { avisados: 0, destinatarios: [] };
+
+  var linhas = [];
+  for (var k = 0; k < aptos.length; k++) {
+    var a = aptos[k];
+    linhas.push("· " + (a.nome || "(sem nome)") +
+      "  |  " + (a.tipo === "capital" ? "Capital" : "Interior") +
+      (a.grupo || a.regiao ? " / " + (a.grupo || a.regiao) : "") +
+      (a.cpf ? "  |  CPF " + a.cpf : "") +
+      (a.email ? "  |  " + a.email : ""));
+  }
+
+  var assunto = "RBCIP — " + aptos.length +
+    (aptos.length === 1 ? " pessoa apta, aguardando o termo de bolsa"
+                        : " pessoas aptas, aguardando o termo de bolsa");
+  var corpo =
+    "As pessoas abaixo concluíram o cadastro de bolsista e o treinamento.\n" +
+    "Falta apenas o termo de bolsa para começarem a atuar.\n\n" +
+    linhas.join("\n") +
+    "\n\nEsta lista sai uma vez por pessoa: quem aparece aqui não volta no próximo aviso.\n" +
+    "Painel: aba \"Termos de Bolsa\".";
+
+  GmailApp.sendEmail(destinatarios.join(","), assunto, corpo);
+
+  // Só marca depois de o e-mail ter saído.
+  var agora = new Date().toISOString();
+  for (var m = 0; m < aptos.length; m++) {
+    supabase(t, "formacao?id=eq." + aptos[m].id, "patch",
+      { aviso_apto_em: agora, updated_at: agora });
+  }
+  return { avisados: aptos.length, destinatarios: destinatarios };
 }
 
 function registrarSincronizacao(token, lidos, atualizadas, detalhe) {

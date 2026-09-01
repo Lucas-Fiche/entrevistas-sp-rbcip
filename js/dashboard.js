@@ -79,6 +79,7 @@
   var usuarioEmail = "";
   var admin = true;      // definido no login (ver resolverAdmin)
   var supervisor = false; // perfil supervisor (sql/perfil-supervisor.sql)
+  var financeiro = false; // perfil financeiro (sql/perfil-financeiro.sql)
   // Ordenação padrão: por data da entrevista, mais recente no topo (desempate por horário de registro).
   var ordenacao = { capital: { col: "data", asc: false }, interior: { col: "data", asc: false } };
   var busca = { capital: "", interior: "" };
@@ -272,7 +273,7 @@
     // Os painéis guardam o HTML já montado da sessão anterior. Sem limpar,
     // o próximo login mostra por um instante a tela de quem saiu — com os
     // botões do perfil dele — até `carregarDados` terminar.
-    ["candidatos", "capital", "interior", "formacao", "dados"].forEach(function (p) {
+    ["candidatos", "capital", "interior", "formacao", "dados", "termos"].forEach(function (p) {
       var n = $("#painel-" + p);
       if (n) n.innerHTML = "";
     });
@@ -290,14 +291,15 @@
     });
   }
 
-  // ---------- Perfis (admin · supervisor · somente leitura) ----------
-  // A regra que vale é a do banco: `app_admins` (sql/admin.sql) e
-  // `app_supervisores` (sql/perfil-supervisor.sql). Se `app_admins` ainda não
-  // existir, cai na lista de js/config.js; se as duas faltarem, todo usuário
-  // logado edita (comportamento antigo, para não travar o sistema).
+  // ---------- Perfis (admin · supervisor · financeiro · somente leitura) ----
+  // A regra que vale é a do banco: `app_admins` (sql/admin.sql),
+  // `app_supervisores` (sql/perfil-supervisor.sql) e `app_financeiro`
+  // (sql/perfil-financeiro.sql). Se `app_admins` ainda não existir, cai na
+  // lista de js/config.js; se as duas faltarem, todo usuário logado edita
+  // (comportamento antigo, para não travar o sistema).
   function resolverAdmin() {
-    if (!client) { admin = true; supervisor = false; return Promise.resolve(); }
-    return Promise.all([lerAdmins(), lerSupervisores()]);
+    if (!client) { admin = true; supervisor = false; financeiro = false; return Promise.resolve(); }
+    return Promise.all([lerAdmins(), lerSupervisores(), lerFinanceiro()]);
 
     function lerAdmins() {
       return client.from("app_admins").select("email").then(function (resp) {
@@ -315,6 +317,15 @@
         supervisor = lista.indexOf(normEmail(usuarioEmail)) !== -1;
       }).catch(function () { supervisor = false; });
     }
+    // Mesma ideia da lista de supervisores: tabela ausente = ninguém tem o
+    // perfil, e nada deixa de funcionar por causa disso.
+    function lerFinanceiro() {
+      return client.from("app_financeiro").select("email").then(function (resp) {
+        if (resp.error || !resp.data) { financeiro = false; return; }
+        var lista = resp.data.map(function (f) { return normEmail(f.email); });
+        financeiro = lista.indexOf(normEmail(usuarioEmail)) !== -1;
+      }).catch(function () { financeiro = false; });
+    }
     function listaConfig() {
       var lista = (cfg.ADMIN_EMAILS || []).map(normEmail);
       admin = !lista.length || lista.indexOf(normEmail(usuarioEmail)) !== -1;
@@ -324,6 +335,11 @@
   // Supervisor de verdade é quem está na lista E não é admin (o admin já pode
   // tudo; contar duas vezes só confundiria os avisos da tela).
   function ehSupervisor() { return supervisor && !admin; }
+  // Financeiro é leitura como qualquer leitor, com uma aba a mais.
+  function ehFinanceiro() { return financeiro && !admin && !supervisor; }
+  // A aba Termos de Bolsa é do financeiro; o admin também vê, porque é ele
+  // quem lança o termo e responde por ele.
+  function podeVerTermos() { return ehAdmin() || ehFinanceiro(); }
   // A aba Visualização de dados não faz parte do trabalho do supervisor.
   function podeVerDados() { return !ehSupervisor(); }
   // Único campo que o supervisor mexe: o grupo de um bolsista da Capital — e
@@ -343,12 +359,16 @@
   }
 
   function nomeDoPerfil() {
-    return ehAdmin() ? "admin" : ehSupervisor() ? "supervisor" : "somente leitura";
+    if (ehAdmin()) return "admin";
+    if (ehSupervisor()) return "supervisor";
+    if (ehFinanceiro()) return "financeiro";
+    return "somente leitura";
   }
 
   function classeDoSelo() {
-    return "selo-perfil" +
-      (ehAdmin() ? " selo-perfil--admin" : ehSupervisor() ? " selo-perfil--supervisor" : "");
+    return "selo-perfil" + (ehAdmin() ? " selo-perfil--admin"
+      : ehSupervisor() ? " selo-perfil--supervisor"
+      : ehFinanceiro() ? " selo-perfil--financeiro" : "");
   }
 
   function marcarSeloAdmin() {
@@ -376,6 +396,14 @@
     // "Gerenciar usuários" é do administrador — some do menu para os demais.
     var liUsuarios = $("#menu-li-usuarios");
     if (liUsuarios) mostrar(liUsuarios, ehAdmin());
+
+    // A aba Termos de Bolsa só existe para admin e financeiro.
+    var abaTermos = document.querySelector('.aba[data-aba="termos"]');
+    if (abaTermos) mostrar(abaTermos, podeVerTermos());
+    if (!podeVerTermos()) {
+      var pTermos = $("#painel-termos");
+      if (pTermos) { pTermos.innerHTML = ""; mostrar(pTermos, false); }
+    }
 
     var botao = document.querySelector('.aba[data-aba="dados"]');
     var painel = $("#painel-dados");
@@ -511,7 +539,7 @@
     if (qual === "usuarios" && !ehAdmin()) return;
     paginaAberta = qual;
     mostrar($("#abas"), false);
-    ["candidatos", "capital", "interior", "formacao", "dados"].forEach(function (p) {
+    ["candidatos", "capital", "interior", "formacao", "dados", "termos"].forEach(function (p) {
       mostrar($("#painel-" + p), false);
     });
     var pag = $("#pagina");
@@ -2826,6 +2854,9 @@
       var badge = $("#cont-formacao");
       if (badge) badge.textContent = formacao.length;
       renderPainelFormacao();
+      // A aba Termos de Bolsa lê as mesmas fichas: sem isto ela ficaria zerada
+      // até a próxima vez que a tela inteira fosse redesenhada.
+      renderPainelTermos();
     });
   }
 
@@ -4307,6 +4338,275 @@
     mostrar($("#modal"), true);
   }
 
+  // ============================================================
+  //  Aba TERMOS DE BOLSA  (admin e financeiro)
+  //
+  //  A pergunta que esta aba responde é uma só: de quem falta o termo, e quem
+  //  já está pronto para recebê-lo. "Apto" = cadastro de bolsista preenchido e
+  //  treinamento realizado, sem termo e sem desligamento — a mesma definição da
+  //  view `aptos_para_termo` no banco, que o aviso por e-mail usa.
+  // ============================================================
+  var termosTipo = "todos";    // todos | capital | interior
+  var termosVer = "pendentes"; // pendentes | aptos | ativos
+  var termosBusca = "";
+
+  function aptoParaTermo(f) {
+    return !f.desligado_em && !f.termo_link &&
+      ehRealizado(f.cadastro_bolsista) && fezTreinamento(f);
+  }
+  // Pendente = está no projeto e ainda não tem termo (apto ou não).
+  function pendenteDeTermo(f) {
+    return !f.desligado_em && !f.termo_link;
+  }
+
+  function formacaoDosTermos() {
+    var lista = formacao.filter(function (f) { return !f.desligado_em; });
+    if (termosTipo !== "todos") {
+      lista = lista.filter(function (f) { return f.tipo === termosTipo; });
+    }
+    return lista;
+  }
+
+  function renderPainelTermos() {
+    var painel = $("#painel-termos");
+    if (!painel) return;
+    painel.innerHTML = "";
+    if (!podeVerTermos()) return;
+
+    var base = formacaoDosTermos();
+    var pendentes = base.filter(pendenteDeTermo);
+    var aptos = base.filter(aptoParaTermo);
+    var ativos = base.filter(function (f) { return !!f.termo_link; });
+
+    // O contador da aba mostra o que espera ação: pendentes de termo.
+    var cont = $("#cont-termos");
+    if (cont) cont.textContent = String(formacao.filter(function (f) {
+      return pendenteDeTermo(f);
+    }).length);
+
+    painel.appendChild(el("p", {
+      class: "pagina__sub",
+      text: "Quem já tem termo de bolsa e quem ainda não tem. “Apto” é quem preencheu o " +
+        "cadastro de bolsista e fez o treinamento: falta só o termo para começar a atuar.",
+    }));
+
+    // --- Filtro por projeto ---
+    var filtro = el("div", { class: "cand-filtro" });
+    [
+      { id: "todos", rot: "Capital e Interior" },
+      { id: "capital", rot: "Capital" },
+      { id: "interior", rot: "Interior" },
+    ].forEach(function (t) {
+      var b = el("button", {
+        class: "cand-tab" + (termosTipo === t.id ? " cand-tab--ativa" : ""),
+        type: "button", text: t.rot,
+      });
+      b.addEventListener("click", function () { termosTipo = t.id; renderPainelTermos(); });
+      filtro.appendChild(b);
+    });
+    painel.appendChild(filtro);
+
+    // --- Números ---
+    painel.appendChild(el("div", { class: "stats stats--form" }, [
+      statCard("No projeto", base.length),
+      statCard("Com termo", ativos.length),
+      statCard("Sem termo", pendentes.length),
+      statCard("Aptos (só falta o termo)", aptos.length),
+      statCard("Aguardando etapa", pendentes.length - aptos.length),
+    ]));
+
+    // --- Ações do administrador ---
+    if (ehAdmin()) {
+      var acoes = el("div", { class: "cand-acoes" });
+      var naoAvisados = aptos.filter(function (f) { return !f.aviso_apto_em; });
+      var bAviso = el("button", {
+        class: "btn btn--pequeno", type: "button",
+        text: "✉ Avisar o financeiro (" + naoAvisados.length + ")",
+        title: naoAvisados.length
+          ? "Envia um e-mail ao pessoal do financeiro com quem ficou apto e ainda não foi avisado"
+          : "Ninguém apto sem aviso no momento",
+      });
+      if (!naoAvisados.length) bAviso.disabled = true;
+      bAviso.addEventListener("click", function () { avisarFinanceiro(bAviso); });
+      acoes.appendChild(bAviso);
+
+      var bExp = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar .xlsx",
+      });
+      bExp.addEventListener("click", function () { exportarTermos(); });
+      acoes.appendChild(bExp);
+      painel.appendChild(acoes);
+    }
+
+    // --- Recorte da lista ---
+    var vistas = [
+      { id: "pendentes", rot: "Sem termo", lista: pendentes },
+      { id: "aptos", rot: "Aptos", lista: aptos },
+      { id: "ativos", rot: "Com termo", lista: ativos },
+    ];
+    var verFiltro = el("div", { class: "cand-filtro" });
+    vistas.forEach(function (v) {
+      var b = el("button", {
+        class: "cand-tab" + (termosVer === v.id ? " cand-tab--ativa" : ""),
+        type: "button", text: v.rot + " (" + v.lista.length + ")",
+      });
+      b.addEventListener("click", function () { termosVer = v.id; renderPainelTermos(); });
+      verFiltro.appendChild(b);
+    });
+    painel.appendChild(verFiltro);
+
+    var lista = (vistas.filter(function (v) { return v.id === termosVer; })[0] || vistas[0]).lista;
+
+    // --- Busca ---
+    var buscaWrap = el("div", { class: "painel__barra" });
+    var inp = el("input", {
+      class: "painel__busca", type: "search", value: termosBusca,
+      placeholder: "Buscar por nome, CPF, e-mail, grupo ou região…",
+    });
+    inp.addEventListener("input", function () {
+      termosBusca = inp.value;
+      renderPainelTermos();
+      var novo = $("#painel-termos").querySelector(".painel__busca");
+      if (novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
+    });
+    buscaWrap.appendChild(inp);
+    painel.appendChild(buscaWrap);
+
+    var termo = normStr(termosBusca);
+    var termoCPF = soDigitos(termosBusca);
+    if (termo) {
+      lista = lista.filter(function (f) {
+        var texto = [f.nome, f.email, f.grupo, f.regiao, supervisorDe(f)].some(function (v) {
+          return normStr(v).indexOf(termo) !== -1;
+        });
+        return texto || (termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1);
+      });
+    }
+    lista = lista.slice().sort(porOrdemPlanilha);
+
+    if (!lista.length) {
+      painel.appendChild(el("p", {
+        class: "cand-vazio",
+        text: termosBusca ? "Ninguém encontrado para esta busca."
+          : termosVer === "aptos" ? "Ninguém apto no momento: todo mundo sem termo ainda tem " +
+            "cadastro ou treinamento pendente."
+          : "Nenhuma ficha neste recorte.",
+      }));
+      return;
+    }
+
+    // --- Tabela ---
+    var cols = ["Nome", "Projeto", "Grupo / Região", "CPF", "E-mail",
+      "Cadastro", "Treinamento", "Termo de bolsa", "Entrada no projeto"];
+    var tabela = el("table", { class: "tabela tabela--cand tabela--termos" });
+    var trh = el("tr");
+    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
+    tabela.appendChild(el("thead", {}, [trh]));
+
+    var tbody = el("tbody");
+    lista.forEach(function (f) {
+      var tr = el("tr", { class: "tabela__tr" });
+
+      var tdNome = el("td", { class: "tabela__td cand-td-nome" });
+      tdNome.appendChild(el("span", { text: f.nome || "—" }));
+      if (aptoParaTermo(f)) {
+        tdNome.appendChild(el("span", {
+          class: "termo-apto",
+          title: "Cadastro e treinamento feitos. Falta só o termo de bolsa." +
+            (f.aviso_apto_em ? " Financeiro avisado em " + formatarDataHora(f.aviso_apto_em) + "."
+              : " O financeiro ainda não foi avisado."),
+          text: f.aviso_apto_em ? "✓ apto — financeiro avisado" : "★ apto — avisar financeiro",
+        }));
+      }
+      tr.appendChild(tdNome);
+
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Projeto",
+        text: f.tipo === "capital" ? "Capital" : "Interior" }));
+      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Grupo / Região",
+        text: regiaoCurta(chaveSupervisao(f)) || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF",
+        text: formatarCPF(f.cpf) }));
+      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail",
+        text: f.email || "—" }));
+      tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
+      tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
+
+      var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });
+      if (f.termo_link) {
+        tdTermo.appendChild(el("a", {
+          class: "form-termo", href: f.termo_link, target: "_blank", rel: "noopener",
+          text: "📄 " + (f.termo_bolsa || "Emitido"),
+        }));
+      } else {
+        tdTermo.appendChild(tagPendente(aptoParaTermo(f) ? "aguardando termo" : "ainda não",
+          aptoParaTermo(f)
+            ? "Cadastro e treinamento feitos: o termo é o próximo passo."
+            : "Falta cadastro de bolsista ou treinamento antes do termo."));
+      }
+      tr.appendChild(tdTermo);
+
+      tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Entrada no projeto",
+        text: f.data_entrada || "—" }));
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+
+    painel.appendChild(el("p", {
+      class: "cand-resumo",
+      text: lista.length + " ficha(s) exibida(s) · " + notaOrdem(lista),
+    }));
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    painel.appendChild(wrap);
+  }
+
+  function exportarTermos() {
+    var base = formacaoDosTermos();
+    var aoa = [["Nome", "Projeto", "Grupo / Região", "CPF", "E-mail", "Cadastro de bolsista",
+      "Treinamento", "Termo de bolsa", "Documento do termo", "Entrada no projeto", "Situação"]];
+    base.slice().sort(porOrdemPlanilha).forEach(function (f) {
+      aoa.push([
+        f.nome || "", f.tipo === "capital" ? "Capital" : "Interior",
+        regiaoCurta(chaveSupervisao(f)) || "", formatarCPF(f.cpf), f.email || "",
+        f.cadastro_bolsista || "Não Realizado", treinamentoDe(f) || "Não Realizado",
+        f.termo_link ? "Emitido" : "Não emitido", f.termo_link || "", f.data_entrada || "",
+        f.termo_link ? "Com termo" : aptoParaTermo(f) ? "Apto — aguardando termo" : "Etapa pendente",
+      ]);
+    });
+    var hoje = new Date().toISOString().slice(0, 10);
+    window.Exportador.xlsx("termos-de-bolsa_" + hoje + ".xlsx", "Termos", aoa);
+  }
+
+  // Manda ao financeiro a lista de quem ficou apto e ainda não foi avisado. A
+  // rotina automática do Apps Script faz o mesmo de tempos em tempos; este
+  // botão serve para não esperar o próximo ciclo.
+  function avisarFinanceiro(btn) {
+    if (!exigirAdmin("Avisar o financeiro")) return;
+    if (!backendConvocacao()) {
+      alert("Envio ainda não configurado. Veja docs/APPS-SCRIPT-CONVOCACAO.md.");
+      return;
+    }
+    var aptos = formacao.filter(function (f) { return aptoParaTermo(f) && !f.aviso_apto_em; });
+    if (!aptos.length) { alert("Ninguém apto sem aviso no momento."); return; }
+    if (!confirm("Avisar o financeiro sobre " + aptos.length + " pessoa(s) apta(s)?\n\n" +
+      aptos.slice(0, 10).map(function (f) { return "· " + (f.nome || "(sem nome)"); }).join("\n") +
+      (aptos.length > 10 ? "\n· e mais " + (aptos.length - 10) : ""))) return;
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Enviando…'; }
+    chamarBackend({ acao: "avisar_aptos" }).then(function (res) {
+      return carregarFormacao().then(function () {
+        alert("Aviso enviado.\n\nPessoas no aviso: " + (res.avisados != null ? res.avisados : aptos.length) +
+          "\nDestinatários: " + ((res.destinatarios || []).join(", ") || "(nenhum)") +
+          (res.destinatarios && !res.destinatarios.length
+            ? "\n\nNinguém na lista do financeiro: inclua e-mails em app_financeiro (sql/perfil-financeiro.sql)."
+            : ""));
+      });
+    }).catch(function (e) {
+      renderPainelTermos();
+      alert("Não foi possível avisar: " + (e.message || e) + "\n\n" + dicaDaSincronizacao(e));
+    });
+  }
+
   function renderPainelFormacao() {
     var painel = $("#painel-formacao");
     if (!painel) return;
@@ -4628,6 +4928,7 @@
         mostrar($("#painel-candidatos"), alvo === "candidatos");
         mostrar($("#painel-formacao"), alvo === "formacao");
         mostrar($("#painel-dados"), alvo === "dados");
+        mostrar($("#painel-termos"), alvo === "termos");
         aplicarLarguraDaAba(alvo);
         // No celular a barra de abas rola de lado: traz a aba escolhida para o
         // meio, senão a ativa pode ficar meio fora da tela depois do clique.
@@ -5679,6 +5980,7 @@
     renderPainelCandidatos();
     renderPainelFormacao();
     renderDados();
+    renderPainelTermos();
   }
 
   // ============================================================
@@ -5705,9 +6007,29 @@
           "Desligar bolsistas e reverter desligamentos",
           "Definir metas por região e consultar a fila de reserva",
           "Sincronizar as planilhas e baixar os arquivos por região",
+          "Acompanhar os termos de bolsa e avisar o financeiro de quem ficou apto",
           "Gerenciar usuários e perfis de acesso",
         ],
         naoPode: [],
+      };
+    }
+    if (ehFinanceiro()) {
+      return {
+        pode: [
+          "Ver todas as abas, incluindo a Visualização de dados",
+          "Ver a aba Termos de Bolsa, com os termos ativos e os pendentes",
+          "Acompanhar quem está apto e só depende do termo para atuar",
+          "Receber por e-mail o aviso de quem ficou apto",
+          "Consultar metas, vagas e a fila de reserva",
+        ],
+        naoPode: [
+          "Importar planilhas ou sincronizar",
+          "Enviar convocações",
+          "Editar qualquer ficha, inclusive lançar o termo de bolsa",
+          "Definir ou trocar grupos",
+          "Desligar bolsistas",
+          "Alterar metas ou supervisores",
+        ],
       };
     }
     if (ehSupervisor()) {
@@ -5804,6 +6126,7 @@
   function descricaoDoPerfil() {
     if (ehAdmin()) return "Acesso completo ao painel.";
     if (ehSupervisor()) return "Leitura de tudo, com uma edição liberada.";
+    if (ehFinanceiro()) return "Leitura de tudo, mais a aba Termos de Bolsa.";
     return "Somente leitura.";
   }
 
@@ -5907,6 +6230,7 @@
   var PERFIS = [
     { id: "admin", rot: "Administrador" },
     { id: "supervisor", rot: "Supervisor" },
+    { id: "financeiro", rot: "Financeiro" },
     { id: "leitor", rot: "Somente leitura" },
   ];
 
@@ -5917,7 +6241,8 @@
 
   function classeDoSeloPerfil(id) {
     return "selo-perfil" + (id === "admin" ? " selo-perfil--admin"
-      : id === "supervisor" ? " selo-perfil--supervisor" : "");
+      : id === "supervisor" ? " selo-perfil--supervisor"
+      : id === "financeiro" ? " selo-perfil--financeiro" : "");
   }
 
   function renderUsuarios() {
@@ -5978,6 +6303,7 @@
       statCard("Contas", usuarios.length),
       statCard("Administradores", conta("admin")),
       statCard("Supervisores", conta("supervisor")),
+      statCard("Financeiro", conta("financeiro")),
       statCard("Somente leitura", conta("leitor")),
       nunca ? statCard("Nunca acessaram", nunca) : null,
     ]));

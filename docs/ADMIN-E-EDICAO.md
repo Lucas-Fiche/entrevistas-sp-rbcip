@@ -117,6 +117,66 @@ ficha, desligar bolsista, mexer em metas ou em supervisores.
 
 ---
 
+## 1d. O perfil FINANCEIRO
+
+Rode **`sql/perfil-financeiro.sql`** no SQL Editor. Como os outros, é
+idempotente e só acrescenta: nada do que já está no ar muda de comportamento.
+
+Depois, os **dois passos de sempre** — criar o login em *Authentication →
+Users* e dar o perfil, agora também pela página **Gerenciar usuários** (o
+seletor da linha passa a ter *Financeiro*), ou por SQL:
+
+```sql
+insert into public.app_financeiro (email) values ('fulano@rbcip.org');
+```
+
+O financeiro **vê tudo o que um usuário de somente leitura vê** — nenhum botão
+de ação, nenhuma escrita — e ganha **uma aba a mais: Termos de Bolsa**.
+
+### A aba Termos de Bolsa
+
+Aberta pelo financeiro e pelo administrador (é o admin quem lança o termo).
+Mostra, para Capital e Interior:
+
+- **No projeto · Com termo · Sem termo · Aptos · Aguardando etapa** em números;
+- três recortes: **Sem termo**, **Aptos** e **Com termo**;
+- a tabela com cadastro, treinamento, situação do termo (com o link do
+  documento, quando existe) e data de entrada no projeto.
+
+**Apto** quer dizer: cadastro de bolsista preenchido **e** treinamento
+realizado, **sem** termo e **sem** desligamento. É quem já pode começar assim
+que o termo sair — a linha ganha a marca `★ apto` embaixo do nome.
+
+Só o administrador vê os dois botões da aba: **⬇ Baixar .xlsx** e
+**✉ Avisar o financeiro (N)**.
+
+### O aviso por e-mail
+
+Quando alguém fica apto, o pessoal do financeiro recebe um e-mail dizendo que
+a pessoa concluiu cadastro e treinamento e só depende do termo para atuar.
+
+O envio acontece por dois caminhos, e os dois usam a mesma regra:
+
+- **sozinho**, na sincronização automática do Apps Script (de 6 em 6 horas),
+  sem ninguém precisar abrir o painel;
+- **na hora**, pelo botão **✉ Avisar o financeiro** da aba, quando não se quer
+  esperar o próximo ciclo.
+
+Duas garantias contra o aviso virar spam ou sumir:
+
+- **Cada pessoa entra em um aviso só.** Enviado o e-mail, a ficha recebe
+  `aviso_apto_em` e não volta na rodada seguinte. Na aba, a marca muda de
+  `★ apto — avisar financeiro` para `✓ apto — financeiro avisado`.
+- **Sem ninguém na lista do financeiro, nada é marcado.** Se marcasse, essas
+  pessoas nunca mais entrariam num aviso e o primeiro financeiro cadastrado
+  começaria sem saber delas.
+
+> O aviso depende do Apps Script publicado com a versão nova (veja
+> `docs/APPS-SCRIPT-CONVOCACAO.md`). Sem ele, a aba continua funcionando
+> normalmente — só o e-mail não sai.
+
+---
+
 ## 1c. O menu lateral (☰), Gerenciar usuários e Meu perfil
 
 O botão das três barrinhas, no canto superior **direito** (ao lado de
