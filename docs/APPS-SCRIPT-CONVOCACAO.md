@@ -9,6 +9,11 @@ Você faz isto **uma vez**. Depois, todo clique de convocação envia sozinho.
 
 ---
 
+> **Só quer ligar o aviso automático ao financeiro?** Vá direto ao
+> [Passo 4](#passo-4--ligar-as-automações-sincronização-e-aviso-ao-financeiro).
+> Os passos 1 a 3 fazem o script responder aos botões do painel; o 4 é o que
+> faz as rotinas rodarem sozinhas.
+
 ## Como funciona (resumo)
 
 1. No painel, você clica em **Convocar** (geral para entrevista, ou individual
@@ -542,7 +547,11 @@ function registrarSincronizacao(token, lidos, atualizadas, detalhe) {
 // Faz login como o robô e devolve o token (vale ~1 hora, suficiente para a
 // execução). Sem service_role: as regras de RLS continuam valendo.
 function tokenDoRobo() {
-  if (!ROBO_EMAIL || !ROBO_SENHA) throw new Error("Preencha ROBO_EMAIL e ROBO_SENHA no script.");
+  if (!ROBO_EMAIL || !ROBO_SENHA) {
+    throw new Error("Falta a conta do robo. Preencha ROBO_EMAIL e ROBO_SENHA em " +
+      "Configuracoes do projeto -> Propriedades do script. Sem ela as rotinas " +
+      "automaticas nao conseguem gravar no Supabase (elas rodam sem ninguem logado).");
+  }
   var resp = UrlFetchApp.fetch(SUPABASE_URL + "/auth/v1/token?grant_type=password", {
     method: "post",
     contentType: "application/json",
@@ -668,6 +677,107 @@ entrevistado na outra (veja `docs/ADMIN-E-EDICAO.md`).
 
 Salve, faça o commit/deploy e recarregue o painel (Ctrl+Shift+R). Pronto: os
 botões de convocação passam a enviar de verdade.
+
+---
+
+## Passo 4 — Ligar as automações (sincronização e aviso ao financeiro)
+
+Os passos 1 a 3 fazem o script **responder ao painel**: você clica, ele envia.
+Isso não precisa de nada além do login de quem clicou.
+
+As rotinas **automáticas** são outra história. Elas rodam no servidor do Google,
+de tempos em tempos, **sem ninguém logado** — e mesmo assim precisam gravar no
+Supabase (marcar o cadastro como realizado, anexar o link do termo, registrar
+que o financeiro foi avisado). Para isso existe a **conta do robô**.
+
+São duas automações, independentes entre si:
+
+| Função | O que faz | Frequência |
+| --- | --- | --- |
+| `avisoAutomatico` | Avisa o financeiro de quem ficou **apto** (cadastro + treinamento feitos, sem termo) | de hora em hora |
+| `sincronizacaoAutomatica` | Lê a planilha-ponte, marca cadastros e termos **e** manda o aviso ao final | de 6 em 6 horas |
+
+Ligar as duas não duplica e-mail: cada pessoa entra em **um aviso só**.
+
+### 4.1 — Criar a conta do robô (uma vez)
+
+1. No **Supabase → Authentication → Users → Add user**: crie um usuário **só
+   para isto**, por exemplo `robo@rbcip.org`, com uma senha longa e aleatória.
+   Marque **Auto Confirm User**.
+2. Dê a ele perfil de administrador, porque é ele quem vai gravar:
+
+   ```sql
+   insert into public.app_admins (email) values ('robo@rbcip.org');
+   ```
+
+> **Por que uma conta, e não a chave secreta.** A chave `service_role` ignora o
+> RLS e só é revogável trocando a chave do projeto inteiro. O robô tem
+> exatamente os poderes de um admin do painel — nem mais, nem menos — e as
+> regras de RLS continuam valendo para ele. Se a senha vazar, basta apagar o
+> usuário no Supabase.
+
+### 4.2 — Guardar a senha no Apps Script
+
+**Configurações do projeto** (a engrenagem) → **Propriedades do script** →
+*Adicionar propriedade*, duas vezes:
+
+| Propriedade | Valor |
+| --- | --- |
+| `ROBO_EMAIL` | `robo@rbcip.org` |
+| `ROBO_SENHA` | a senha que você definiu |
+
+Guardadas ali, elas **sobrevivem a qualquer atualização do código**. (Se
+preferir, dá para escrevê-las nas linhas `var ROBO_EMAIL = ...`, mas aí se
+perdem na próxima vez que o código for recolado.)
+
+### 4.3 — Testar uma vez, à mão
+
+No editor, escolha **`avisoAutomatico`** no seletor do topo e clique em
+**Executar**.
+
+- Na primeira vez o Google pede **autorização** — aceite. Se aparecer "app não
+  verificado", clique em *Avançado → Acessar (nome do projeto)*.
+- No **Registro de execução** (embaixo), veja se terminou sem erro.
+- Se houver alguém apto e pelo menos um e-mail em `app_financeiro`, o aviso sai
+  na hora. Se não houver, ele termina sem enviar nada — e isso é o certo.
+
+> **Nada sai se a lista do financeiro estiver vazia.** Inclua ao menos um
+> e-mail em `app_financeiro` (veja `sql/perfil-financeiro.sql`) antes de
+> concluir que a automação não funciona.
+
+### 4.4 — Instalar os gatilhos
+
+Ainda no editor, execute **uma vez cada**:
+
+- **`instalarGatilhoAviso`** → o aviso passa a sair de hora em hora.
+- **`instalarGatilhoSincronizacao`** → a sincronização passa a rodar de 6 em 6
+  horas (opcional, se você quer as planilhas atualizando sozinhas também).
+
+Para desligar: `removerGatilhoAviso` e `removerGatilhoSincronizacao`.
+
+### 4.5 — Conferir que está de pé
+
+Três lugares, do mais rápido ao mais completo:
+
+1. **No painel**, aba *Termos de Bolsa*: abaixo dos botões, o administrador vê
+   `✓ Envio automático ligado` ou `⚠ Envio automático desligado`. É a
+   confirmação de que o painel enxerga o gatilho. (Se disser "não foi possível
+   conferir", republique o Web App: a checagem é uma ação nova do script.)
+2. **No Apps Script**, ícone do **relógio** (Acionadores) na barra da esquerda:
+   devem aparecer `avisoAutomatico` e, se você instalou, `sincronizacaoAutomatica`.
+3. **No mesmo lugar**, aba *Execuções*: mostra cada rodada, com erro ou sucesso.
+
+Se uma rodada automática falhar, o script manda um e-mail para `EMAIL_RECIBO`
+com o motivo — rotina que falha calada é o pior cenário.
+
+### Problemas comuns nesta etapa
+
+| Mensagem | O que é |
+| --- | --- |
+| `Falta a conta do robo…` | `ROBO_EMAIL`/`ROBO_SENHA` em branco. Passo 4.2. |
+| `Login do robo falhou: …` | E-mail ou senha errados, ou o usuário não foi confirmado no Supabase (marque *Auto Confirm User*). |
+| `formacao -> 401` ou `403` | O robô existe, mas não está em `app_admins`. Passo 4.1, item 2. |
+| Roda sem erro e nada chega | Não há ninguém apto, ou `app_financeiro` está vazia. |
 
 ---
 
