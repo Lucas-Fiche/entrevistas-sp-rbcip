@@ -368,6 +368,20 @@ function removerGatilhoAviso() {
 function avisoAutomatico() {
   try {
     var r = avisarAptos();
+    // Recibo de quem saiu — só quando houve envio, para a caixa não encher de
+    // "nada a fazer" de hora em hora. Sem ele, "não chegou nada" seria a mesma
+    // coisa para "está tudo certo e não havia ninguém apto" e para "parou de
+    // funcionar", e você não teria como distinguir.
+    if (r.avisados) {
+      try {
+        GmailApp.sendEmail(EMAIL_RECIBO,
+          "RBCIP — financeiro avisado: " + r.avisados + " pessoa(s) apta(s)",
+          "O aviso automático saiu agora.\n\n" +
+          "Pessoas no aviso: " + r.avisados + "\n" +
+          "Enviado para: " + (r.destinatarios.join(", ") || "(ninguem)") + "\n\n" +
+          "Cada pessoa entra em um aviso so: estas nao voltam na proxima rodada.");
+      } catch (eRec) {}
+    }
     return r.avisados;
   } catch (err) {
     // Rotina automática que falha calada é o pior caso: avisa quem cuida.

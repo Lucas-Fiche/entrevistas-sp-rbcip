@@ -172,6 +172,11 @@ O envio acontece por três caminhos, e todos usam a mesma regra:
 - **na hora**, pelo botão **✉ Avisar o financeiro** da aba, quando não se quer
   esperar o próximo ciclo.
 
+**Você recebe uma cópia.** Toda vez que o aviso sai de fato, o `EMAIL_RECIBO`
+recebe um recibo com quantas pessoas entraram e para quem foi. Rodada sem
+ninguém apto não gera e-mail nenhum — senão a caixa encheria de "nada a fazer"
+de hora em hora. Falha manda e-mail sempre.
+
 > **A aba diz se a automação está de pé.** Abaixo dos botões, para o
 > administrador, aparece `✓ Envio automático ligado` (e de quanto em quanto
 > tempo) ou `⚠ Envio automático desligado — nenhum aviso sai sozinho`, com o
