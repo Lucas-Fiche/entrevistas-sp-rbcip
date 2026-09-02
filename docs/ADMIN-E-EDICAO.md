@@ -621,8 +621,17 @@ em que você está, e é lembrada na próxima visita. Ou seja, quem já tiver
 escolhido *Tela cheia* na Formação continua entrando assim — basta clicar em
 *Largura padrão* uma vez para voltar ao novo padrão.
 
-Na largura padrão, uma tabela larga (a da Formação tem onze colunas) **rola de
-lado dentro do próprio quadro**, sem arrastar a página junto.
+A tabela da Formação tem **onze colunas** e a de Termos, nove. Elas cabem
+inteiras em telas de **1280px para cima**, nos dois modos. Abaixo disso a
+tabela **rola de lado dentro do próprio quadro** (sem arrastar a página junto)
+e aparece uma **sombra na borda** enquanto houver coluna escondida — antes ela
+parecia simplesmente cortada, porque a barra de rolagem só existe lá embaixo,
+depois da última linha.
+
+Para caber, três coisas nessas duas tabelas: o respiro lateral de cada coluna é
+menor (9px em vez de 14px), o e-mail pode quebrar em duas linhas quando falta
+espaço (a quebra é só visual — copiar traz o endereço inteiro) e a região vem
+com o nome curto.
 
 ### Nomes de região nas tabelas
 

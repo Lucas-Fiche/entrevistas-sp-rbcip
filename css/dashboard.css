@@ -80,11 +80,14 @@
   padding: 24px 16px 80px;
 }
 
-/* Modo "tela cheia": as tabelas usam toda a largura do notebook. */
+/* Modo "tela cheia": as tabelas usam toda a largura do notebook.
+   A margem lateral é a mesma da largura padrão de propósito: com 28px, numa
+   tela de 1440 (onde o max-width de 1440 já não limitava nada) o botão
+   "Tela cheia" deixava a tabela 24px MAIS ESTREITA — o contrário do que diz. */
 body.tela-cheia .dash {
   max-width: none;
-  padding-left: 28px;
-  padding-right: 28px;
+  padding-left: 16px;
+  padding-right: 16px;
 }
 
 .dash__topo {
@@ -226,7 +229,20 @@ body.tela-cheia .dash {
   overflow-x: auto;
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio);
-  background: var(--cor-branco);
+  /* Sombra de rolagem, só com CSS: as duas primeiras camadas são do tamanho da
+     tabela (background-attachment: local) e cobrem as sombras quando a rolagem
+     está no fim daquele lado. Resultado: a sombra aparece exatamente enquanto
+     houver coluna escondida — sem ela, a tabela parecia simplesmente cortada. */
+  background:
+    linear-gradient(to right, var(--cor-branco) 40%, rgba(255, 255, 255, 0)) 0 0,
+    linear-gradient(to left, var(--cor-branco) 40%, rgba(255, 255, 255, 0)) 100% 0,
+    radial-gradient(farthest-side at 0 50%, rgba(16, 42, 58, 0.20), rgba(16, 42, 58, 0)) 0 0,
+    radial-gradient(farthest-side at 100% 50%, rgba(16, 42, 58, 0.20), rgba(16, 42, 58, 0)) 100% 0;
+  background-repeat: no-repeat;
+  background-size: 44px 100%, 44px 100%, 16px 100%, 16px 100%;
+  background-attachment: local, local, scroll, scroll;
+  background-color: var(--cor-branco);
+  scrollbar-width: thin;
 }
 
 .tabela {
@@ -298,6 +314,18 @@ body.tela-cheia .dash {
 @media (hover: hover) and (pointer: fine) {
   .tabela__tr:hover { background: var(--cor-primaria-clara); }
 }
+
+/* Tabelas de muitas colunas (Formação tem 11, Termos 9): com 14px de cada
+   lado, só o respiro somava mais de 300px e empurrava as últimas colunas para
+   fora da tela. 9px continua legível e devolve ~130px. */
+.tabela--form .tabela__td,
+.tabela--form .tabela__th,
+.tabela--termos .tabela__td,
+.tabela--termos .tabela__th { padding-left: 9px; padding-right: 9px; }
+.tabela--form .tabela__th--ord,
+.tabela--termos .tabela__th--ord { padding: 0; }
+.tabela--form .th-ord,
+.tabela--termos .th-ord { padding-left: 9px; padding-right: 9px; }
 
 .tabela__td {
   padding: 11px 14px;
@@ -920,7 +948,11 @@ input[type="date"].viz-data {
 
 .cand-vazio { color: var(--cor-texto-suave); padding: 20px 4px; }
 .cand-resumo { color: var(--cor-texto-suave); font-size: 13px; margin: 0 0 10px; }
-.cand-email { font-size: 13px; color: var(--cor-texto-suave); }
+/* Um e-mail não tem espaço, então o navegador o trata como uma "palavra" só:
+   `contatolucasfernandes103@gmail.com` reservava 228px fixos e era a coluna que
+   mais empurrava a tabela para fora da tela. Com `anywhere` ele só quebra
+   quando falta espaço — em tela larga continua numa linha. */
+.cand-email { font-size: 13px; color: var(--cor-texto-suave); overflow-wrap: anywhere; }
 
 /* Fonte do resultado (sistema x planilha) */
 .cand-fonte {
@@ -964,12 +996,25 @@ input[type="date"].viz-data {
 /* Tabela de candidatos — colunas confortáveis no desktop… */
 .tabela--cand { width: 100%; }
 .tabela--cand .cand-td-nome { min-width: 150px; }
-/* E-mail em uma linha só: partir o endereço no meio atrapalha a leitura e a
- * cópia. Quando a soma das colunas passa da tela, quem rola é o cartão da
+/* E-mail em uma linha só onde há espaço: partir o endereço no meio atrapalha
+ * a leitura. Quando a soma das colunas passa da tela, quem rola é o cartão da
  * tabela (overflow-x), como já acontece nas abas de entrevistas. */
 .tabela--cand .cand-email {
   white-space: nowrap;
   font-size: 13.5px;
+}
+/* …menos nas tabelas largas. A Formação tem onze colunas e a de Termos, nove:
+ * o e-mail era a coluna que mais empurrava as últimas para fora da tela
+ * (`contatolucasfernandes103@gmail.com` não tem espaço, então reservava os
+ * 228px do endereço inteiro). Aqui ele quebra — e só quando falta espaço, já
+ * que em tela larga a coluna continua cabendo numa linha. A quebra é visual:
+ * copiar a célula continua trazendo o endereço inteiro, sem hífen. */
+.tabela--form .cand-email,
+.tabela--termos .cand-email {
+  white-space: normal;
+  /* Piso: numa janela muito estreita a coluna encolhia a 70px e o endereço
+     virava cinco linhas. A partir daqui a tabela prefere rolar de lado. */
+  min-width: 110px;
 }
 
 /* …e cada linha vira um CARTÃO em telas estreitas (tablet/celular). */
