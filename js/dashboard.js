@@ -1584,6 +1584,24 @@
     if (caixa) caixa.setAttribute("open", "open");
   }
 
+  // Célula de e-mail que só pode quebrar no "@". Sem isso o navegador trata o
+  // endereço como uma palavra só: ou ele reserva a largura inteira (e empurra
+  // as outras colunas para fora da tela), ou parte no meio — "Carolpdd7@gmail.co
+  // / m". Com o <wbr> antes do @, a quebra cai onde a leitura não sofre:
+  // "contatolucasfernandes103" / "@gmail.com".
+  function celulaEmail(email, rotulo) {
+    var td = el("td", { class: "tabela__td cand-email", "data-label": rotulo || "E-mail" });
+    var txt = String(email || "");
+    if (!txt) { td.textContent = "—"; return td; }
+    td.setAttribute("title", txt);
+    var i = txt.lastIndexOf("@");
+    if (i <= 0) { td.textContent = txt; return td; }
+    td.appendChild(document.createTextNode(txt.slice(0, i)));
+    td.appendChild(document.createElement("wbr"));
+    td.appendChild(document.createTextNode(txt.slice(i)));
+    return td;
+  }
+
   // Botão só com o lápis. O texto "Editar" repetido em toda linha custava uma
   // coluna inteira de largura; quem precisa do nome da ação tem o cabeçalho da
   // coluna, o title e o aria-label.
@@ -4845,8 +4863,7 @@
         title: chaveSupervisao(f) || "", text: regiaoNaTabela(chaveSupervisao(f)) }));
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF",
         text: formatarCPF(f.cpf) }));
-      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail",
-        text: f.email || "—" }));
+      tr.appendChild(celulaEmail(f.email));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
       tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
 
@@ -5293,7 +5310,7 @@
 
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(f.cpf) }));
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Telefone", text: f.telefone || "—" }));
-      tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail", text: f.email || "—" }));
+      tr.appendChild(celulaEmail(f.email));
       tr.appendChild(el("td", { class: "tabela__td", "data-label": "Supervisor", text: supervisorDe(f) || "—" }));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
 

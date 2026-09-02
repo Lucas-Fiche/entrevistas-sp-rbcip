@@ -948,11 +948,7 @@ input[type="date"].viz-data {
 
 .cand-vazio { color: var(--cor-texto-suave); padding: 20px 4px; }
 .cand-resumo { color: var(--cor-texto-suave); font-size: 13px; margin: 0 0 10px; }
-/* Um e-mail não tem espaço, então o navegador o trata como uma "palavra" só:
-   `contatolucasfernandes103@gmail.com` reservava 228px fixos e era a coluna que
-   mais empurrava a tabela para fora da tela. Com `anywhere` ele só quebra
-   quando falta espaço — em tela larga continua numa linha. */
-.cand-email { font-size: 13px; color: var(--cor-texto-suave); overflow-wrap: anywhere; }
+.cand-email { font-size: 13px; color: var(--cor-texto-suave); }
 
 /* Fonte do resultado (sistema x planilha) */
 .cand-fonte {
@@ -1012,9 +1008,11 @@ input[type="date"].viz-data {
 .tabela--form .cand-email,
 .tabela--termos .cand-email {
   white-space: normal;
-  /* Piso: numa janela muito estreita a coluna encolhia a 70px e o endereço
-     virava cinco linhas. A partir daqui a tabela prefere rolar de lado. */
-  min-width: 110px;
+  /* A ÚNICA quebra permitida é a do <wbr> que celulaEmail() põe antes do "@" —
+   * nada de partir "gmail.com" ao meio. Como o pedaço mais largo passa a ser
+   * metade do endereço, a coluna encolhe sem ficar ilegível. */
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 /* …e cada linha vira um CARTÃO em telas estreitas (tablet/celular). */
@@ -1147,10 +1145,11 @@ input[type="date"].viz-data {
 /* Colunas curtas que não devem quebrar em várias linhas (CPF, telefone, datas) */
 .col-firme { white-space: nowrap; }
 
-/* A coluna de Região disputava espaço com as outras e era espremida até o nome
-   empilhar uma palavra por linha. Como o texto já vem encurtado por
-   regiaoNaTabela(), o mesmo tratamento das colunas curtas resolve: sem quebra,
-   a coluna nasce com a largura do nome mais longo. */
+/* A coluna de Região era espremida até o nome empilhar uma palavra por linha.
+   Como o texto já vem encurtado por regiaoNaTabela(), o mesmo tratamento das
+   colunas curtas resolve: sem quebra, a coluna nasce com a largura do nome
+   mais longo. (Deixá-la quebrar devolvia só ~5px e trazia de volta o nome
+   empilhado — não compensa.) */
 .col-regiao { white-space: nowrap; }
 
 @media (max-width: 760px) {

@@ -622,16 +622,25 @@ escolhido *Tela cheia* na Formação continua entrando assim — basta clicar em
 *Largura padrão* uma vez para voltar ao novo padrão.
 
 A tabela da Formação tem **onze colunas** e a de Termos, nove. Elas cabem
-inteiras em telas de **1280px para cima**, nos dois modos. Abaixo disso a
-tabela **rola de lado dentro do próprio quadro** (sem arrastar a página junto)
-e aparece uma **sombra na borda** enquanto houver coluna escondida — antes ela
-parecia simplesmente cortada, porque a barra de rolagem só existe lá embaixo,
-depois da última linha.
+inteiras em telas de **1366px para cima**, nos dois modos de largura. Abaixo
+disso a tabela **rola de lado dentro do próprio quadro** (sem arrastar a página
+junto) e aparece uma **sombra na borda** enquanto houver coluna escondida —
+antes ela parecia simplesmente cortada, porque a barra de rolagem só existe lá
+embaixo, depois da última linha.
 
 Para caber, três coisas nessas duas tabelas: o respiro lateral de cada coluna é
-menor (9px em vez de 14px), o e-mail pode quebrar em duas linhas quando falta
-espaço (a quebra é só visual — copiar traz o endereço inteiro) e a região vem
-com o nome curto.
+menor (9px em vez de 14px), a região vem com o nome curto e o e-mail pode
+quebrar — **sempre no `@`**, nunca no meio de uma palavra:
+
+```
+contatolucasfernandes103
+@gmail.com
+```
+
+Endereço curto continua numa linha só. A quebra é apenas visual: copiar a
+célula traz o endereço inteiro, sem hífen. É por isso que a coluna de e-mail
+nunca fica mais estreita que a maior metade de um endereço — quando é essa
+metade que não cabe, a tabela prefere rolar de lado a picotar o texto.
 
 ### Nomes de região nas tabelas
 
