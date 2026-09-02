@@ -3616,55 +3616,109 @@
 
   var fecharMenus = [];
   var menusLigados = false;
+  // Os painéis são remontados do zero a cada render, então os fechadores de
+  // menus antigos apontariam para nós que já saíram da tela. Em vez de manter
+  // um só menu registrado, a lista é podada por `isConnected` — assim vários
+  // menus podem conviver na mesma barra sem vazar ouvintes.
+  function podarMenus() {
+    fecharMenus = fecharMenus.filter(function (m) { return m.no.isConnected; });
+  }
+  // Não poda aqui: no momento do registro o menu ainda está sendo montado e
+  // fora do documento — podar agora derrubaria os irmãos recém-criados. A
+  // limpeza acontece na hora de fechar, quando todos já estão na tela.
+  function registrarMenu(no, fechar) {
+    fecharMenus.push({ no: no, fechar: fechar });
+    ligarFechamentoDeMenus();
+  }
   function ligarFechamentoDeMenus() {
     if (menusLigados) return;
     menusLigados = true;
-    function todos() { fecharMenus.forEach(function (f) { f(); }); }
+    function todos() {
+      podarMenus();
+      fecharMenus.forEach(function (m) { m.fechar(); });
+    }
     document.addEventListener("click", todos);
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") todos(); });
   }
 
-  // Botão com menu: escolher a região e baixar só ela.
-  function menuBaixarXlsx(tipo) {
+  // Botão que abre uma lista de opções. `itens` recebe
+  // { rotulo, titulo, acao } ou null (linha separadora).
+  function menuSuspenso(rotulo, titulo, itens, opcoes) {
+    opcoes = opcoes || {};
     var wrap = el("div", { class: "menu-baixar" });
-    var rot = tipo === "capital" ? "grupo" : "região";
     var btn = el("button", {
-      class: "btn btn--secundario btn--pequeno", type: "button",
+      class: "btn " + (opcoes.classe || "btn--secundario") + " btn--pequeno", type: "button",
       "aria-haspopup": "true", "aria-expanded": "false",
-      text: "⬇ Baixar .xlsx por " + rot + " ▾",
-      title: "Planilha de formação em Excel, só com os entrevistadores da " + rot + " escolhida",
+      text: rotulo + " ▾",
+      title: titulo || "",
     });
     var lista = el("div", { class: "menu-baixar__lista oculto" });
-
     function fechar() { lista.classList.add("oculto"); btn.setAttribute("aria-expanded", "false"); }
-    function item(rotulo, regiao, qtd) {
-      var b = el("button", { class: "menu-baixar__item", type: "button", text: rotulo + " (" + qtd + ")" });
-      b.addEventListener("click", function () { fechar(); exportarFormacaoXlsx(tipo, regiao); });
+
+    itens.forEach(function (it) {
+      if (!it) { lista.appendChild(el("div", { class: "menu-baixar__sep" })); return; }
+      if (it.cabecalho) {
+        lista.appendChild(el("div", { class: "menu-baixar__cab", text: it.cabecalho }));
+        return;
+      }
+      var b = el("button", {
+        class: "menu-baixar__item", type: "button", text: it.rotulo, title: it.titulo || "",
+      });
+      b.addEventListener("click", function () { fechar(); it.acao(); });
       lista.appendChild(b);
-    }
-    var todos = formacao.filter(function (f) {
-      return f.tipo === tipo && situacaoFormacao(f) !== "Desligado";
-    }).length;
-    item(tipo === "capital" ? "Capital inteira" : "Interior inteiro", "", todos);
-    lista.appendChild(el("div", { class: "menu-baixar__sep" }));
-    gruposDaFormacao(tipo).forEach(function (g) { item(g.nome, g.nome, g.qtd); });
+    });
 
     btn.addEventListener("click", function (e) {
       e.stopPropagation();
       var abrindo = lista.classList.contains("oculto");
+      // Abrir um menu fecha o outro que estiver aberto na mesma barra.
+      podarMenus();
+      fecharMenus.forEach(function (m) { if (m.no !== wrap) m.fechar(); });
       lista.classList.toggle("oculto", !abrindo);
       btn.setAttribute("aria-expanded", abrindo ? "true" : "false");
     });
     lista.addEventListener("click", function (e) { e.stopPropagation(); });
-    // Um menu por vez na tela: registrar o fechamento aqui (e não a cada
-    // render) evita empilhar ouvintes em nós que já saíram do documento.
-    fecharMenus.length = 0;
-    fecharMenus.push(fechar);
-    ligarFechamentoDeMenus();
+    registrarMenu(wrap, fechar);
 
     wrap.appendChild(btn);
     wrap.appendChild(lista);
     return wrap;
+  }
+
+  // Opções de download da formação: a planilha inteira e uma linha por
+  // grupo/região, tudo sob um único botão "Baixar".
+  function itensDeDownload(tipo) {
+    var rot = tipo === "capital" ? "grupo" : "região";
+    var todos = formacao.filter(function (f) {
+      return f.tipo === tipo && situacaoFormacao(f) !== "Desligado";
+    }).length;
+    var itens = [
+      { cabecalho: "Planilha inteira" },
+      {
+        rotulo: "CSV — " + nomeRegiao(tipo) + " (inclui desligados)",
+        titulo: "Planilha de formação no mesmo layout do seu controle",
+        acao: function () { exportarFormacao(tipo); },
+      },
+      {
+        rotulo: "Excel — " + (tipo === "capital" ? "Capital inteira" : "Interior inteiro") +
+          " (" + todos + ")",
+        titulo: "Só quem está no projeto",
+        acao: function () { exportarFormacaoXlsx(tipo, ""); },
+      },
+    ];
+    var grupos = gruposDaFormacao(tipo);
+    if (grupos.length) {
+      itens.push(null);
+      itens.push({ cabecalho: "Excel por " + rot });
+      grupos.forEach(function (g) {
+        itens.push({
+          rotulo: g.nome + " (" + g.qtd + ")",
+          titulo: "Planilha em Excel só com os entrevistadores de " + g.nome,
+          acao: function () { exportarFormacaoXlsx(tipo, g.nome); },
+        });
+      });
+    }
+    return itens;
   }
 
   // ---------- Completar a ficha com o que o sistema já sabe ----------
@@ -4673,12 +4727,25 @@
     });
   }
 
-  function renderPainelFormacao() {
-    var painel = $("#painel-formacao");
-    if (!painel) return;
-    painel.innerHTML = "";
+  // Bloco de importação da formação: enviar o CSV e ver o histórico de
+  // importações e sincronizações. É tarefa ocasional e de admin, então vive
+  // recolhido no fim da aba — abrir é um clique, e nada foi retirado.
+  function blocoImportarFormacao(aberto) {
+    var caixa = el("details", { class: "recolhe recolhe--imp" });
+    if (aberto) caixa.setAttribute("open", "open");
+    var resumo = el("summary", { class: "recolhe__resumo" });
+    var seta = el("span", { class: "recolhe__seta", "aria-hidden": "true" });
+    seta.innerHTML = '<svg viewBox="0 0 16 16" focusable="false">' +
+      '<path d="M6 3.5L10.5 8L6 12.5" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    resumo.appendChild(seta);
+    resumo.appendChild(el("span", { class: "recolhe__titulo", text: "Importar planilha e registros" }));
+    resumo.appendChild(el("span", {
+      class: "recolhe__nota", text: "envio de CSV, última importação e última sincronização",
+    }));
+    caixa.appendChild(resumo);
 
-    // --- Barra de importação (só admin) ---
+    var corpo = el("div", { class: "recolhe__corpo" });
     var barra = el("div", { class: "cand-importar" });
     barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar formação:" }));
     var selTipo = el("select", { class: "viz-select" });
@@ -4713,32 +4780,56 @@
     barra.appendChild(file);
     barra.appendChild(btn);
     barra.appendChild(status);
-    if (ehAdmin()) {
-      painel.appendChild(barra);
-      painel.appendChild(blocoUltimaImportacao("formacao", formTipo));
-      painel.appendChild(blocoUltimaSincronizacao());
-    }
+    corpo.appendChild(barra);
+    corpo.appendChild(blocoUltimaImportacao("formacao", formTipo));
+    corpo.appendChild(blocoUltimaSincronizacao());
+    caixa.appendChild(corpo);
+    return caixa;
+  }
 
-    // --- Sub-filtro Capital / Interior ---
-    var filtro = el("div", { class: "cand-filtro" });
+  // Seletor de projeto: é a primeira decisão de quem abre a aba, então vem
+  // antes de tudo, com rótulo e desenho próprios — as pastilhas de "No
+  // projeto / Desligados" mais abaixo são iguais e confundiam as duas coisas.
+  function seletorDeProjeto() {
+    var wrap = el("div", { class: "projeto" });
+    wrap.appendChild(el("span", { class: "projeto__rot", text: "Projeto" }));
+    var grupo = el("div", { class: "projeto__opcoes", role: "group", "aria-label": "Projeto" });
     ["capital", "interior"].forEach(function (t) {
       var n = formacao.filter(function (f) { return f.tipo === t; }).length;
       var b = el("button", {
-        class: "cand-tab" + (formTipo === t ? " cand-tab--ativa" : ""),
+        class: "projeto__btn" + (formTipo === t ? " projeto__btn--ativa" : ""),
         type: "button",
-        text: (t === "capital" ? "Capital" : "Interior") + " (" + n + ")",
+        "aria-pressed": formTipo === t ? "true" : "false",
       });
-      b.addEventListener("click", function () { formTipo = t; renderPainelFormacao(); });
-      filtro.appendChild(b);
+      b.appendChild(el("span", { class: "projeto__nome", text: t === "capital" ? "Capital" : "Interior" }));
+      b.appendChild(el("span", { class: "projeto__qtd", text: n + (n === 1 ? " bolsista" : " bolsistas") }));
+      b.addEventListener("click", function () {
+        if (formTipo === t) return;
+        formTipo = t;
+        formBusca = "";
+        renderPainelFormacao();
+      });
+      grupo.appendChild(b);
     });
-    painel.appendChild(filtro);
+    wrap.appendChild(grupo);
+    return wrap;
+  }
+
+  function renderPainelFormacao() {
+    var painel = $("#painel-formacao");
+    if (!painel) return;
+    painel.innerHTML = "";
+
+    painel.appendChild(seletorDeProjeto());
 
     var doTipo = formacao.filter(function (f) { return f.tipo === formTipo; });
     if (!doTipo.length) {
       painel.appendChild(el("p", {
         class: "cand-vazio",
-        text: "Nenhum bolsista importado ainda para " + formTipo + ". Envie o CSV de formação acima.",
+        text: "Nenhum bolsista importado ainda para " + nomeRegiao(formTipo) +
+          (ehAdmin() ? ". Envie o CSV de formação no bloco abaixo." : "."),
       }));
+      if (ehAdmin()) painel.appendChild(blocoImportarFormacao(true));
       return;
     }
 
@@ -4764,73 +4855,93 @@
     painel.appendChild(stats);
 
     // --- Ações da aba ---
+    // Três controles no lugar de seis botões soltos: a rotina (sincronizar),
+    // os downloads e o resto. Nada saiu — só deixou de disputar espaço com o
+    // que se usa todo dia.
     if (ehAdmin()) {
       var acoesForm = el("div", { class: "cand-acoes" });
-      var btnSup = el("button", {
-        class: "btn btn--secundario btn--pequeno", type: "button",
-        text: "👥 Supervisores " + (formTipo === "capital" ? "por grupo" : "por região"),
-      });
-      btnSup.addEventListener("click", function () { abrirSupervisores(formTipo); });
-      acoesForm.appendChild(btnSup);
       var btnSinc = el("button", {
         class: "btn btn--pequeno", type: "button", text: "🔄 Sincronizar planilhas",
         title: "Lê o cadastro de bolsista e os termos de bolsa, e atualiza as fichas pelo CPF",
       });
       btnSinc.addEventListener("click", function () { sincronizarFormacao(btnSinc); });
       acoesForm.appendChild(btnSinc);
-      var btnExpF = el("button", {
-        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
-        title: "Planilha de formação de " + formTipo + ", no mesmo layout do seu controle",
-      });
-      btnExpF.addEventListener("click", function () { exportarFormacao(formTipo); });
-      acoesForm.appendChild(btnExpF);
-      acoesForm.appendChild(menuBaixarXlsx(formTipo));
+
+      acoesForm.appendChild(menuSuspenso(
+        "⬇ Baixar",
+        "Planilha de formação em CSV ou Excel, inteira ou por " +
+          (formTipo === "capital" ? "grupo" : "região"),
+        itensDeDownload(formTipo)
+      ));
+
       // O relatório de entradas e saídas só conta quem tem data de entrada. As
-      // fichas anteriores ao sistema não têm — este botão é o caminho para
+      // fichas anteriores ao sistema não têm — o item é o caminho para
       // completá-las, e some quando não sobra nenhuma.
       var semEntrada = doTipo.filter(function (f) { return !f.data_entrada; }).length;
-      if (semEntrada) {
-        var btnEnt = el("button", {
-          class: "btn btn--secundario btn--pequeno", type: "button",
-          text: "📅 Datas de entrada (" + semEntrada + ")",
-          title: "Completar à mão quem a sincronização não alcançou — é a data de entrada " +
-            "que permite contar os entrevistadores de meses passados",
-        });
-        btnEnt.addEventListener("click", function () { abrirDatasDeEntrada(formTipo); });
-        acoesForm.appendChild(btnEnt);
-      }
       var faltando = doTipo.filter(function (f) { return !f.cpf || !f.telefone || !f.email; }).length;
-      if (faltando) {
-        var btnCompl = el("button", {
-          class: "btn btn--secundario btn--pequeno", type: "button",
-          text: "🧩 Completar pela inscrição (" + faltando + ")",
-          title: "Preenche CPF, telefone e e-mail que faltam usando os dados da inscrição",
+      var maisItens = [{
+        rotulo: "👥 Supervisores " + (formTipo === "capital" ? "por grupo" : "por região"),
+        titulo: "Quem responde por cada " + (formTipo === "capital" ? "grupo" : "região"),
+        acao: function () { abrirSupervisores(formTipo); },
+      }];
+      if (semEntrada) {
+        maisItens.push({
+          rotulo: "📅 Datas de entrada (" + semEntrada + ")",
+          titulo: "Completar à mão quem a sincronização não alcançou — é a data de entrada " +
+            "que permite contar os entrevistadores de meses passados",
+          acao: function () { abrirDatasDeEntrada(formTipo); },
         });
-        btnCompl.addEventListener("click", function () { completarPelaInscricao(btnCompl); });
-        acoesForm.appendChild(btnCompl);
       }
+      if (faltando) {
+        maisItens.push({
+          rotulo: "🧩 Completar pela inscrição (" + faltando + ")",
+          titulo: "Preenche CPF, telefone e e-mail que faltam usando os dados da inscrição",
+          // O botão que mostra o "Completando…" é o gatilho do menu — o
+          // painel é remontado ao fim, então ele volta ao normal sozinho.
+          acao: function () { completarPelaInscricao(btnMais.querySelector("button")); },
+        });
+      }
+      maisItens.push(null);
+      maisItens.push({
+        rotulo: "📥 Importar planilha (CSV)",
+        titulo: "Abre o bloco de importação no fim da página",
+        acao: function () {
+          var d = painel.querySelector(".recolhe--imp");
+          if (!d) return;
+          d.setAttribute("open", "open");
+          d.scrollIntoView({ block: "center" });
+        },
+      });
+      var btnMais = menuSuspenso("⚙ Mais", "Supervisores, pendências e importação", maisItens);
+      acoesForm.appendChild(btnMais);
       painel.appendChild(acoesForm);
     }
 
     // --- Metas e vagas: a Formação é onde a ocupação acontece ---
     painel.appendChild(blocoMetas(formTipo));
 
-    // --- No projeto x desligados ---
+    // --- Lista: no projeto x desligados ---
     var noProjeto = doTipo.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
     var saidos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
-    var verFiltro = el("div", { class: "cand-filtro" });
+    var listaCab = el("div", { class: "lista-cab" });
+    listaCab.appendChild(el("h3", {
+      class: "lista-cab__titulo",
+      text: "Bolsistas — " + nomeRegiao(formTipo),
+    }));
+    var verFiltro = el("div", { class: "cand-filtro lista-cab__filtro" });
     [
       { id: "projeto", rot: "No projeto", qtd: noProjeto.length },
       { id: "desligados", rot: "Desligados", qtd: saidos.length },
     ].forEach(function (v) {
       var b = el("button", {
-        class: "cand-tab" + (formVer === v.id ? " cand-tab--ativa" : ""),
+        class: "cand-tab cand-tab--mini" + (formVer === v.id ? " cand-tab--ativa" : ""),
         type: "button", text: v.rot + " (" + v.qtd + ")",
       });
       b.addEventListener("click", function () { formVer = v.id; renderPainelFormacao(); });
       verFiltro.appendChild(b);
     });
-    painel.appendChild(verFiltro);
+    listaCab.appendChild(verFiltro);
+    painel.appendChild(listaCab);
     doTipo = formVer === "desligados" ? saidos : noProjeto;
 
     // --- Busca ---
@@ -4868,6 +4979,7 @@
           : formVer === "desligados" ? "Ninguém foi desligado nesta região."
           : "Nenhum bolsista no projeto nesta região.",
       }));
+      if (ehAdmin()) painel.appendChild(blocoImportarFormacao(false));
       return;
     }
 
@@ -4980,6 +5092,8 @@
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
+
+    if (ehAdmin()) painel.appendChild(blocoImportarFormacao(false));
   }
 
   // ---------- Abas ----------

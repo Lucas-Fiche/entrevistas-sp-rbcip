@@ -1038,6 +1038,15 @@ input[type="date"].viz-data {
 @media (max-width: 760px) {
   .tabela--form .cand-td-nome { min-width: 0; }
   .tabela--form .form-data { margin-top: 0; }
+  /* Seis cartões em três fileiras altas empurravam a lista para muito longe.
+     No celular eles ficam compactos: o resumo continua inteiro, mas cabe. */
+  .stats--form { gap: 8px; margin-bottom: 14px; }
+  .stats--form .stat { padding: 10px 12px; border-left-width: 3px; }
+  .stats--form .stat__valor { font-size: 22px; }
+  .stats--form .stat__rotulo { font-size: 11.5px; }
+  /* Os três controles da barra ficam do mesmo tamanho, um por linha. */
+  #painel-formacao .cand-acoes { gap: 8px; }
+  #painel-formacao .cand-acoes > .btn { width: 100%; }
 }
 
 /* Colunas curtas que não devem quebrar em várias linhas (CPF, telefone, datas) */
@@ -1193,6 +1202,139 @@ input[type="date"].viz-data {
 }
 
 /* ---------- Metas por região e vagas ---------- */
+/* ---------- Seletor de projeto (Formação: Capital x Interior) ----------
+   É a primeira decisão da aba e estava perdido no meio da página, com o mesmo
+   desenho do filtro "No projeto / Desligados". Aqui ele ganha rótulo, tamanho
+   e um desenho próprio, para não ser confundido com um filtro qualquer. */
+.projeto {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.projeto__rot {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+.projeto__opcoes {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--cor-primaria-clara);
+  border: 1px solid var(--cor-borda);
+  border-radius: 12px;
+}
+.projeto__btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  font-family: inherit;
+  padding: 8px 20px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.projeto__nome { font-size: 15px; font-weight: 700; }
+.projeto__qtd { font-size: 11.5px; opacity: 0.85; }
+@media (hover: hover) and (pointer: fine) {
+  .projeto__btn:not(.projeto__btn--ativa):hover {
+    background: var(--cor-branco);
+    color: var(--cor-primaria);
+  }
+}
+.projeto__btn--ativa {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(16, 42, 58, 0.16);
+}
+.projeto__btn:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .projeto__btn { transition: none; } }
+
+@media (max-width: 760px) {
+  /* No celular as duas opções dividem a largura: ninguém precisa procurar. */
+  .projeto { flex-direction: column; align-items: stretch; gap: 6px; }
+  .projeto__opcoes { display: grid; grid-template-columns: 1fr 1fr; }
+  .projeto__btn { align-items: center; padding: 9px 8px; }
+}
+
+/* Cabeçalho da lista: separa o título "Bolsistas" e o recorte
+   (No projeto / Desligados) do seletor de projeto lá em cima. */
+.lista-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cor-borda);
+}
+.lista-cab__titulo {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cor-primaria-escura);
+}
+.lista-cab__filtro { margin-bottom: 0; }
+.cand-tab--mini { font-size: 13px; padding: 5px 13px; }
+
+/* Bloco recolhido (importação de CSV e registros): tarefa ocasional, some do
+   caminho de quem só quer consultar a lista. */
+.recolhe {
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+  background: var(--cor-branco);
+  padding: 10px 14px;
+  margin: 18px 0 4px;
+}
+.recolhe__resumo {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -10px -14px;
+  padding: 12px 14px;
+  border-radius: var(--raio);
+  font-size: 14px;
+  list-style: none;
+  user-select: none;
+}
+.recolhe__resumo::-webkit-details-marker { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .recolhe__resumo:hover { background: var(--cor-primaria-clara); }
+}
+.recolhe__resumo:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--cor-primaria-clara); }
+.recolhe[open] .recolhe__resumo {
+  border-bottom: 1px solid var(--cor-borda);
+  border-radius: var(--raio) var(--raio) 0 0;
+  margin-bottom: 4px;
+}
+.recolhe__seta {
+  display: inline-flex;
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--cor-primaria);
+  transition: transform 0.15s ease;
+}
+.recolhe__seta svg { width: 16px; height: 16px; }
+.recolhe[open] .recolhe__seta { transform: rotate(90deg); }
+.recolhe__titulo { font-weight: 700; color: var(--cor-primaria); }
+.recolhe__nota { font-size: 12.5px; color: var(--cor-texto-suave); }
+.recolhe__corpo { padding-top: 12px; }
+.recolhe__corpo .imp-info:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .recolhe__seta { transition: none; } }
+
 .metas {
   border: 1px solid var(--cor-borda);
   border-radius: var(--raio);
@@ -1366,6 +1508,21 @@ input[type="date"].viz-data {
 .menu-baixar__item:hover,
 .menu-baixar__item:focus-visible { background: var(--cor-primaria); color: #fff; }
 .menu-baixar__sep { height: 1px; background: var(--cor-borda); margin: 5px 2px; }
+.menu-baixar__cab {
+  padding: 6px 10px 3px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cor-texto-suave);
+}
+/* No celular o menu não cabe ancorado ao botão: vira uma faixa da largura
+   da tela, ainda dentro do fluxo da barra de ações. */
+@media (max-width: 760px) {
+  .menu-baixar { display: block; width: 100%; }
+  .menu-baixar > .btn { width: 100%; }
+  .menu-baixar__lista { left: 0; right: 0; min-width: 0; }
+}
 
 /* Barra comparada com a meta (aba Visualização de dados → Formação) */
 .barra__preench--cheia { background: var(--cor-sucesso); }

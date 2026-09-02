@@ -79,8 +79,11 @@ existente.
 ### Como importar
 
 1. Baixe a planilha de formação como **CSV**.
-2. Na aba **Formação**, escolha *Capital* ou *Interior*, selecione o arquivo e
-   clique em **Enviar CSV**.
+2. Na aba **Formação**, abra o bloco **Importar planilha e registros** — ele
+   fica recolhido no fim da página, e o item *📥 Importar planilha (CSV)* do
+   menu **⚙ Mais** abre e rola até ele.
+3. Escolha *Capital* ou *Interior*, selecione o arquivo e clique em
+   **Enviar CSV**.
 
 O sistema entende os dois formatos de cabeçalho (o da Capital tem *Grupo*; o do
 Interior, *Região*) e aceita qualquer nome de coluna de treinamento
@@ -91,22 +94,24 @@ vírgula ou ponto e vírgula — é detectado automaticamente.
 Reimportar **atualiza** as linhas existentes em vez de duplicar: a
 identificação é feita pelo CPF (sem CPF, pelo e-mail; sem e-mail, pelo nome).
 
-### Baixar em Excel, por região
+### Baixar: a planilha inteira ou uma região
 
-O botão **⬇ Baixar .xlsx por região** (por *grupo*, na Capital) abre um menu com
-cada região e quantos bolsistas ela tem. Escolhendo uma, sai um arquivo `.xlsx`
-só com aquela gente, no mesmo layout da planilha de controle — útil para mandar
-a lista ao supervisor da região sem expor o resto do projeto. A primeira opção
-do menu baixa o Interior (ou a Capital) inteiro.
+O botão **⬇ Baixar** abre um menu com tudo o que dá para exportar da aba,
+dividido em duas partes:
 
-**Desligados não entram** neste arquivo (nem na contagem do menu): ele é lista
-de trabalho, não histórico. Para levar todo mundo, com as colunas de
-desligamento, use o **⬇ Baixar CSV**.
+- **Planilha inteira** — *CSV (inclui desligados)*, no mesmo layout do seu
+  controle, e *Excel — Capital inteira / Interior inteiro*, só com quem está no
+  projeto.
+- **Excel por grupo** (por *região*, no Interior) — uma linha por grupo, com
+  quantos bolsistas ela tem. Escolhendo uma, sai um `.xlsx` só com aquela gente,
+  útil para mandar a lista ao supervisor da região sem expor o resto do projeto.
+
+**Desligados não entram** nos arquivos `.xlsx` (nem na contagem do menu): eles
+são lista de trabalho, não histórico. Para levar todo mundo, com as colunas de
+desligamento, use o **CSV**.
 
 O nome do arquivo sai como `formacao_bauru_2026-08-24.xlsx` e a aba da planilha
 leva o nome da região.
-
-O botão **⬇ Baixar CSV**, ao lado, continua exportando tudo em CSV.
 
 ### O que a coluna em branco quer dizer
 

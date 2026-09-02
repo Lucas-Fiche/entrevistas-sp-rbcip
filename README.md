@@ -203,6 +203,11 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**. No celular cada entrevista vira um **cartão**,
   com um seletor "Ordenar por" no lugar do clique no cabeçalho.
+- **Formação:** o seletor **Capital / Interior** abre a aba, seguido do resumo,
+  de três controles (**🔄 Sincronizar planilhas**, o menu **⬇ Baixar** e o menu
+  **⚙ Mais**), das metas e da lista de bolsistas. O envio do CSV e os registros
+  de importação/sincronização ficam recolhidos no fim, em *Importar planilha e
+  registros*.
 - **Menu lateral (☰):** *Formulários*, *Gerenciar usuários* (só admin), *Meu
   perfil* e *Sair*. **Gerenciar usuários** lista as contas com perfil, último
   acesso e o histórico de mudanças de acesso, e permite trocar o perfil de

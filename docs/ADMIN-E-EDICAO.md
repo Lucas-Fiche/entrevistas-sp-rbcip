@@ -550,7 +550,8 @@ Três regras de segurança:
 
 **O que a sincronização não alcança** — cadastro feito fora do formulário, CPF
 que não casa, ficha importada de um controle antigo — fica para o botão
-**📅 Datas de entrada (N)** na aba *Formação*: lista quem está sem data, com um
+**📅 Datas de entrada (N)** na aba *Formação* (dentro do menu **⚙ Mais**):
+lista quem está sem data, com um
 campo por pessoa e um atalho "preencher todas com", útil quando a turma inteira
 começou no mesmo dia. Datas fora do formato `dd/mm/aaaa` são recusadas antes de
 gravar, porque uma data errada aqui vira número errado no relatório sem ninguém
@@ -603,3 +604,41 @@ ali não há usuário logado.
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
 a largura do notebook (o padrão é uma largura mais confortável para leitura). A
 escolha fica salva no navegador — quem prefere tela cheia entra sempre assim.
+
+---
+
+## 10. A aba Formação por dentro
+
+A aba juntava, na mesma altura da página, coisas de uso diário e coisas de uso
+raro — e a troca **Capital ⇄ Interior** ficava no meio, com o mesmo desenho do
+filtro *No projeto / Desligados*. **Nenhuma informação e nenhuma ação saíram**;
+elas foram reordenadas por frequência de uso.
+
+A ordem agora é:
+
+1. **Projeto** — Capital ou Interior, no topo, com o rótulo `PROJETO` ao lado e
+   a contagem de bolsistas embaixo de cada nome. É a primeira decisão de quem
+   abre a aba, então é a primeira coisa da tela. No celular as duas opções
+   dividem a largura, uma ao lado da outra.
+2. **Resumo** — os cartões (Bolsistas, Ativos, Aguardando termo, Cadastro
+   pendente, Sem treinamento, Desligados) do projeto escolhido. No celular eles
+   ficam compactos, para a lista não começar longe demais.
+3. **Ações** (só administradores) — três controles no lugar de seis botões:
+   - **🔄 Sincronizar planilhas**, que é a rotina, continua à vista;
+   - **⬇ Baixar**, um menu com a planilha inteira (CSV com desligados, Excel só
+     com quem está no projeto) e, embaixo, uma linha por grupo/região;
+   - **⚙ Mais**, com *Supervisores por grupo/região*, *📅 Datas de entrada (N)*,
+     *🧩 Completar pela inscrição (N)* e *📥 Importar planilha (CSV)*. Os dois
+     do meio só aparecem quando há o que fazer, e o número diz quanto.
+4. **Metas e vagas**, fechado como antes.
+5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados* em
+   pastilhas menores (para não se confundir com o seletor de projeto), a busca e
+   a tabela.
+6. **Importar planilha e registros**, recolhido no fim: o envio do CSV, a última
+   importação e a última sincronização. É tarefa ocasional; um clique abre, e o
+   item *📥 Importar planilha* do menu **⚙ Mais** abre e rola até ele. Quando o
+   projeto ainda não tem nenhum bolsista, esse bloco vem **aberto** — é o que
+   falta fazer.
+
+Quem tem perfil de leitura, supervisor ou financeiro vê a aba sem os itens 3 e
+6: o seletor de projeto, o resumo, as metas e a lista.
