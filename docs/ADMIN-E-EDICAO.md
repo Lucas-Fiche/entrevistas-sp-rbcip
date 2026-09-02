@@ -612,8 +612,30 @@ ali não há usuário logado.
 ## 9. Largura da tela
 
 No topo do painel há o botão **⛶ Tela cheia**, que faz as tabelas ocuparem toda
-a largura do notebook (o padrão é uma largura mais confortável para leitura). A
-escolha fica salva no navegador — quem prefere tela cheia entra sempre assim.
+a largura do notebook. **Todas as abas abrem na largura padrão**, que é a mais
+confortável de ler; a Formação também, desde 02/09/2026 (antes ela nascia em
+tela cheia por causa das muitas colunas).
+
+A escolha fica salva no navegador **por aba**: clicar no botão vale para a aba
+em que você está, e é lembrada na próxima visita. Ou seja, quem já tiver
+escolhido *Tela cheia* na Formação continua entrando assim — basta clicar em
+*Largura padrão* uma vez para voltar ao novo padrão.
+
+Na largura padrão, uma tabela larga (a da Formação tem onze colunas) **rola de
+lado dentro do próprio quadro**, sem arrastar a página junto.
+
+### Nomes de região nas tabelas
+
+Na coluna *Região* das tabelas, o nome aparece **encurtado**, com o mesmo
+rótulo usado no mapa: *Baixada Santista (Santos / Praia Grande / Guarujá)* vira
+**Baixada Santista**, e *São José do Rio Preto (região)* vira **S.J. Rio
+Preto**. Não são siglas: a coluna vinha sendo espremida até empilhar uma
+palavra por linha, e o nome curto resolve sem exigir que ninguém decore código.
+
+O **nome completo continua inteiro** onde precisa ser exato: no "passe o mouse"
+da célula, no filtro de região da *Visualização de dados*, no bloco de metas e
+em tudo que é exportado. A busca aceita as duas formas — procurar por *Guarujá*
+ou por *S.J. Rio* encontra a mesma pessoa.
 
 ---
 

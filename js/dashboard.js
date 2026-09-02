@@ -592,10 +592,12 @@
   // A escolha fica salva no navegador de quem usa.
   var CHAVE_LARGURA = "rbcip_dash_largura";
   var abaAtiva = "candidatos";
-  // A Formação tem muitas colunas: nasce em tela cheia. As demais nascem na
-  // largura padrão. A preferência é guardada POR ABA — clicar no botão vale
-  // para a aba em que você está, e é lembrada na próxima visita.
-  var LARGURA_PADRAO_DA_ABA = { formacao: "cheia" };
+  // Todas as abas nascem na largura padrão, que é a mais confortável de ler.
+  // A Formação já nasceu em tela cheia por causa das muitas colunas; com a
+  // coluna de Editar reduzida ao lápis e a Região encurtada, a tabela cabe.
+  // A preferência é guardada POR ABA — clicar no botão vale para a aba em que
+  // você está, e é lembrada na próxima visita.
+  var LARGURA_PADRAO_DA_ABA = {};
 
   function preferenciasLargura() {
     var bruto = null;
@@ -1625,6 +1627,30 @@
     // Aceita "(região)", "(Região)" e "(regiao)" — a mesma região aparece das
     // três formas entre a plataforma, as planilhas e o que é digitado à mão.
     return String(r || "").replace(/\s*\(regi[ãa]o\)$/i, "").trim() || "—";
+  }
+
+  // Nome curto para caber na coluna de uma tabela. Usa o MESMO rótulo do mapa
+  // (REGIOES[...].curto), então a tabela e o gráfico chamam cada região do
+  // mesmo jeito. Não são siglas inventadas: "Baixada Santista (Santos / Praia
+  // Grande / Guarujá)" vira "Baixada Santista", e não "BS".
+  //
+  // O nome completo continua onde precisa ser exato: no "passe o mouse" da
+  // célula, no filtro de região, nas metas e em tudo que é exportado.
+  var CURTO_POR_REGIAO = null;
+  function regiaoNaTabela(r) {
+    if (!CURTO_POR_REGIAO) {
+      CURTO_POR_REGIAO = {};
+      Object.keys(REGIOES).forEach(function (nome) {
+        var curto = REGIOES[nome].curto || regiaoCurta(nome);
+        CURTO_POR_REGIAO[normStr(nome)] = curto;
+        // Também pelo nome sem "(região)": é assim que muita ficha foi gravada.
+        CURTO_POR_REGIAO[normStr(regiaoCurta(nome))] = curto;
+      });
+    }
+    var achado = CURTO_POR_REGIAO[normStr(r)] || CURTO_POR_REGIAO[normStr(regiaoCurta(r))];
+    // Grupo da Capital ("Verde", "Azul"…) ou região escrita de um jeito que não
+    // está no mapa: mostra o que veio, sem o "(região)".
+    return achado || regiaoCurta(r);
   }
   function resultadoClasse(res) {
     if (res === "SELECIONADO") return "tag tag--verde-forte";
@@ -2686,7 +2712,7 @@
     var termo = normStr(candBusca);
     var termoCPF = soDigitos(candBusca);
     var lista = !termo ? doTipo : doTipo.filter(function (c) {
-      var texto = [c.nome, c.email, c.regiao].some(function (v) { return normStr(v).indexOf(termo) !== -1; });
+      var texto = [c.nome, c.email, c.regiao, regiaoNaTabela(c.regiao)].some(function (v) { return normStr(v).indexOf(termo) !== -1; });
       var porCPF = termoCPF.length >= 3 && soDigitos(c.cpf).indexOf(termoCPF) !== -1;
       return texto || porCPF;
     });
@@ -2708,7 +2734,7 @@
       "Nome": function (c) { return normStr(c.nome); },
       "E-mail": function (c) { return normStr(c.email); },
       "CPF": function (c) { return soDigitos(c.cpf); },
-      "Região": function (c) { return normStr(regiaoCurta(c.regiao)); },
+      "Região": function (c) { return normStr(regiaoNaTabela(c.regiao)); },
       "Convocação entrevista": function (c) {
         if (c.email_bounce) return "1 falha";
         if (c.data_convocacao_entrevista) return "3 " + chaveData(c.data_convocacao_entrevista);
@@ -2767,10 +2793,12 @@
       tr.appendChild(tdEmail);
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF", text: formatarCPF(c.cpf) }));
       if (candTipo === "interior") {
-        // "(região)" é redundante numa coluna chamada Região e rouba largura.
+        // Nome curto: "Baixada Santista (Santos / Praia Grande / Guarujá)"
+        // empilhava cinco linhas numa coluna espremida. O nome inteiro fica no
+        // "passe o mouse".
         tr.appendChild(el("td", {
-          class: "tabela__td", "data-label": "Região", title: c.regiao || "",
-          text: regiaoCurta(c.regiao),
+          class: "tabela__td col-regiao", "data-label": "Região", title: c.regiao || "",
+          text: regiaoNaTabela(c.regiao),
         }));
       }
 
@@ -4749,9 +4777,8 @@
     var termoCPF = soDigitos(termosBusca);
     if (termo) {
       lista = lista.filter(function (f) {
-        var texto = [f.nome, f.email, f.grupo, f.regiao, supervisorDe(f)].some(function (v) {
-          return normStr(v).indexOf(termo) !== -1;
-        });
+        var texto = [f.nome, f.email, f.grupo, f.regiao, regiaoNaTabela(f.regiao), supervisorDe(f)]
+          .some(function (v) { return normStr(v).indexOf(termo) !== -1; });
         return texto || (termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1);
       });
     }
@@ -4774,7 +4801,7 @@
     var chavesTermos = {
       "Nome": function (f) { return normStr(f.nome); },
       "Projeto": function (f) { return f.tipo === "capital" ? "Capital" : "Interior"; },
-      "Grupo / Região": function (f) { return normStr(regiaoCurta(chaveSupervisao(f))); },
+      "Grupo / Região": function (f) { return normStr(regiaoNaTabela(chaveSupervisao(f))); },
       "CPF": function (f) { return soDigitos(f.cpf); },
       "E-mail": function (f) { return normStr(f.email); },
       "Cadastro": function (f) { return ehRealizado(f.cadastro_bolsista) ? "1" : "0"; },
@@ -4814,8 +4841,8 @@
 
       tr.appendChild(el("td", { class: "tabela__td", "data-label": "Projeto",
         text: f.tipo === "capital" ? "Capital" : "Interior" }));
-      tr.appendChild(el("td", { class: "tabela__td", "data-label": "Grupo / Região",
-        text: regiaoCurta(chaveSupervisao(f)) || "—" }));
+      tr.appendChild(el("td", { class: "tabela__td col-regiao", "data-label": "Grupo / Região",
+        title: chaveSupervisao(f) || "", text: regiaoNaTabela(chaveSupervisao(f)) }));
       tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "CPF",
         text: formatarCPF(f.cpf) }));
       tr.appendChild(el("td", { class: "tabela__td cand-email", "data-label": "E-mail",
@@ -5170,9 +5197,8 @@
     var termo = normStr(formBusca);
     var termoCPF = soDigitos(formBusca);
     var lista = !termo ? doTipo : doTipo.filter(function (f) {
-      var texto = [f.nome, f.email, supervisorDe(f), f.regiao, f.grupo].some(function (v) {
-        return normStr(v).indexOf(termo) !== -1;
-      });
+      var texto = [f.nome, f.email, supervisorDe(f), f.regiao, regiaoNaTabela(f.regiao), f.grupo]
+        .some(function (v) { return normStr(v).indexOf(termo) !== -1; });
       var porCPF = termoCPF.length >= 3 && soDigitos(f.cpf).indexOf(termoCPF) !== -1;
       return texto || porCPF;
     });
@@ -5209,7 +5235,7 @@
       "Nome": function (f) { return normStr(f.nome); },
       "Situação": function (f) { return normStr(situacaoFormacao(f)); },
       "Grupo": function (f) { return normStr(regiaoCurta(f.grupo)); },
-      "Região": function (f) { return normStr(regiaoCurta(f.regiao)); },
+      "Região": function (f) { return normStr(regiaoNaTabela(f.regiao)); },
       "CPF": function (f) { return soDigitos(f.cpf); },
       "Telefone": function (f) { return soDigitos(f.telefone); },
       "E-mail": function (f) { return normStr(f.email); },
@@ -5260,7 +5286,8 @@
         tr.appendChild(tdGrupo);
       } else {
         tr.appendChild(el("td", {
-          class: "tabela__td", "data-label": "Região", title: f.regiao || "", text: regiaoCurta(f.regiao),
+          class: "tabela__td col-regiao", "data-label": "Região",
+          title: f.regiao || "", text: regiaoNaTabela(f.regiao),
         }));
       }
 

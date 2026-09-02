@@ -1101,8 +1101,17 @@ input[type="date"].viz-data {
 
 /* Colunas curtas que não devem quebrar em várias linhas (CPF, telefone, datas) */
 .col-firme { white-space: nowrap; }
+
+/* A coluna de Região disputava espaço com as outras e era espremida até o nome
+   empilhar uma palavra por linha. Como o texto já vem encurtado por
+   regiaoNaTabela(), o mesmo tratamento das colunas curtas resolve: sem quebra,
+   a coluna nasce com a largura do nome mais longo. */
+.col-regiao { white-space: nowrap; }
+
 @media (max-width: 760px) {
   .col-firme { white-space: normal; }
+  /* No modo cartão cada célula ocupa a linha inteira e pode quebrar à vontade. */
+  .col-regiao { white-space: normal; }
 }
 
 /* ---------- Perfil (admin × somente leitura) ---------- */
