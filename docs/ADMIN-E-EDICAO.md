@@ -516,6 +516,11 @@ importado — a ordem em que as pessoas se inscreveram ou entraram no projeto.
 Isso depende de rodar **`sql/ordem.sql`** e reimportar os arquivos uma vez;
 o rodapé de cada tabela mostra qual ordem está em uso.
 
+Essa é a ordem **padrão**, para onde a tabela sempre volta. Para olhar a lista
+de outro jeito — em ordem alfabética, por data, por região —, clique no título
+da coluna; a seção 10 explica como, e por que isso não altera nada nos dados
+nem nos arquivos exportados.
+
 ---
 
 ## 8. Histórico e o quadro de entradas e saídas
@@ -695,6 +700,46 @@ nasce escondido.
 
 Quem tem perfil de leitura, supervisor ou financeiro vê as abas sem as ações e
 sem o bloco de importação: o seletor de projeto, o resumo, as metas e a lista.
+
+### Ordenar pelo título da coluna
+
+Nas tabelas de *Candidatos*, *Formação* e *Termos de Bolsa*, **clicar no título
+de uma coluna ordena a lista por ela**. Cada título passa por três estados:
+
+1. **1º clique** — crescente (▲): A→Z, do menor para o maior, da data mais
+   antiga para a mais recente;
+2. **2º clique** — decrescente (▼);
+3. **3º clique** — volta à **ordem do arquivo importado**.
+
+Ninguém fica preso numa ordenação sem saber como desfazer: o terceiro clique
+sempre devolve a lista ao normal, e o rodapé da tabela diz em que ordem ela
+está ("*ordenado por Nome (crescente)*" ou "*na mesma ordem do arquivo
+importado*").
+
+**Isso não bagunça nada.** Ordenar é só uma forma de olhar a mesma lista:
+
+- nada muda no banco de dados — nenhuma ficha é gravada ou alterada;
+- os arquivos **exportados** (CSV e .xlsx) saem sempre na **ordem do arquivo
+  importado**, não na ordem da tela;
+- a escolha vale só para o seu navegador, naquela sessão. Ninguém mais vê a
+  lista reordenada;
+- trocar de projeto, buscar ou recarregar a aba mantém a ordenação escolhida,
+  porque é uma preferência de leitura — não um dado.
+
+Algumas colunas ordenam por **etapa**, não por texto, porque é isso que se
+procura ao clicar nelas: *Convocação entrevista*, *Convocação cadastro*,
+*Cadastro*, *Treinamento* e *Termo de bolsa* colocam **quem está pendente
+primeiro**. As colunas de ação (*Editar*, *Ação*) não ordenam — não têm o que
+comparar.
+
+Quem estiver **sem o dado** (sem CPF, sem grupo, sem data) vai para o **fim da
+lista nos dois sentidos**. Se fosse ao contrário, a lista decrescente começaria
+com um bloco de traços e esconderia justamente quem tem a informação.
+
+No **celular** a tabela vira cartão e o cabeçalho some, então não há título para
+clicar: aparece o seletor **"Ordenar por:"** logo acima da lista, com as mesmas
+opções e a entrada *Ordem do arquivo* para voltar ao normal. É o mesmo controle
+que as abas de *Entrevistas Capital* e *Entrevistas Interior* já tinham.
 
 ### A coluna "Editar"
 

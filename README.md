@@ -203,6 +203,11 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**. No celular cada entrevista vira um **cartão**,
   com um seletor "Ordenar por" no lugar do clique no cabeçalho.
+- **Ordenar por coluna:** em *Candidatos*, *Formação* e *Termos de Bolsa*, o
+  clique no título da coluna ordena a lista (crescente → decrescente → volta à
+  ordem do arquivo). É só uma forma de olhar: nada muda no banco e os arquivos
+  exportados saem sempre na ordem original. No celular, o seletor
+  **Ordenar por**.
 - **Desenho das abas:** *Candidatos*, *Formação*, *Termos de Bolsa* e
   *Visualização de dados* seguem a mesma sequência — **seletor de projeto** no
   topo (com a contagem de cada lado), resumo, ações, blocos de consulta e a

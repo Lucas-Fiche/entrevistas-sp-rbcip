@@ -1260,6 +1260,129 @@
     return normStr(a.nome).localeCompare(normStr(b.nome));
   }
 
+  // ---------- Ordenar a lista clicando no título da coluna ----------
+  // Ordenar é só uma forma de olhar a mesma lista: nada muda no banco, nada é
+  // reordenado nos arquivos exportados (que saem sempre na ordem do arquivo
+  // importado) e o terceiro clique no título devolve a ordem original.
+  var ordemLista = {
+    candidatos: { col: "", asc: true },
+    formacao: { col: "", asc: true },
+    termos: { col: "", asc: true },
+  };
+
+  // Data como chave de texto ordenável. Circulam dois formatos no sistema:
+  // "aaaa-mm-dd" (vem do banco) e "dd/mm/aaaa" (vem das planilhas); os dois
+  // viram "aaaammdd".
+  function chaveData(valor) {
+    var t = String(valor || "").trim();
+    if (!t) return "";
+    var iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+    if (iso) return iso[1] + iso[2] + iso[3];
+    var br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(t);
+    if (br) return br[3] + br[2] + br[1];
+    return t;
+  }
+
+  // Vazio vai sempre para o fim, nos dois sentidos: quem está sem CPF no topo
+  // da lista decrescente esconderia justamente quem tem o dado.
+  function compararChaves(a, b, asc) {
+    var va = (a === null || a === undefined) ? "" : a;
+    var vb = (b === null || b === undefined) ? "" : b;
+    var ea = va === "" || va === "—";
+    var eb = vb === "" || vb === "—";
+    if (ea && eb) return 0;
+    if (ea) return 1;
+    if (eb) return -1;
+    var r = (typeof va === "number" && typeof vb === "number")
+      ? va - vb
+      : String(va).localeCompare(String(vb), "pt-BR");
+    if (!r) return 0;
+    return asc ? (r < 0 ? -1 : 1) : (r < 0 ? 1 : -1);
+  }
+
+  function ordenarLista(lista, estado, chaves) {
+    var copia = lista.slice();
+    var fn = estado && estado.col ? chaves[estado.col] : null;
+    if (!fn) return copia.sort(porOrdemPlanilha);
+    return copia.sort(function (a, b) {
+      // Empate na coluna: a ordem do arquivo desempata sempre, para a lista
+      // não "tremer" entre dois renders com os mesmos dados.
+      return compararChaves(fn(a), fn(b), estado.asc) || porOrdemPlanilha(a, b);
+    });
+  }
+
+  // Cabeçalho com os títulos clicáveis. Colunas sem chave em `chaves` (as de
+  // ação, por exemplo) continuam sendo texto simples.
+  function cabecalhoOrdenavel(cols, estado, chaves, aoOrdenar) {
+    var trh = el("tr");
+    cols.forEach(function (titulo) {
+      if (!chaves[titulo]) {
+        trh.appendChild(el("th", { class: "tabela__th", text: titulo }));
+        return;
+      }
+      var ativa = estado.col === titulo;
+      var th = el("th", {
+        class: "tabela__th tabela__th--ord",
+        "aria-sort": ativa ? (estado.asc ? "ascending" : "descending") : "none",
+      });
+      var b = el("button", {
+        class: "th-ord" + (ativa ? " th-ord--ativa" : ""), type: "button",
+        title: !ativa ? "Ordenar por " + titulo
+          : estado.asc ? "Ordenado por " + titulo + ", crescente. Clique para inverter."
+          : "Ordenado por " + titulo + ", decrescente. Clique para voltar à ordem do arquivo.",
+      });
+      b.appendChild(el("span", { text: titulo }));
+      b.appendChild(el("span", {
+        class: "th-ord__seta", "aria-hidden": "true",
+        text: ativa ? (estado.asc ? "▲" : "▼") : "↕",
+      }));
+      // Três estados: crescente → decrescente → ordem do arquivo. Ninguém fica
+      // preso numa ordenação sem saber como desfazer.
+      b.addEventListener("click", function () {
+        if (estado.col !== titulo) { estado.col = titulo; estado.asc = true; }
+        else if (estado.asc) { estado.asc = false; }
+        else { estado.col = ""; estado.asc = true; }
+        aoOrdenar();
+      });
+      th.appendChild(b);
+      trh.appendChild(th);
+    });
+    return trh;
+  }
+
+  // No celular a tabela vira cartão e o cabeçalho some — sem ele não há onde
+  // clicar. Este seletor faz o mesmo papel e só aparece lá.
+  function seletorDeOrdem(cols, estado, chaves, aoOrdenar) {
+    var barra = el("div", { class: "ordenar-mobile" });
+    barra.appendChild(el("span", { class: "ordenar-mobile__rot", text: "Ordenar por:" }));
+    var sel = el("select", { class: "viz-select ordenar-mobile__select" });
+    sel.appendChild(el("option", { value: "", text: "Ordem do arquivo" }));
+    cols.forEach(function (t) {
+      if (!chaves[t]) return;
+      sel.appendChild(el("option", { value: t + "|asc", text: t + " ↑" }));
+      sel.appendChild(el("option", { value: t + "|desc", text: t + " ↓" }));
+    });
+    sel.value = estado.col ? estado.col + "|" + (estado.asc ? "asc" : "desc") : "";
+    sel.addEventListener("change", function () {
+      var p = sel.value.split("|");
+      estado.col = p[0] || "";
+      estado.asc = p[1] !== "desc";
+      aoOrdenar();
+    });
+    barra.appendChild(sel);
+    return barra;
+  }
+
+  // O rodapé da tabela não pode continuar dizendo "na ordem do arquivo" depois
+  // que alguém ordenou por uma coluna.
+  function notaDaOrdem(lista, estado) {
+    if (estado && estado.col) {
+      return "ordenado por " + estado.col + " (" + (estado.asc ? "crescente" : "decrescente") +
+        ") — o arquivo exportado sai sempre na ordem original.";
+    }
+    return notaOrdem(lista);
+  }
+
   // Converte uma linha do CSV de inscrição numa ficha de candidato.
   // `idx` é a posição da linha no arquivo — é o que preserva a ordem original.
   // Data/hora em que a pessoa se inscreveu na plataforma (coluna `data_envio`).
@@ -2579,10 +2702,42 @@
     cols = cols.concat(["Convocação entrevista", "Resultado", "Data entrevista", "Convocação cadastro"]);
     if (ehAdmin()) cols.push("Editar");
 
+    // Como cada coluna se ordena. As de etapa (convocações) vão por estágio, e
+    // não por texto: o que se procura é "quem ainda está pendente".
+    var chavesCand = {
+      "Nome": function (c) { return normStr(c.nome); },
+      "E-mail": function (c) { return normStr(c.email); },
+      "CPF": function (c) { return soDigitos(c.cpf); },
+      "Região": function (c) { return normStr(regiaoCurta(c.regiao)); },
+      "Convocação entrevista": function (c) {
+        if (c.email_bounce) return "1 falha";
+        if (c.data_convocacao_entrevista) return "3 " + chaveData(c.data_convocacao_entrevista);
+        if (c.convocacao_entrevista === "Enviado" || casarEntrevista(c)) return "3";
+        return "0 pendente";
+      },
+      "Resultado": function (c) { return normStr(resultadoDoCandidato(c, casarEntrevista(c))); },
+      "Data entrevista": function (c) {
+        var e = casarEntrevista(c);
+        return chaveData(e ? e.data_entrevista : c.data_entrevista);
+      },
+      "Convocação cadastro": function (c) {
+        if (c.data_convocacao_cadastro) return "3 " + chaveData(c.data_convocacao_cadastro);
+        if (c.convocacao_cadastro === "Enviado") return "3";
+        var selec = normStr(resultadoDoCandidato(c, casarEntrevista(c))).indexOf("selecionado") === 0;
+        if (!selec) return "";              // não se aplica: vai para o fim
+        return emReserva(c) ? "1 reserva" : "0 pendente";
+      },
+    };
+    if (candTipo !== "interior") delete chavesCand["Região"];
+
+    var estadoCand = ordemLista.candidatos;
+    lista = ordenarLista(lista, estadoCand, chavesCand);
+    painel.appendChild(seletorDeOrdem(cols, estadoCand, chavesCand, renderPainelCandidatos));
+
     var tabela = el("table", { class: "tabela tabela--cand" });
-    var trh = el("tr");
-    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
-    var thead = el("thead"); thead.appendChild(trh); tabela.appendChild(thead);
+    var thead = el("thead");
+    thead.appendChild(cabecalhoOrdenavel(cols, estadoCand, chavesCand, renderPainelCandidatos));
+    tabela.appendChild(thead);
 
     var tbody = el("tbody");
     var casados = 0;
@@ -2795,7 +2950,8 @@
     var resumo = el("p", { class: "cand-resumo" });
     resumo.appendChild(el("span", {
       text: lista.length + (termo ? " de " + doTipo.length : "") + " candidatos · " +
-        casados + " com entrevista casada automaticamente pelo sistema · " + notaOrdem(lista),
+        casados + " com entrevista casada automaticamente pelo sistema · " +
+        notaDaOrdem(lista, estadoCand),
     }));
     resumo.appendChild(legendaFontes());
     painel.appendChild(resumo);
@@ -4615,10 +4771,29 @@
     // --- Tabela ---
     var cols = ["Nome", "Projeto", "Grupo / Região", "CPF", "E-mail",
       "Cadastro", "Treinamento", "Termo de bolsa", "Entrada no projeto"];
+    var chavesTermos = {
+      "Nome": function (f) { return normStr(f.nome); },
+      "Projeto": function (f) { return f.tipo === "capital" ? "Capital" : "Interior"; },
+      "Grupo / Região": function (f) { return normStr(regiaoCurta(chaveSupervisao(f))); },
+      "CPF": function (f) { return soDigitos(f.cpf); },
+      "E-mail": function (f) { return normStr(f.email); },
+      "Cadastro": function (f) { return ehRealizado(f.cadastro_bolsista) ? "1" : "0"; },
+      "Treinamento": function (f) {
+        return (fezTreinamento(f) ? "1 " : "0 ") + chaveData(dataTreinamentoDe(f));
+      },
+      "Termo de bolsa": function (f) {
+        return f.termo_link ? "2" : aptoParaTermo(f) ? "1 apto" : "0";
+      },
+      "Entrada no projeto": function (f) { return chaveData(f.data_entrada); },
+    };
+    var estadoTermos = ordemLista.termos;
+    lista = ordenarLista(lista, estadoTermos, chavesTermos);
+    painel.appendChild(seletorDeOrdem(cols, estadoTermos, chavesTermos, renderPainelTermos));
+
     var tabela = el("table", { class: "tabela tabela--cand tabela--termos" });
-    var trh = el("tr");
-    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
-    tabela.appendChild(el("thead", {}, [trh]));
+    tabela.appendChild(el("thead", {}, [
+      cabecalhoOrdenavel(cols, estadoTermos, chavesTermos, renderPainelTermos),
+    ]));
 
     var tbody = el("tbody");
     lista.forEach(function (f) {
@@ -4669,7 +4844,7 @@
 
     painel.appendChild(el("p", {
       class: "cand-resumo",
-      text: lista.length + " ficha(s) exibida(s) · " + notaOrdem(lista),
+      text: lista.length + " ficha(s) exibida(s) · " + notaDaOrdem(lista, estadoTermos),
     }));
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
@@ -5028,10 +5203,37 @@
     var editavel = temColunaDeGrupo(formTipo);
     if (editavel) cols.push(ehAdmin() ? "Editar" : "Ação");
 
+    // Cadastro, Treinamento e Termo ordenam por etapa cumprida (pendente
+    // primeiro), que é o que se procura ao clicar nessas colunas.
+    var chavesForm = {
+      "Nome": function (f) { return normStr(f.nome); },
+      "Situação": function (f) { return normStr(situacaoFormacao(f)); },
+      "Grupo": function (f) { return normStr(regiaoCurta(f.grupo)); },
+      "Região": function (f) { return normStr(regiaoCurta(f.regiao)); },
+      "CPF": function (f) { return soDigitos(f.cpf); },
+      "Telefone": function (f) { return soDigitos(f.telefone); },
+      "E-mail": function (f) { return normStr(f.email); },
+      "Supervisor": function (f) { return normStr(supervisorDe(f)); },
+      "Cadastro": function (f) { return ehRealizado(f.cadastro_bolsista) ? "1" : "0"; },
+      "Treinamento": function (f) {
+        return (fezTreinamento(f) ? "1 " : "0 ") + chaveData(dataTreinamentoDe(f));
+      },
+      "Termo de bolsa": function (f) {
+        return f.termo_link ? "2" : aptoParaTermo(f) ? "1 apto" : "0";
+      },
+      "Desligado em": function (f) { return chaveData(f.desligado_em); },
+      "Motivo": function (f) { return normStr(f.desligado_motivo); },
+    };
+    delete chavesForm[formTipo === "capital" ? "Região" : "Grupo"];
+
+    var estadoForm = ordemLista.formacao;
+    lista = ordenarLista(lista, estadoForm, chavesForm);
+    painel.appendChild(seletorDeOrdem(cols, estadoForm, chavesForm, renderPainelFormacao));
+
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
-    var trh = el("tr");
-    cols.forEach(function (c) { trh.appendChild(el("th", { class: "tabela__th", text: c })); });
-    var thead = el("thead"); thead.appendChild(trh); tabela.appendChild(thead);
+    var thead = el("thead");
+    thead.appendChild(cabecalhoOrdenavel(cols, estadoForm, chavesForm, renderPainelFormacao));
+    tabela.appendChild(thead);
 
     var tbody = el("tbody");
     var casados = 0;
@@ -5123,7 +5325,7 @@
     painel.appendChild(el("p", {
       class: "cand-resumo",
       text: lista.length + " bolsista(s) exibido(s) · " + casados + " com entrevista casada pelo CPF · " +
-        notaOrdem(lista),
+        notaDaOrdem(lista, estadoForm),
     }));
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);

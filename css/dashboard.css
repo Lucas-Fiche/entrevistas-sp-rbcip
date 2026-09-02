@@ -243,12 +243,53 @@ body.tela-cheia .dash {
   color: var(--cor-texto);
   font-weight: 600;
   white-space: nowrap;
-  cursor: pointer;
   user-select: none;
   border-bottom: 2px solid var(--cor-borda);
 }
 
-.tabela__th:hover { background: var(--cor-primaria-clara); }
+/* Só o cabeçalho que realmente ordena se comporta como botão — antes todos
+   tinham cursor de mão, inclusive os que não faziam nada ao clicar. */
+.tabela--entrev .tabela__th,
+.tabela__th--ord { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .tabela--entrev .tabela__th:hover,
+  .tabela__th--ord:hover { background: var(--cor-primaria-clara); }
+}
+
+/* Título clicável: o botão ocupa a célula inteira, então a área de clique é a
+   mesma de antes (quando o próprio <th> escutava o clique). */
+.tabela__th--ord { padding: 0; }
+.th-ord {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.th-ord__seta {
+  font-size: 10px;
+  color: var(--cor-texto-suave);
+  opacity: 0.35;              /* discreta, mas visível: mostra que dá para ordenar */
+  transition: opacity 0.12s ease;
+}
+.th-ord--ativa { color: var(--cor-primaria); }
+.th-ord--ativa .th-ord__seta { color: var(--cor-primaria); opacity: 1; font-size: 11px; }
+@media (hover: hover) and (pointer: fine) {
+  .tabela__th--ord:hover .th-ord__seta { opacity: 1; }
+}
+.th-ord:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: -2px; }
+.th-ord:focus-visible .th-ord__seta { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .th-ord__seta { transition: none; } }
+
 .tabela__th--num, .tabela__td--num { text-align: center; }
 
 .tabela__tr:nth-child(even) { background: #f7fafb; }
