@@ -1390,6 +1390,94 @@
     return tag;
   }
 
+  var ICONE_BLOQUEIO =
+    '<svg class="tag__icone" viewBox="0 0 16 16" aria-hidden="true" focusable="false">' +
+    '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/>' +
+    '<path d="M4.4 4.4l7.2 7.2" fill="none" stroke="currentColor" stroke-width="1.5" ' +
+    'stroke-linecap="round"/></svg>';
+
+  // Seletor grande do recorte principal da aba (Capital x Interior). É a
+  // primeira decisão de quem abre a página, então tem rótulo, contagem e
+  // desenho próprios — as pastilhas de recorte secundário (No projeto /
+  // Desligados, Sem termo / Aptos…) são menores de propósito, para as duas
+  // coisas não se confundirem.
+  function seletorSegmentado(rotulo, opcoes, ativo, aoTrocar) {
+    var wrap = el("div", { class: "projeto" });
+    if (rotulo) wrap.appendChild(el("span", { class: "projeto__rot", text: rotulo }));
+    var grupo = el("div", { class: "projeto__opcoes", role: "group", "aria-label": rotulo || "" });
+    opcoes.forEach(function (o) {
+      var b = el("button", {
+        class: "projeto__btn" + (o.detalhe ? "" : " projeto__btn--simples") +
+          (ativo === o.id ? " projeto__btn--ativa" : ""),
+        type: "button",
+        "aria-pressed": ativo === o.id ? "true" : "false",
+        title: o.titulo || "",
+      });
+      b.appendChild(el("span", { class: "projeto__nome", text: o.nome }));
+      if (o.detalhe) b.appendChild(el("span", { class: "projeto__qtd", text: o.detalhe }));
+      b.addEventListener("click", function () { if (ativo !== o.id) aoTrocar(o.id); });
+      grupo.appendChild(b);
+    });
+    wrap.appendChild(grupo);
+    return wrap;
+  }
+
+  function seletorDeProjeto(ativo, contar, unidade, aoTrocar) {
+    return seletorSegmentado("Projeto", ["capital", "interior"].map(function (t) {
+      var n = contar(t);
+      return { id: t, nome: nomeRegiao(t), detalhe: n + " " + unidade + (n === 1 ? "" : "s") };
+    }), ativo, aoTrocar);
+  }
+
+  // Cabeçalho da lista, com o recorte secundário à direita. Separa a tabela do
+  // bloco de números e das ações, e dá um nome ao que está sendo listado.
+  function cabecalhoDaLista(titulo, recortes, ativo, aoTrocar) {
+    var cab = el("div", { class: "lista-cab" });
+    cab.appendChild(el("h3", { class: "lista-cab__titulo", text: titulo }));
+    if (recortes && recortes.length) {
+      var filtro = el("div", { class: "cand-filtro lista-cab__filtro" });
+      recortes.forEach(function (v) {
+        var b = el("button", {
+          class: "cand-tab cand-tab--mini" + (ativo === v.id ? " cand-tab--ativa" : ""),
+          type: "button", text: v.rot + (v.qtd === undefined ? "" : " (" + v.qtd + ")"),
+        });
+        b.addEventListener("click", function () { aoTrocar(v.id); });
+        filtro.appendChild(b);
+      });
+      cab.appendChild(filtro);
+    }
+    return cab;
+  }
+
+  // Mensagem de status da importação. Se o bloco estiver recolhido, abre: um
+  // erro dentro de uma gaveta fechada é um erro que ninguém lê.
+  function mostrarStatus(id, texto) {
+    var s = $(id);
+    if (!s) return;
+    s.textContent = texto;
+    var caixa = s.closest && s.closest("details");
+    if (caixa) caixa.setAttribute("open", "open");
+  }
+
+  // Botão só com o lápis. O texto "Editar" repetido em toda linha custava uma
+  // coluna inteira de largura; quem precisa do nome da ação tem o cabeçalho da
+  // coluna, o title e o aria-label.
+  function botaoLapis(descricao) {
+    return el("button", {
+      class: "btn btn--secundario btn--pequeno btn--icone", type: "button",
+      text: "✎", title: descricao, "aria-label": descricao,
+    });
+  }
+
+  // Diferente de "aguardando": aqui falta uma etapa anterior, então o termo
+  // nem pode ser pedido. O vermelho separa "é a vez dele" de "ainda não é".
+  function tagNaoApto(titulo) {
+    var tag = el("span", { class: "tag tag--vermelho tag--com-icone", title: titulo || "" });
+    tag.innerHTML = ICONE_BLOQUEIO;
+    tag.appendChild(el("span", { text: "Não apto" }));
+    return tag;
+  }
+
   function tagResultado(res, fonte) {
     var tag = el("span", { class: resultadoClasse(res) + " tag--com-icone", title: ROTULO_FONTE[fonte] || "" });
     tag.innerHTML = ICONES_FONTE[fonte] || "";
@@ -1476,8 +1564,7 @@
     if (!client) return Promise.resolve();
     return client.from(candTabela()).select("*").then(function (resp) {
       if (resp.error) {
-        var s = $("#cand-status");
-        if (s) s.textContent = "Não foi possível carregar candidatos: " + (resp.error.message || resp.error);
+        mostrarStatus("#cand-status", "Não foi possível carregar candidatos: " + (resp.error.message || resp.error));
         return;
       }
       candidatos = resp.data || [];
@@ -1680,8 +1767,7 @@
       if (resp.error) {
         cand[campo] = anterior; // reverte
         if (elmInput) { elmInput.value = anterior || ""; elmInput.classList.add("cand-edit--erro"); }
-        var s = $("#cand-status");
-        if (s) s.textContent = "Não foi possível salvar a alteração: " + (resp.error.message || resp.error);
+        mostrarStatus("#cand-status", "Não foi possível salvar a alteração: " + (resp.error.message || resp.error));
       } else if (elmInput) {
         elmInput.classList.remove("cand-edit--erro");
         elmInput.classList.add("cand-edit--ok");
@@ -2271,8 +2357,7 @@
       .then(function () { return carregarFormacao(); })
       .catch(function (e) {
         // A convocação já foi enviada: uma falha aqui não pode virar erro geral.
-        var s = $("#form-status");
-        if (s) s.textContent = "Não foi possível abrir a ficha de formação: " + (e.message || e);
+        mostrarStatus("#form-status", "Não foi possível abrir a ficha de formação: " + (e.message || e));
       });
   }
 
@@ -2378,104 +2463,85 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    // --- Barra de importação (só admin) ---
-    var barra = el("div", { class: "cand-importar" });
-    barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar inscrições:" }));
-    var selTipo = el("select", { class: "viz-select", id: "cand-imp-tipo" });
-    selTipo.appendChild(el("option", { value: "capital", text: "Capital" }));
-    selTipo.appendChild(el("option", { value: "interior", text: "Interior" }));
-    selTipo.value = candTipo;
-    var file = el("input", { type: "file", accept: ".csv,text/csv", id: "cand-file", class: "cand-file" });
-    var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Enviar CSV" });
-    var status = el("span", { class: "cand-status", id: "cand-status", text: candMsg });
-    btn.addEventListener("click", function () {
-      var f = file.files && file.files[0];
-      if (!f) { status.textContent = "Escolha um arquivo CSV primeiro."; return; }
-      var tipo = selTipo.value;
-      btn.disabled = true; status.textContent = "Lendo arquivo…";
-      var reader = new FileReader();
-      reader.onload = function () {
-        importarCSV(tipo, String(reader.result), f.name).then(function (r) {
-          candMsg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
-            r.criadas + " nova(s), " + r.atualizadas + " atualizada(s).";
-          candTipo = tipo;
-          carregarCandidatos();
-        }).catch(function (e) {
-          btn.disabled = false;
-          var s = $("#cand-status");
-          if (s) s.textContent = "Erro ao importar: " + (e.message || e);
-        });
-      };
-      reader.onerror = function () { btn.disabled = false; status.textContent = "Não foi possível ler o arquivo."; };
-      reader.readAsText(f, "utf-8");
-    });
-    barra.appendChild(selTipo);
-    barra.appendChild(file);
-    barra.appendChild(btn);
-    barra.appendChild(status);
-    // O registro de importação (quem enviou qual arquivo, e o histórico) é
-    // controle de quem importa. Para os outros perfis é ruído — e expõe o
-    // e-mail de outra pessoa sem nenhuma serventia.
-    if (ehAdmin()) {
-      painel.appendChild(barra);
-      painel.appendChild(blocoUltimaImportacao("candidatos", candTipo));
-    }
+    // --- Projeto: a primeira decisão de quem abre a aba ---
+    painel.appendChild(seletorDeProjeto(candTipo, function (t) {
+      return candidatos.filter(function (c) { return c.tipo === t; }).length;
+    }, "candidato", function (t) {
+      candTipo = t; candBusca = ""; renderPainelCandidatos();
+    }));
 
-    // --- Sub-filtro Capital / Interior ---
-    var filtro = el("div", { class: "cand-filtro" });
-    ["capital", "interior"].forEach(function (t) {
-      var n = candidatos.filter(function (c) { return c.tipo === t; }).length;
-      var b = el("button", {
-        class: "cand-tab" + (candTipo === t ? " cand-tab--ativa" : ""),
-        type: "button",
-        text: (t === "capital" ? "Capital" : "Interior") + " (" + n + ")",
-      });
-      b.addEventListener("click", function () { candTipo = t; renderPainelCandidatos(); });
-      filtro.appendChild(b);
-    });
-    painel.appendChild(filtro);
-
-    // --- Tabela ---
     var doTipo = candidatos.filter(function (c) { return c.tipo === candTipo; });
     doTipo.sort(porOrdemPlanilha);
 
     if (!doTipo.length) {
-      painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato importado ainda para " + candTipo + ". Envie o CSV de inscrição acima." }));
+      painel.appendChild(el("p", {
+        class: "cand-vazio",
+        text: "Nenhum candidato importado ainda para " + nomeRegiao(candTipo) +
+          (ehAdmin() ? ". Envie o CSV de inscrição no bloco abaixo." : "."),
+      }));
+      // O registro de importação (quem enviou qual arquivo, e o histórico) é
+      // controle de quem importa. Para os outros perfis é ruído — e expõe o
+      // e-mail de outra pessoa sem nenhuma serventia.
+      if (ehAdmin()) painel.appendChild(blocoImportar("candidatos", true));
       return;
     }
 
-    // --- Ação geral: convocar todos p/ entrevista (quem ainda não recebeu) ---
+    // --- Ações da aba ---
     // Atenção: a convocação geral considera TODOS do tipo, não só os filtrados
     // pela busca — o número no botão e a confirmação deixam isso explícito.
     var pendEntr = doTipo.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
     // Convocar em massa, verificar entregas e baixar a planilha são ações de
     // administrador: para os outros perfis a barra nem é construída (escondê-la
     // com CSS deixava os botões no HTML, ao alcance de um clique no inspetor).
-    var acoes = el("div", { class: "cand-acoes" });
-    var btnGeral = el("button", {
-      class: "btn btn--pequeno",
-      type: "button",
-      text: "✉ Convocar todos para entrevista (" + pendEntr + " pendente" + (pendEntr === 1 ? "" : "s") + ")",
-    });
-    if (!pendEntr) btnGeral.disabled = true;
-    btnGeral.addEventListener("click", function () { convocarEntrevistaTodos(btnGeral); });
-    acoes.appendChild(btnGeral);
-    var btnVerif = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "🔎 Verificar entregas" });
-    btnVerif.addEventListener("click", function () { verificarEntregas(btnVerif); });
-    acoes.appendChild(btnVerif);
-    var btnExp = el("button", {
-      class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
-      title: "Planilha completa de " + candTipo + ": colunas de controle preenchidas + todas as colunas da inscrição",
-    });
-    btnExp.addEventListener("click", function () { exportarCandidatos(candTipo); });
-    acoes.appendChild(btnExp);
-    if (!backendConvocacao()) {
-      acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
+    if (ehAdmin()) {
+      var acoes = el("div", { class: "cand-acoes" });
+      var btnGeral = el("button", {
+        class: "btn btn--pequeno",
+        type: "button",
+        text: "✉ Convocar todos para entrevista (" + pendEntr + " pendente" + (pendEntr === 1 ? "" : "s") + ")",
+      });
+      if (!pendEntr) btnGeral.disabled = true;
+      btnGeral.addEventListener("click", function () { convocarEntrevistaTodos(btnGeral); });
+      acoes.appendChild(btnGeral);
+
+      var btnExp = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
+        title: "Planilha completa de " + candTipo + ": colunas de controle preenchidas + todas as colunas da inscrição",
+      });
+      btnExp.addEventListener("click", function () { exportarCandidatos(candTipo); });
+      acoes.appendChild(btnExp);
+
+      var btnMaisC = menuSuspenso("⚙ Mais", "Conferência de entregas e importação", [
+        {
+          rotulo: "🔎 Verificar entregas",
+          titulo: "Consulta as respostas do servidor de e-mail e marca os endereços que recusaram",
+          acao: function () { verificarEntregas(btnMaisC.querySelector("button")); },
+        },
+        null,
+        {
+          rotulo: "📥 Importar planilha (CSV)",
+          titulo: "Abre o bloco de importação no fim da página",
+          acao: function () {
+            var d = painel.querySelector(".recolhe--imp");
+            if (!d) return;
+            d.setAttribute("open", "open");
+            d.scrollIntoView({ block: "center" });
+          },
+        },
+      ]);
+      acoes.appendChild(btnMaisC);
+
+      if (!backendConvocacao()) {
+        acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
+      }
+      painel.appendChild(acoes);
     }
-    if (ehAdmin()) painel.appendChild(acoes);
 
     // --- Metas e vagas (fechado: aqui é consulta, não leitura diária) ---
     painel.appendChild(blocoMetas(candTipo));
+
+    // --- Lista ---
+    painel.appendChild(cabecalhoDaLista("Candidatos — " + nomeRegiao(candTipo)));
 
     // --- Busca (nome, e-mail, CPF ou região) ---
     var buscaWrap = el("div", { class: "painel__barra" });
@@ -2504,6 +2570,7 @@
 
     if (!lista.length) {
       painel.appendChild(el("p", { class: "cand-vazio", text: "Nenhum candidato encontrado para esta busca." }));
+      if (ehAdmin()) painel.appendChild(blocoImportar("candidatos", false));
       return;
     }
 
@@ -2716,7 +2783,7 @@
 
       if (ehAdmin()) {
         var tdEd = el("td", { class: "tabela__td cand-td-editar", "data-label": "Editar" });
-        var btnEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✎ Editar" });
+        var btnEd = botaoLapis("Editar a ficha de " + (c.nome || "este candidato"));
         btnEd.addEventListener("click", function () { abrirEdicaoCandidato(c); });
         tdEd.appendChild(btnEd);
         tr.appendChild(tdEd);
@@ -2735,6 +2802,8 @@
     var wrap = el("div", { class: "tabela-wrap" });
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
+
+    if (ehAdmin()) painel.appendChild(blocoImportar("candidatos", false));
   }
 
   // ============================================================
@@ -2845,12 +2914,9 @@
     if (!client) return Promise.resolve();
     return client.from(formTabela()).select("*").then(function (resp) {
       if (resp.error) {
-        var s = $("#form-status");
-        if (s) {
-          s.textContent = /does not exist|relation/i.test(resp.error.message || "")
-            ? "Tabela ainda não criada — rode sql/formacao.sql no Supabase."
-            : "Não foi possível carregar a formação: " + (resp.error.message || resp.error);
-        }
+        mostrarStatus("#form-status", /does not exist|relation/i.test(resp.error.message || "")
+          ? "Tabela ainda não criada — rode sql/formacao.sql no Supabase."
+          : "Não foi possível carregar a formação: " + (resp.error.message || resp.error));
         return;
       }
       formacao = resp.data || [];
@@ -4441,27 +4507,23 @@
       return pendenteDeTermo(f);
     }).length);
 
+    // --- Projeto: a primeira decisão de quem abre a aba ---
+    var noProjetoDe = function (t) {
+      return formacao.filter(function (f) {
+        return situacaoFormacao(f) !== "Desligado" && (t === "todos" || f.tipo === t);
+      }).length;
+    };
+    painel.appendChild(seletorSegmentado("Projeto", [
+      { id: "todos", nome: "Capital e Interior", detalhe: noProjetoDe("todos") + " no projeto" },
+      { id: "capital", nome: "Capital", detalhe: noProjetoDe("capital") + " no projeto" },
+      { id: "interior", nome: "Interior", detalhe: noProjetoDe("interior") + " no projeto" },
+    ], termosTipo, function (id) { termosTipo = id; termosBusca = ""; renderPainelTermos(); }));
+
     painel.appendChild(el("p", {
-      class: "pagina__sub",
+      class: "painel__nota",
       text: "Quem já tem termo de bolsa e quem ainda não tem. “Apto” é quem preencheu o " +
         "cadastro de bolsista e fez o treinamento: falta só o termo para começar a atuar.",
     }));
-
-    // --- Filtro por projeto ---
-    var filtro = el("div", { class: "cand-filtro" });
-    [
-      { id: "todos", rot: "Capital e Interior" },
-      { id: "capital", rot: "Capital" },
-      { id: "interior", rot: "Interior" },
-    ].forEach(function (t) {
-      var b = el("button", {
-        class: "cand-tab" + (termosTipo === t.id ? " cand-tab--ativa" : ""),
-        type: "button", text: t.rot,
-      });
-      b.addEventListener("click", function () { termosTipo = t.id; renderPainelTermos(); });
-      filtro.appendChild(b);
-    });
-    painel.appendChild(filtro);
 
     // --- Números ---
     painel.appendChild(el("div", { class: "stats stats--form" }, [
@@ -4489,6 +4551,7 @@
 
       var bExp = el("button", {
         class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar .xlsx",
+        title: "Planilha em Excel com a lista do recorte escolhido",
       });
       bExp.addEventListener("click", function () { exportarTermos(); });
       acoes.appendChild(bExp);
@@ -4502,16 +4565,12 @@
       { id: "aptos", rot: "Aptos", lista: aptos },
       { id: "ativos", rot: "Com termo", lista: ativos },
     ];
-    var verFiltro = el("div", { class: "cand-filtro" });
-    vistas.forEach(function (v) {
-      var b = el("button", {
-        class: "cand-tab" + (termosVer === v.id ? " cand-tab--ativa" : ""),
-        type: "button", text: v.rot + " (" + v.lista.length + ")",
-      });
-      b.addEventListener("click", function () { termosVer = v.id; renderPainelTermos(); });
-      verFiltro.appendChild(b);
-    });
-    painel.appendChild(verFiltro);
+    painel.appendChild(cabecalhoDaLista(
+      "Termos — " + (termosTipo === "todos" ? "Capital e Interior" : nomeRegiao(termosTipo)),
+      vistas.map(function (v) { return { id: v.id, rot: v.rot, qtd: v.lista.length }; }),
+      termosVer,
+      function (id) { termosVer = id; renderPainelTermos(); }
+    ));
 
     var lista = (vistas.filter(function (v) { return v.id === termosVer; })[0] || vistas[0]).lista;
 
@@ -4596,10 +4655,9 @@
           text: "📄 " + (f.termo_bolsa || "Emitido"),
         }));
       } else {
-        tdTermo.appendChild(tagPendente(aptoParaTermo(f) ? "aguardando termo" : "ainda não",
-          aptoParaTermo(f)
-            ? "Cadastro e treinamento feitos: o termo é o próximo passo."
-            : "Falta cadastro de bolsista ou treinamento antes do termo."));
+        tdTermo.appendChild(aptoParaTermo(f)
+          ? tagPendente("aguardando termo", "Cadastro e treinamento feitos: o termo é o próximo passo.")
+          : tagNaoApto("Falta cadastro de bolsista ou treinamento antes do termo."));
       }
       tr.appendChild(tdTermo);
 
@@ -4727,12 +4785,16 @@
     });
   }
 
-  // Bloco de importação da formação: enviar o CSV e ver o histórico de
-  // importações e sincronizações. É tarefa ocasional e de admin, então vive
-  // recolhido no fim da aba — abrir é um clique, e nada foi retirado.
-  function blocoImportarFormacao(aberto) {
+  // Bloco de importação (abas Candidatos e Formação): enviar o CSV e ver os
+  // registros de importação — e, na Formação, o da última sincronização. É
+  // tarefa ocasional e de admin, então vive recolhido no fim da aba; abrir é um
+  // clique, e nada foi retirado.
+  function blocoImportar(aba, aberto) {
+    var eForm = aba === "formacao";
     var caixa = el("details", { class: "recolhe recolhe--imp" });
-    if (aberto) caixa.setAttribute("open", "open");
+    // Recém-importado, o bloco fica aberto: o "✓ 45 linha(s) importada(s)" é a
+    // resposta ao que a pessoa acabou de fazer e não pode nascer escondido.
+    if (aberto || (eForm ? formMsg : candMsg)) caixa.setAttribute("open", "open");
     var resumo = el("summary", { class: "recolhe__resumo" });
     var seta = el("span", { class: "recolhe__seta", "aria-hidden": "true" });
     seta.innerHTML = '<svg viewBox="0 0 16 16" focusable="false">' +
@@ -4741,20 +4803,26 @@
     resumo.appendChild(seta);
     resumo.appendChild(el("span", { class: "recolhe__titulo", text: "Importar planilha e registros" }));
     resumo.appendChild(el("span", {
-      class: "recolhe__nota", text: "envio de CSV, última importação e última sincronização",
+      class: "recolhe__nota",
+      text: eForm ? "envio de CSV, última importação e última sincronização"
+        : "envio de CSV e histórico de importações",
     }));
     caixa.appendChild(resumo);
 
+    var tipoAtual = eForm ? formTipo : candTipo;
     var corpo = el("div", { class: "recolhe__corpo" });
     var barra = el("div", { class: "cand-importar" });
-    barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar formação:" }));
-    var selTipo = el("select", { class: "viz-select" });
+    barra.appendChild(el("span", {
+      class: "cand-imp-rot", text: eForm ? "Importar formação:" : "Importar inscrições:",
+    }));
+    var selTipo = el("select", { class: "viz-select", id: eForm ? "form-imp-tipo" : "cand-imp-tipo" });
     selTipo.appendChild(el("option", { value: "capital", text: "Capital" }));
     selTipo.appendChild(el("option", { value: "interior", text: "Interior" }));
-    selTipo.value = formTipo;
+    selTipo.value = tipoAtual;
     var file = el("input", { type: "file", accept: ".csv,text/csv", class: "cand-file" });
     var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Enviar CSV" });
-    var status = el("span", { class: "cand-status", id: "form-status", text: formMsg });
+    var idStatus = eForm ? "form-status" : "cand-status";
+    var status = el("span", { class: "cand-status", id: idStatus, text: eForm ? formMsg : candMsg });
     btn.addEventListener("click", function () {
       var f = file.files && file.files[0];
       if (!f) { status.textContent = "Escolha um arquivo CSV primeiro."; return; }
@@ -4762,15 +4830,17 @@
       btn.disabled = true; status.textContent = "Lendo arquivo…";
       var reader = new FileReader();
       reader.onload = function () {
-        importarFormacaoCSV(tipo, String(reader.result), f.name).then(function (r) {
-          formMsg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
+        var envio = eForm
+          ? importarFormacaoCSV(tipo, String(reader.result), f.name)
+          : importarCSV(tipo, String(reader.result), f.name);
+        envio.then(function (r) {
+          var msg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
             r.criadas + " nova(s), " + r.atualizadas + " atualizada(s).";
-          formTipo = tipo;
-          carregarFormacao();
+          if (eForm) { formMsg = msg; formTipo = tipo; carregarFormacao(); }
+          else { candMsg = msg; candTipo = tipo; carregarCandidatos(); }
         }).catch(function (e) {
           btn.disabled = false;
-          var s = $("#form-status");
-          if (s) s.textContent = "Erro ao importar: " + (e.message || e);
+          mostrarStatus("#" + idStatus, "Erro ao importar: " + (e.message || e));
         });
       };
       reader.onerror = function () { btn.disabled = false; status.textContent = "Não foi possível ler o arquivo."; };
@@ -4781,38 +4851,10 @@
     barra.appendChild(btn);
     barra.appendChild(status);
     corpo.appendChild(barra);
-    corpo.appendChild(blocoUltimaImportacao("formacao", formTipo));
-    corpo.appendChild(blocoUltimaSincronizacao());
+    corpo.appendChild(blocoUltimaImportacao(aba, tipoAtual));
+    if (eForm) corpo.appendChild(blocoUltimaSincronizacao());
     caixa.appendChild(corpo);
     return caixa;
-  }
-
-  // Seletor de projeto: é a primeira decisão de quem abre a aba, então vem
-  // antes de tudo, com rótulo e desenho próprios — as pastilhas de "No
-  // projeto / Desligados" mais abaixo são iguais e confundiam as duas coisas.
-  function seletorDeProjeto() {
-    var wrap = el("div", { class: "projeto" });
-    wrap.appendChild(el("span", { class: "projeto__rot", text: "Projeto" }));
-    var grupo = el("div", { class: "projeto__opcoes", role: "group", "aria-label": "Projeto" });
-    ["capital", "interior"].forEach(function (t) {
-      var n = formacao.filter(function (f) { return f.tipo === t; }).length;
-      var b = el("button", {
-        class: "projeto__btn" + (formTipo === t ? " projeto__btn--ativa" : ""),
-        type: "button",
-        "aria-pressed": formTipo === t ? "true" : "false",
-      });
-      b.appendChild(el("span", { class: "projeto__nome", text: t === "capital" ? "Capital" : "Interior" }));
-      b.appendChild(el("span", { class: "projeto__qtd", text: n + (n === 1 ? " bolsista" : " bolsistas") }));
-      b.addEventListener("click", function () {
-        if (formTipo === t) return;
-        formTipo = t;
-        formBusca = "";
-        renderPainelFormacao();
-      });
-      grupo.appendChild(b);
-    });
-    wrap.appendChild(grupo);
-    return wrap;
   }
 
   function renderPainelFormacao() {
@@ -4820,7 +4862,11 @@
     if (!painel) return;
     painel.innerHTML = "";
 
-    painel.appendChild(seletorDeProjeto());
+    painel.appendChild(seletorDeProjeto(formTipo, function (t) {
+      return formacao.filter(function (f) { return f.tipo === t; }).length;
+    }, "bolsista", function (t) {
+      formTipo = t; formBusca = ""; renderPainelFormacao();
+    }));
 
     var doTipo = formacao.filter(function (f) { return f.tipo === formTipo; });
     if (!doTipo.length) {
@@ -4829,7 +4875,7 @@
         text: "Nenhum bolsista importado ainda para " + nomeRegiao(formTipo) +
           (ehAdmin() ? ". Envie o CSV de formação no bloco abaixo." : "."),
       }));
-      if (ehAdmin()) painel.appendChild(blocoImportarFormacao(true));
+      if (ehAdmin()) painel.appendChild(blocoImportar("formacao", true));
       return;
     }
 
@@ -4923,25 +4969,10 @@
     // --- Lista: no projeto x desligados ---
     var noProjeto = doTipo.filter(function (f) { return situacaoFormacao(f) !== "Desligado"; });
     var saidos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
-    var listaCab = el("div", { class: "lista-cab" });
-    listaCab.appendChild(el("h3", {
-      class: "lista-cab__titulo",
-      text: "Bolsistas — " + nomeRegiao(formTipo),
-    }));
-    var verFiltro = el("div", { class: "cand-filtro lista-cab__filtro" });
-    [
+    painel.appendChild(cabecalhoDaLista("Bolsistas — " + nomeRegiao(formTipo), [
       { id: "projeto", rot: "No projeto", qtd: noProjeto.length },
       { id: "desligados", rot: "Desligados", qtd: saidos.length },
-    ].forEach(function (v) {
-      var b = el("button", {
-        class: "cand-tab cand-tab--mini" + (formVer === v.id ? " cand-tab--ativa" : ""),
-        type: "button", text: v.rot + " (" + v.qtd + ")",
-      });
-      b.addEventListener("click", function () { formVer = v.id; renderPainelFormacao(); });
-      verFiltro.appendChild(b);
-    });
-    listaCab.appendChild(verFiltro);
-    painel.appendChild(listaCab);
+    ], formVer, function (id) { formVer = id; renderPainelFormacao(); }));
     doTipo = formVer === "desligados" ? saidos : noProjeto;
 
     // --- Busca ---
@@ -4979,7 +5010,7 @@
           : formVer === "desligados" ? "Ninguém foi desligado nesta região."
           : "Nenhum bolsista no projeto nesta região.",
       }));
-      if (ehAdmin()) painel.appendChild(blocoImportarFormacao(false));
+      if (ehAdmin()) painel.appendChild(blocoImportar("formacao", false));
       return;
     }
 
@@ -5064,10 +5095,15 @@
           "data-label": ehAdmin() ? "Editar" : "Ação",
         });
         if (podeEditarGrupo(f)) {
-          var btnEd = el("button", {
-            class: "btn btn--secundario btn--pequeno", type: "button",
-            text: ehAdmin() ? "✎ Editar" : "+ Definir grupo",
-          });
+          // Só o lápis: a coluna inteira dizia "Editar" em cada linha e era o
+          // que empurrava a tabela para fora da tela. O cabeçalho e o
+          // aria-label continuam nomeando a ação.
+          var btnEd = ehAdmin()
+            ? botaoLapis("Editar a ficha de " + (f.nome || "este bolsista"))
+            : el("button", {
+                class: "btn btn--secundario btn--pequeno", type: "button",
+                text: "+ Definir grupo",
+              });
           btnEd.addEventListener("click", function () { abrirEdicaoFormacao(f); });
           tdEd.appendChild(btnEd);
         } else {
@@ -5093,7 +5129,7 @@
     wrap.appendChild(tabela);
     painel.appendChild(wrap);
 
-    if (ehAdmin()) painel.appendChild(blocoImportarFormacao(false));
+    if (ehAdmin()) painel.appendChild(blocoImportar("formacao", false));
   }
 
   // ---------- Abas ----------
@@ -5977,26 +6013,30 @@
     if (!podeVerDados()) { painel.innerHTML = ""; return; }
     painel.innerHTML = "";
 
-    // ----- Barra de filtros (tipo, período e região) -----
-    var barra = el("div", { class: "viz-filtros" });
+    // ----- Escolhas principais: qual relatório e qual projeto -----
+    // Antes as duas viviam em barras diferentes e com desenhos diferentes (uma
+    // acima e outra abaixo dos filtros), e ninguém achava onde trocar de
+    // projeto. Agora são o mesmo controle, lado a lado, no topo.
+    var topo = el("div", { class: "topo-controles" });
+    topo.appendChild(seletorSegmentado("Relatório", [
+      { id: "inscricoes", nome: "Inscrições no SIPE" },
+      { id: "entrevistas", nome: "Entrevistas" },
+      { id: "formacao", nome: "Formação" },
+      { id: "movimentacao", nome: "Entradas e saídas" },
+    ], vizAba, function (id) { vizAba = id; renderDados(); }));
+    topo.appendChild(seletorSegmentado("Projeto", [
+      { id: "todos", nome: "Capital e Interior" },
+      { id: "capital", nome: "Capital" },
+      { id: "interior", nome: "Interior" },
+    ], vizTipo, function (t) {
+      vizTipo = t;
+      if (t === "capital") vizRegiao = "";
+      renderDados();
+    }));
+    painel.appendChild(topo);
 
-    // Tipo
-    var gTipo = el("div", { class: "viz-grupo" });
-    gTipo.appendChild(el("span", { class: "viz-filtro__rotulo", text: "Tipo:" }));
-    ["todos", "capital", "interior"].forEach(function (t) {
-      var b = el("button", {
-        class: "viz-filtro" + (vizTipo === t ? " viz-filtro--ativo" : ""),
-        type: "button",
-        text: t === "todos" ? "Todas" : t === "capital" ? "Capital" : "Interior",
-      });
-      b.addEventListener("click", function () {
-        vizTipo = t;
-        if (t === "capital") vizRegiao = "";
-        renderDados();
-      });
-      gTipo.appendChild(b);
-    });
-    barra.appendChild(gTipo);
+    // ----- Barra de filtros (período e região) -----
+    var barra = el("div", { class: "viz-filtros" });
 
     // Período (data da entrevista)
     var gData = el("div", { class: "viz-grupo viz-grupo--periodo" });
@@ -6040,25 +6080,6 @@
     }
 
     painel.appendChild(barra);
-
-    // ----- Sub-abas: cada etapa do funil tem a sua tela -----
-    // Empilhar as três seções numa página só obrigava a rolar muito para
-    // comparar qualquer coisa; separadas, cada etapa cabe na tela.
-    var pills = el("div", { class: "cand-filtro" });
-    [
-      { id: "inscricoes", rot: "Inscrições no SIPE" },
-      { id: "entrevistas", rot: "Entrevistas" },
-      { id: "formacao", rot: "Formação" },
-      { id: "movimentacao", rot: "Entradas e saídas" },
-    ].forEach(function (a) {
-      var b = el("button", {
-        class: "cand-tab" + (vizAba === a.id ? " cand-tab--ativa" : ""),
-        type: "button", text: a.rot,
-      });
-      b.addEventListener("click", function () { vizAba = a.id; renderDados(); });
-      pills.appendChild(b);
-    });
-    painel.appendChild(pills);
 
     if (vizAba === "inscricoes") { painel.appendChild(blocoFunilCandidatos()); return; }
     if (vizAba === "formacao") { painel.appendChild(blocoFormacaoViz()); return; }

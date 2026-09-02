@@ -128,6 +128,15 @@ body.tela-cheia .dash {
   padding: 7px 14px;
   font-size: 13px;
 }
+/* Botão quadrado só com o ícone (o lápis das colunas "Editar"). O nome da
+   ação vive no cabeçalho da coluna, no title e no aria-label. */
+.btn--icone {
+  padding: 6px 0;
+  width: 34px;
+  font-size: 15px;
+  line-height: 1.1;
+  text-align: center;
+}
 
 .dash__carregando {
   color: var(--cor-texto-suave);
@@ -1259,11 +1268,38 @@ input[type="date"].viz-data {
 .projeto__btn:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .projeto__btn { transition: none; } }
 
+/* Sem contagem embaixo (aba Visualização de dados), o nome fica centralizado
+   sozinho em vez de encostado à esquerda. */
+.projeto__btn--simples { align-items: center; justify-content: center; }
+
+/* Dois seletores lado a lado (Relatório + Projeto), que empilham quando não
+   cabem — em vez de duas barras diferentes em alturas diferentes da página. */
+.topo-controles {
+  display: flex;
+  gap: 10px 28px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.topo-controles .projeto { margin-bottom: 0; }
+
+/* Nota explicativa no topo de um painel (aba Termos de Bolsa) */
+.painel__nota {
+  margin: -4px 0 16px;
+  color: var(--cor-texto-suave);
+  font-size: 13px;
+  max-width: 78ch;
+}
+
 @media (max-width: 760px) {
-  /* No celular as duas opções dividem a largura: ninguém precisa procurar. */
+  /* No celular as opções dividem a largura: ninguém precisa procurar. Com
+     duas ficam lado a lado; com três ou quatro, duas por linha. */
   .projeto { flex-direction: column; align-items: stretch; gap: 6px; }
-  .projeto__opcoes { display: grid; grid-template-columns: 1fr 1fr; }
-  .projeto__btn { align-items: center; padding: 9px 8px; }
+  .projeto__opcoes { flex-wrap: wrap; }
+  .projeto__btn { flex: 1 1 44%; align-items: center; padding: 9px 8px; text-align: center; }
+  .projeto__nome { font-size: 14px; }
+  .topo-controles { display: block; }
+  .topo-controles .projeto { margin-bottom: 12px; }
 }
 
 /* Cabeçalho da lista: separa o título "Bolsistas" e o recorte

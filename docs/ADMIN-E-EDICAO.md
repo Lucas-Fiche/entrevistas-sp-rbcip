@@ -143,6 +143,10 @@ Mostra, para Capital e Interior:
 - a tabela com cadastro, treinamento, situação do termo (com o link do
   documento, quando existe) e data de entrada no projeto.
 
+Na coluna *Termo de bolsa*, **📄 Emitido** é quem já tem o documento,
+**aguardando termo** (âmbar) é quem cumpriu as duas etapas e só espera o termo,
+e **Não apto** (vermelho) é quem ainda tem cadastro ou treinamento pendente.
+
 **Apto** quer dizer: cadastro de bolsista preenchido **e** treinamento
 realizado, **sem** termo e **sem** desligamento. É quem já pode começar assim
 que o termo sair — a linha ganha a marca `★ apto` embaixo do nome.
@@ -363,10 +367,11 @@ pode ser reimportado pelo próprio sistema.
 
 ### Registro das importações
 
-Abaixo da barra de importação, cada aba mostra **quando foi a última
-importação**, qual arquivo foi enviado, quantas linhas ele tinha, quantas fichas
-nasceram, quantas foram atualizadas e quem enviou. O link *ver histórico* abre
-as dez últimas.
+Dentro do bloco **Importar planilha e registros** (recolhido no fim das abas
+*Candidatos* e *Formação* — veja a seção 10), logo abaixo da barra de envio,
+cada aba mostra **quando foi a última importação**, qual arquivo foi enviado,
+quantas linhas ele tinha, quantas fichas nasceram, quantas foram atualizadas e
+quem enviou. O link *ver histórico* abre as dez últimas.
 
 Isso vive na tabela `importacoes` e cada ficha guarda também a data em que uma
 importação a tocou pela última vez (`importado_em`) — útil para achar quem
@@ -607,22 +612,42 @@ escolha fica salva no navegador — quem prefere tela cheia entra sempre assim.
 
 ---
 
-## 10. A aba Formação por dentro
+## 10. O desenho das abas
 
-A aba juntava, na mesma altura da página, coisas de uso diário e coisas de uso
-raro — e a troca **Capital ⇄ Interior** ficava no meio, com o mesmo desenho do
-filtro *No projeto / Desligados*. **Nenhuma informação e nenhuma ação saíram**;
-elas foram reordenadas por frequência de uso.
+As abas juntavam, na mesma altura da página, coisas de uso diário e coisas de
+uso raro — e a troca **Capital ⇄ Interior** ficava no meio, com o mesmo desenho
+dos filtros secundários. **Nenhuma informação e nenhuma ação saíram**; elas
+foram reordenadas por frequência de uso, e as quatro abas passaram a seguir a
+mesma sequência:
 
-A ordem agora é:
+> **Projeto → resumo → ações → blocos de consulta → lista → importação**
 
-1. **Projeto** — Capital ou Interior, no topo, com o rótulo `PROJETO` ao lado e
-   a contagem de bolsistas embaixo de cada nome. É a primeira decisão de quem
-   abre a aba, então é a primeira coisa da tela. No celular as duas opções
-   dividem a largura, uma ao lado da outra.
-2. **Resumo** — os cartões (Bolsistas, Ativos, Aguardando termo, Cadastro
-   pendente, Sem treinamento, Desligados) do projeto escolhido. No celular eles
-   ficam compactos, para a lista não começar longe demais.
+### O seletor de projeto
+
+Em *Candidatos*, *Formação*, *Termos de Bolsa* e *Visualização de dados*, a
+escolha do projeto é a **primeira coisa da tela**: um bloco com o rótulo
+`PROJETO` ao lado e, dentro de cada opção, quantas pessoas ela tem. É maior e
+tem desenho próprio de propósito — os recortes secundários (*No projeto /
+Desligados*, *Sem termo / Aptos / Com termo*) ficam em pastilhas menores, no
+cabeçalho da lista, para as duas coisas não se confundirem. No celular as
+opções dividem a largura, duas por linha.
+
+### Aba Candidatos
+
+1. **Projeto** (Capital / Interior).
+2. **Ações** (só administradores): **✉ Convocar todos para entrevista (N)** e
+   **⬇ Baixar CSV** à vista, e um menu **⚙ Mais** com *🔎 Verificar entregas* e
+   *📥 Importar planilha (CSV)*.
+3. **Metas e vagas**, fechado.
+4. **Candidatos — Capital/Interior**: busca e tabela.
+5. **Importar planilha e registros**, recolhido no fim.
+
+### Aba Formação
+
+1. **Projeto** (Capital / Interior), com a contagem de bolsistas.
+2. **Resumo** — Bolsistas, Ativos, Aguardando termo, Cadastro pendente, Sem
+   treinamento, Desligados. No celular os cartões ficam compactos, para a lista
+   não começar longe demais.
 3. **Ações** (só administradores) — três controles no lugar de seis botões:
    - **🔄 Sincronizar planilhas**, que é a rotina, continua à vista;
    - **⬇ Baixar**, um menu com a planilha inteira (CSV com desligados, Excel só
@@ -631,14 +656,51 @@ A ordem agora é:
      *🧩 Completar pela inscrição (N)* e *📥 Importar planilha (CSV)*. Os dois
      do meio só aparecem quando há o que fazer, e o número diz quanto.
 4. **Metas e vagas**, fechado como antes.
-5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados* em
-   pastilhas menores (para não se confundir com o seletor de projeto), a busca e
-   a tabela.
-6. **Importar planilha e registros**, recolhido no fim: o envio do CSV, a última
-   importação e a última sincronização. É tarefa ocasional; um clique abre, e o
-   item *📥 Importar planilha* do menu **⚙ Mais** abre e rola até ele. Quando o
-   projeto ainda não tem nenhum bolsista, esse bloco vem **aberto** — é o que
-   falta fazer.
+5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados*, a
+   busca e a tabela.
+6. **Importar planilha e registros**, recolhido no fim.
 
-Quem tem perfil de leitura, supervisor ou financeiro vê a aba sem os itens 3 e
-6: o seletor de projeto, o resumo, as metas e a lista.
+### Aba Termos de Bolsa
+
+1. **Projeto** (Capital e Interior / Capital / Interior) e a explicação do que
+   é "apto".
+2. **Resumo** — No projeto, Com termo, Sem termo, Aptos, Aguardando etapa.
+3. **Ações** (só administradores): **✉ Avisar o financeiro (N)**, **⬇ Baixar
+   .xlsx** e a linha que diz se o envio automático está ligado.
+4. **Termos — …**, com o recorte *Sem termo / Aptos / Com termo*, a busca e a
+   tabela.
+
+Na coluna *Termo de bolsa*, quem ainda não pode receber o termo aparece como
+**Não apto**, em vermelho — falta o cadastro de bolsista ou o treinamento.
+Quem já cumpriu as duas etapas aparece como **aguardando termo**, em âmbar: é a
+vez dele.
+
+### Aba Visualização de dados
+
+O **Relatório** (*Inscrições no SIPE*, *Entrevistas*, *Formação*, *Entradas e
+saídas*) e o **Projeto** viraram dois seletores iguais, lado a lado no topo —
+antes um ficava acima e o outro abaixo da barra de filtros, com desenhos
+diferentes. *Período* e *Região* continuam logo abaixo, junto com **Limpar
+filtros**.
+
+### O bloco de importação
+
+*Candidatos* e *Formação* têm, recolhido no fim da página, o bloco **Importar
+planilha e registros**: o envio do CSV, a última importação (com o histórico) e,
+na Formação, a última sincronização. É tarefa ocasional; um clique abre, e o
+item *📥 Importar planilha* do menu **⚙ Mais** abre e rola até ele. Ele vem
+**aberto** quando o projeto ainda não tem nenhuma ficha (é o que falta fazer) e
+quando há uma mensagem de importação para ler — uma confirmação ou um erro nunca
+nasce escondido.
+
+Quem tem perfil de leitura, supervisor ou financeiro vê as abas sem as ações e
+sem o bloco de importação: o seletor de projeto, o resumo, as metas e a lista.
+
+### A coluna "Editar"
+
+Nas tabelas de *Candidatos* e *Formação*, o botão de edição é só o **lápis**
+(✎). O texto "Editar" repetido em toda linha custava uma coluna inteira de
+largura e era o que empurrava a tabela para fora da tela; o nome da ação
+continua no cabeçalho da coluna, no "passe o mouse" e para quem usa leitor de
+tela. Para o supervisor, que define grupo em vez de editar, o botão continua
+escrito: **+ Definir grupo**.
