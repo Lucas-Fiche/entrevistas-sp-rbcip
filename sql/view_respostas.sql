@@ -12,9 +12,19 @@
 --  1. Cole este script no SQL Editor do Supabase e clique em Run.
 --  2. Depois, em Table Editor, aparece a view "entrevistas_detalhado".
 --     (Ou rode: select * from public.entrevistas_detalhado;)
+--
+--  Pode rodar quantas vezes quiser: a view é recriada do zero a cada execução.
 -- ============================================================
 
-create or replace view public.entrevistas_detalhado as
+-- O `drop` antes do `create` é necessário, e não é perigoso: uma view não
+-- guarda dado nenhum — é só uma forma de olhar a tabela `entrevistas`, que
+-- continua intacta. Sem ele, o Postgres recusa qualquer versão nova que
+-- acrescente uma coluna no MEIO da lista ou renomeie alguma, com o erro
+-- "42P16: cannot change name of view column". Com o drop, cada execução
+-- monta a view do jeito que este arquivo descreve.
+drop view if exists public.entrevistas_detalhado;
+
+create view public.entrevistas_detalhado as
 select
   e.id,
   e.created_at,
