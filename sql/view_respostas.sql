@@ -22,7 +22,7 @@ select
   e.candidato,
   e.data_entrevista,
   e.entrevistador,
-  e.perfil,                                                        -- "Avaliador (Entrevistador)" ou "Supervisor"
+  e.perfil,                                                        -- sempre "Avaliador (Entrevistador)"
   e.nao_compareceu,
   e.nao_cumpre_requisitos,
   e.recomendacao,
@@ -45,12 +45,7 @@ select
   e.respostas->>'inicio_imediato'          as inicio_imediato,           -- Capital
   e.respostas->>'disponibilidade_formacao' as disponibilidade_formacao,  -- Interior
   e.respostas->>'disponibilidade_horario'  as disponibilidade_horario,   -- Interior
-  e.respostas->>'perfil_avaliado'          as perfil_avaliado,           -- qual roteiro foi aplicado
 
-  -- ==========================================================
-  --  PERFIL AVALIADOR (ENTREVISTADOR) — só preenchido quando
-  --  perfil_avaliado = 'Avaliador (Entrevistador)'
-  -- ==========================================================
   -- Bloco 1 (STAR) — texto + nota (1 a 5)
   e.respostas->>'exp_entrevistas'              as exp_entrevistas,
   e.respostas->>'exp_entrevistas_nota'         as exp_entrevistas_nota,
@@ -79,43 +74,6 @@ select
   e.respostas->>'lgpd_etica'               as lgpd_etica,
   e.respostas->>'lgpd_etica_aval'          as lgpd_etica_aval,
 
-  -- ==========================================================
-  --  PERFIL SUPERVISOR — só preenchido quando
-  --  perfil_avaliado = 'Supervisor'
-  -- ==========================================================
-  -- Bloco 1 (STAR) — texto + nota (1 a 5)
-  e.respostas->>'sup_gestao_equipes'             as sup_gestao_equipes,
-  e.respostas->>'sup_gestao_equipes_nota'        as sup_gestao_equipes_nota,
-  e.respostas->>'sup_relatorios'                 as sup_relatorios,
-  e.respostas->>'sup_relatorios_nota'            as sup_relatorios_nota,
-  e.respostas->>'sup_processos_avaliativos'      as sup_processos_avaliativos,
-  e.respostas->>'sup_processos_avaliativos_nota' as sup_processos_avaliativos_nota,
-  e.respostas->>'sup_treinamento'                as sup_treinamento,
-  e.respostas->>'sup_treinamento_nota'           as sup_treinamento_nota,
-  e.respostas->>'sup_conflitos'                  as sup_conflitos,
-  e.respostas->>'sup_conflitos_nota'             as sup_conflitos_nota,
-  e.respostas->>'sup_organizacao_dados'          as sup_organizacao_dados,
-  e.respostas->>'sup_organizacao_dados_nota'     as sup_organizacao_dados_nota,
-  e.respostas->>'sup_metodologia'                as sup_metodologia,
-  e.respostas->>'sup_metodologia_nota'           as sup_metodologia_nota,
-
-  -- Bloco 2 (Apto/Não Apto)
-  e.respostas->>'sup_alteracao_respostas'        as sup_alteracao_respostas,
-  e.respostas->>'sup_alteracao_respostas_aval'   as sup_alteracao_respostas_aval,
-  e.respostas->>'sup_desgaste_parceiros'         as sup_desgaste_parceiros,
-  e.respostas->>'sup_desgaste_parceiros_aval'    as sup_desgaste_parceiros_aval,
-  e.respostas->>'sup_decisao_dificil'            as sup_decisao_dificil,
-  e.respostas->>'sup_decisao_dificil_aval'       as sup_decisao_dificil_aval,
-
-  -- Bloco 3 (Ética e LGPD)
-  e.respostas->>'sup_conflito_interesses'        as sup_conflito_interesses,
-  e.respostas->>'sup_conflito_interesses_aval'   as sup_conflito_interesses_aval,
-  e.respostas->>'sup_lideranca_lgpd'             as sup_lideranca_lgpd,
-  e.respostas->>'sup_lideranca_lgpd_aval'        as sup_lideranca_lgpd_aval,
-
-  -- ==========================================================
-  --  Comuns aos dois perfis
-  -- ==========================================================
   -- Bloco 4 (Anuência e Conformidade) — ciências, não pontuam
   e.respostas->>'anuencia_antecedentes'      as anuencia_antecedentes,
   e.respostas->>'anuencia_transporte'        as anuencia_transporte,
