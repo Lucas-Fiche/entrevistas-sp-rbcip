@@ -1,8 +1,8 @@
 # Entrevistas SP — Processo Seletivo RBCIP
 
 Sistema para conduzir e acompanhar as **entrevistas estruturadas** do processo
-seletivo da RBCIP (perfil **Avaliador / Entrevistador**), em substituição ao
-Google Forms.
+seletivo da RBCIP (perfis **Avaliador / Entrevistador** e **Supervisor**), em
+substituição ao Google Forms.
 
 - **Formulários** (Capital e Interior) que o entrevistador preenche durante a entrevista.
 - **Dashboard** (com login) para acompanhar candidatos, pontuações, filtros, gráficos, mapa e exportação.
@@ -156,7 +156,7 @@ Tabela `public.entrevistas` (criada por `sql/schema.sql`):
 | `id`                    | uuid        | Gerado automaticamente                              |
 | `created_at`            | timestamptz | Data/hora do registro (automático)                  |
 | `tipo`                  | text        | `capital` ou `interior`                             |
-| `perfil`                | text        | Sempre `Avaliador (Entrevistador)`                  |
+| `perfil`                | text        | `Avaliador (Entrevistador)` ou `Supervisor`         |
 | `candidato`             | text        | Nome do candidato                                   |
 | `data_entrevista`       | text        | Data informada na entrevista                        |
 | `entrevistador`         | text        | Nome do entrevistador                               |
@@ -164,7 +164,7 @@ Tabela `public.entrevistas` (criada por `sql/schema.sql`):
 | `nao_cumpre_requisitos` | boolean     | Marcado como reprovado por requisitos               |
 | `recomendacao`          | text        | Recomendação final                                  |
 | `pontuacao_total`       | integer     | Pontuação obtida (para ranking)                     |
-| `pontuacao_maxima`      | integer     | Pontuação máxima possível (36)                      |
+| `pontuacao_maxima`      | integer     | Máximo possível no roteiro (36 ou 41)               |
 | `respostas`             | jsonb       | **Todas** as respostas do formulário                |
 
 ---
@@ -173,15 +173,27 @@ Tabela `public.entrevistas` (criada por `sql/schema.sql`):
 
 Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 
-- **Compartilham** os mesmos blocos de avaliação (Blocos 1 a 4 + observação final),
+- **Compartilham** os mesmos blocos de avaliação (Blocos 1 a 5 + observação final),
   definidos **uma única vez** em `js/forms-schema.js`. Diferem apenas na seção de
   **Elegibilidade** (a Capital confirma residência na região central; o Interior
   pergunta a cidade e a **região de atuação**).
-- **Pontuação automática** (para ranquear) — o bloco de *Elegibilidade* não pontua:
-  - Bloco 1 (STAR): 6 notas de 1 a 5 → até **30 pontos**;
-  - "Adequado/Inadequado" (Blocos 2 e 3): 1 ponto por "Adequado" → até **5**;
+- **Dois perfis num formulário só.** A pergunta *"Qual perfil está sendo
+  avaliado?"*, no fim da Elegibilidade, escolhe o roteiro:
+  - **Avaliador (Entrevistador)** — Blocos 1 a 3 de campo (6 competências STAR);
+  - **Supervisor** — Blocos 1 a 3 de gestão (7 competências STAR).
+
+  Só o roteiro escolhido aparece; o outro não é exigido, não pontua e não vai
+  para o registro. **Bloco 4 (Anuência e Conformidade)** e **Bloco 5
+  (Fechamento)** são comuns aos dois.
+- **Pontuação automática** (para ranquear) — *Identificação*, *Elegibilidade* e
+  o *Bloco 4* (que são ciências, não avaliação) não pontuam:
+  - Bloco 1 (STAR): 1 a 5 por competência → até **30** (Avaliador) ou **35**
+    (Supervisor);
+  - "Apto/Não Apto" (Blocos 2 e 3): 1 ponto por "Apto" → até **5**;
   - "Sim/Não" do Conflito de Interesses: 1 ponto para "Sim" → até **1**;
-  - **Total máximo: 36 pontos**, exibido ao vivo enquanto se preenche.
+  - **Total máximo: 36 (Avaliador) ou 41 (Supervisor)**, exibido ao vivo
+    enquanto se preenche. As faixas ("pontuação boa", "excelente"…) são
+    proporcionais ao máximo do roteiro, não a um número fixo.
 - **Marcadores de saída rápida:** *"candidato faltante"* e *"não cumpre requisitos"*
   ocultam as seções não aplicáveis e ajustam a validação. Faltante/reprovado **não
   pontuam**.
@@ -199,7 +211,8 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 `dashboard.html` — **acesso restrito por login** (Supabase Auth). Três abas:
 
 - **Capital** e **Interior:** tabela das entrevistas com busca, ordenação por
-  coluna (padrão: ranking por pontuação), **Recomendação colorida** (verde =
+  coluna (padrão: ranking por pontuação), **Perfil** avaliado (Avaliador ou
+  Supervisor), **Recomendação colorida** (verde =
   aprovado, vermelho = reprovado), botão **Detalhes** (com **Baixar PDF**) e
   **Baixar CSV / Baixar Excel**. No celular cada entrevista vira um **cartão**,
   com um seletor "Ordenar por" no lugar do clique no cabeçalho.

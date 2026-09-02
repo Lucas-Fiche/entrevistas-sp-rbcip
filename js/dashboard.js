@@ -71,6 +71,14 @@
     if (r.pontuacao_total === null || r.pontuacao_total === undefined) return "—";
     return r.pontuacao_total + (r.pontuacao_maxima ? " / " + r.pontuacao_maxima : "");
   }
+  // "Avaliador (Entrevistador)" ocupa a coluna inteira; o essencial é qual dos
+  // dois roteiros foi aplicado.
+  function perfilCurto(r) {
+    var p = r.perfil || "";
+    if (/supervisor/i.test(p)) return "Supervisor";
+    if (/avaliador|entrevistador/i.test(p)) return "Avaliador";
+    return p || "—";
+  }
 
   // ---------- Estado ----------
   var cfg = window.SUPABASE_CONFIG || {};
@@ -95,6 +103,10 @@
     },
     { chave: "data", titulo: "Data", valor: function (r) { return formatarData(r.data_entrevista); }, ord: function (r) { return r.data_entrevista || ""; } },
     { chave: "entrevistador", titulo: "Entrevistador", valor: function (r) { return r.entrevistador || "—"; } },
+    // Desde 02/09/2026 a entrevista avalia dois perfis, com roteiros e máximos
+    // de pontuação diferentes. Sem esta coluna a lista misturaria os dois sem
+    // dizer qual é qual.
+    { chave: "perfil", titulo: "Perfil", valor: perfilCurto, tituloCel: function (r) { return r.perfil || ""; } },
     { chave: "pontuacao", titulo: "Pontuação", num: true, valor: pontuacaoTexto, ord: function (r) { return r.pontuacao_total == null ? -1 : r.pontuacao_total; } },
     {
       chave: "recomendacao", titulo: "Recomendação",
@@ -109,7 +121,7 @@
 
   // ---------- Exportação (CSV / XLSX) ----------
   // IDs já cobertos por colunas fixas ou pelo Status (evita duplicar).
-  var SKIP_EXPORT = ["nome_candidato", "cpf_candidato", "data_entrevista", "nome_entrevistador", "nao_compareceu", "nao_cumpre_requisitos", "recomendacao_final"];
+  var SKIP_EXPORT = ["nome_candidato", "cpf_candidato", "data_entrevista", "nome_entrevistador", "nao_compareceu", "nao_cumpre_requisitos", "recomendacao_final", "perfil_avaliado"];
 
   function colunasExport(tipo) {
     var cols = [
@@ -119,6 +131,7 @@
       { h: "CPF", g: function (r) { return cpfEntrevista(r); } },
       { h: "Data da entrevista", g: function (r) { return formatarData(r.data_entrevista); } },
       { h: "Entrevistador", g: function (r) { return r.entrevistador || ""; } },
+      { h: "Perfil avaliado", g: function (r) { return r.perfil || ""; } },
       { h: "Pontuação", g: function (r) { return r.pontuacao_total == null ? "" : r.pontuacao_total; } },
       { h: "Pontuação máxima", g: function (r) { return r.pontuacao_maxima == null ? "" : r.pontuacao_maxima; } },
       { h: "Recomendação", g: function (r) { return r.recomendacao || ""; } },

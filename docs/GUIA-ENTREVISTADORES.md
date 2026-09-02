@@ -31,12 +31,39 @@ Na página inicial, escolha:
 
 ---
 
-## 3. Preencher
+## 3. Escolher o perfil avaliado
+
+No fim da seção **Elegibilidade e Disponibilidade** há a pergunta
+**"Qual perfil está sendo avaliado?"**, com duas respostas:
+
+- **Avaliador (Entrevistador)** — o roteiro de sempre.
+- **Supervisor** — o roteiro de gestão (equipes, relatórios consolidados,
+  processos avaliativos, treinamento, resolução de conflitos, organização de
+  dados e metodologia quali-quanti).
+
+Os Blocos 1, 2 e 3 mudam conforme a resposta: **aparece só o roteiro do perfil
+escolhido**. Se você trocar a resposta, o outro roteiro aparece no lugar — o que
+já tiver escrito continua guardado no rascunho.
+
+Os **Blocos 4 (Anuência e Conformidade)** e **5 (Fechamento)** são iguais para
+os dois perfis.
+
+> A pontuação máxima é diferente em cada roteiro (36 no do Avaliador, 41 no do
+> Supervisor) porque o número de perguntas avaliadas é diferente. Por isso o
+> painel mostra sempre "X / máximo", e não só o total.
+
+---
+
+## 4. Preencher
 
 - Campos com **\*** são obrigatórios.
 - A **data da entrevista** já vem preenchida com o dia de hoje.
 - Nas perguntas de **nota (1 a 5)**, passe o mouse sobre cada número para ver o que
   significa. A **pontuação** do candidato aparece no rodapé, atualizando sozinha.
+- No **Bloco 4 (Anuência e Conformidade)**, você confirma com o candidato as
+  condições do projeto (certidões de antecedentes, transporte da RBCIP, LGPD e
+  Código de Ética, atividade de pesquisa e remuneração como bolsista). São
+  **ciências**: responder "Sim" aqui **não soma ponto**.
 - Seu texto é **salvo automaticamente** no navegador enquanto você digita. Se a
   página fechar sem querer, ao reabrir aparece *"Rascunho recuperado
   automaticamente"* com o que você já havia escrito.
@@ -48,7 +75,7 @@ Na página inicial, escolha:
 
 ---
 
-## 4. Enviar
+## 5. Enviar
 
 Clique em **Enviar**. Deu certo quando aparece a tela verde **"Formulário
 enviado!"**.
@@ -59,7 +86,7 @@ enviado!"**.
 
 ---
 
-## 5. Perguntas frequentes
+## 6. Perguntas frequentes
 
 **Preciso de senha?** Não. O login é só para o gestor ver o painel de resultados.
 

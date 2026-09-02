@@ -245,6 +245,13 @@
 
   function renderSecao(secao) {
     var frag = el("section", { class: "secao", "data-chave": secao.chave || "" });
+    // Seção condicional (os blocos de cada perfil): nasce escondida e é
+    // revelada por atualizarCondicionais() quando o perfil é escolhido.
+    if (secao.dependeDe) {
+      frag.classList.add("oculto");
+      frag.setAttribute("data-depende-campo", secao.dependeDe.campo);
+      frag.setAttribute("data-depende-valor", secao.dependeDe.valor);
+    }
     if (secao.titulo) {
       var cab = el("div", { class: "secao__cabecalho" });
       cab.appendChild(el("h2", { class: "secao__titulo", text: secao.titulo }));
@@ -304,11 +311,19 @@
     var total = 0;
     var maximo = 0;
     schema.secoes.forEach(function (s) {
-      // Só o Perfil Avaliador é pontuado. Identificação e Elegibilidade são
-      // registro administrativo: ter inscrição no SIPE ou ter sido indicado por
-      // alguém não é mérito e não pode somar ponto.
+      // Identificação e Elegibilidade são registro administrativo: ter
+      // inscrição no SIPE, ter sido indicado por alguém ou estar sendo
+      // avaliado como supervisor não é mérito e não pode somar ponto.
       if (s.chave === "elegibilidade" || s.chave === "identificacao") return;
+      // A seção do perfil que não foi escolhido não entra nem no total nem no
+      // máximo — senão o denominador contaria os dois roteiros de uma vez.
+      if (!secaoAtiva(form, schema, s)) return;
       s.perguntas.forEach(function (p) {
+        // "Está ciente que…" é ciência, não avaliação. Responder "Sim" a uma
+        // condição do projeto não é mérito (foi esse engano que o
+        // sql/corrigir-pontuacao.sql precisou desfazer uma vez).
+        if (p.semPontuacao) return;
+        if (p.dependeDe && !condicaoAtendida(form, p)) return;
         if (p.tipo === "escala") {
           maximo += 5;
           var v = lerValor(form, p);
@@ -323,17 +338,21 @@
     return { total: total, maximo: maximo };
   }
 
-  // Faixas de pontuação para orientar o entrevistador (fáceis de ajustar aqui).
-  // "ate" = limite superior da faixa (inclusivo). Máximo atual: 36.
+  // Faixas de pontuação para orientar o entrevistador. São proporcionais ao
+  // máximo do roteiro, e não a um número fixo: Avaliador e Supervisor têm
+  // quantidades diferentes de perguntas pontuadas, e uma faixa em pontos
+  // absolutos classificaria os dois com a mesma régua.
+  // "ate" = limite superior da faixa, em % do máximo (inclusivo).
   var FAIXAS_PONTUACAO = [
-    { ate: 20, texto: "Pontuação baixa — o candidato não atendeu às expectativas.", classe: "faixa--baixa" },
-    { ate: 28, texto: "Pontuação mediana — o candidato atendeu parcialmente.", classe: "faixa--media" },
-    { ate: 33, texto: "Pontuação boa — o candidato atende bem às expectativas.", classe: "faixa--boa" },
+    { ate: 55.6, texto: "Pontuação baixa — o candidato não atendeu às expectativas.", classe: "faixa--baixa" },
+    { ate: 77.8, texto: "Pontuação mediana — o candidato atendeu parcialmente.", classe: "faixa--media" },
+    { ate: 91.7, texto: "Pontuação boa — o candidato atende bem às expectativas.", classe: "faixa--boa" },
     { ate: Infinity, texto: "Pontuação excelente — o candidato se destacou.", classe: "faixa--otima" },
   ];
-  function faixaPontuacao(total) {
+  function faixaPontuacao(total, maximo) {
+    var pct = maximo > 0 ? (total / maximo) * 100 : 0;
     for (var i = 0; i < FAIXAS_PONTUACAO.length; i++) {
-      if (total <= FAIXAS_PONTUACAO[i].ate) return FAIXAS_PONTUACAO[i];
+      if (pct <= FAIXAS_PONTUACAO[i].ate) return FAIXAS_PONTUACAO[i];
     }
     return FAIXAS_PONTUACAO[FAIXAS_PONTUACAO.length - 1];
   }
@@ -350,25 +369,46 @@
     var s = form.querySelector('.secao[data-chave="' + chave + '"]');
     if (s) s.classList.toggle("oculto", !mostrar);
   }
-  function aplicarColapso(form) {
+  // Única autoridade sobre o que aparece: junta os dois motivos de esconder
+  // uma seção (marcador de faltante/reprovado e o perfil escolhido). Antes
+  // eram dois lugares mexendo na mesma classe, e o último a rodar ganhava.
+  function aplicarColapso(form, schema) {
     var faltante = estaFaltante(form);
     var reprovado = estaReprovado(form);
-    toggleSecao(form, "elegibilidade", !faltante);
-    toggleSecao(form, "informativo", !(faltante || reprovado));
-    toggleSecao(form, "avaliador", !(faltante || reprovado));
-    toggleSecao(form, "fechamento", !(faltante || reprovado));
+    schema.secoes.forEach(function (s) {
+      if (!s.chave || s.chave === "identificacao") return;
+      toggleSecao(form, s.chave, secaoAtiva(form, schema, s));
+    });
     var box = $("#score-box");
     if (box) box.classList.toggle("oculto", faltante || reprovado);
   }
 
-  // Verdadeiro se a condição de exibição (p.dependeDe) está satisfeita.
-  function condicaoAtendida(form, p) {
-    if (!p.dependeDe) return true;
-    var alvo = form.querySelector('[name="' + p.dependeDe.campo + '"]:checked');
-    return !!(alvo && alvo.value === p.dependeDe.valor);
+  // Verdadeiro se a condição de exibição (`dependeDe`) está satisfeita. Serve
+  // tanto para uma pergunta quanto para uma seção inteira.
+  function condicaoAtendida(form, alvoCond) {
+    if (!alvoCond || !alvoCond.dependeDe) return true;
+    var marcado = form.querySelector('[name="' + alvoCond.dependeDe.campo + '"]:checked');
+    return !!(marcado && marcado.value === alvoCond.dependeDe.valor);
+  }
+
+  // A seção do perfil que não foi escolhido está escondida: o que está lá
+  // dentro não é exigido, não pontua e não vai para o registro. Vale o mesmo
+  // para os marcadores de faltante e de reprovado.
+  //
+  // "Enviar Formulário" (a observação adicional) nunca some: é justamente onde
+  // se escreve por que o candidato faltou ou não cumpriu os requisitos.
+  function secaoAtiva(form, schema, secao) {
+    if (!condicaoAtendida(form, secao)) return false;
+    if (secao.chave === "identificacao" || secao.chave === "envio") return true;
+    if (estaFaltante(form)) return false;
+    if (estaReprovado(form) && secao.avaliacao) return false;
+    return true;
   }
 
   // Mostra/esconde avisos e campos condicionais conforme as respostas.
+  // As SEÇÕES condicionais são tratadas em aplicarColapso(), que é a única
+  // autoridade sobre a classe "oculto" delas — dois lugares mexendo na mesma
+  // classe fazia o último a rodar reabrir o que o outro tinha fechado.
   function atualizarCondicionais(form, schema) {
     todasPerguntas(schema).forEach(function (p) {
       // Aviso estático (ex.: link do SIPE quando "Não").
@@ -442,21 +482,24 @@
   // ---------- Validação ----------
   function validar(form, schema) {
     var faltante = estaFaltante(form);
-    var reprovado = estaReprovado(form);
-
     limparErros(form);
     var invalidos = [];
 
-    todasPerguntas(schema).forEach(function (p) {
-      if (!p.obrigatorio) return;
-      if (faltante && !ehIdentificacao(p)) return;
-      if (reprovado && ehAvaliacao(p, schema)) return;
-      if (p.dependeDe && !condicaoAtendida(form, p)) return; // campo escondido não é exigido
+    // Só é exigido o que está na tela: seção escondida (perfil não escolhido,
+    // faltante, reprovado) e campo condicional escondido ficam de fora.
+    schema.secoes.forEach(function (s) {
+      if (!secaoAtiva(form, schema, s)) return;
+      s.perguntas.forEach(function (p) {
+        if (!p.obrigatorio) return;
+        // Candidato que não compareceu: só o mínimo para registrar a ausência.
+        if (faltante && !ehIdentificacao(p)) return;
+        if (p.dependeDe && !condicaoAtendida(form, p)) return; // campo escondido não é exigido
 
-      var valor = lerValor(form, p);
-      if (valor === "" || valor === null) invalidos.push(p);
-      // CPF incompleto conta como não preenchido (é a chave de ligação do sistema).
-      else if (p.tipo === "cpf" && String(valor).replace(/\D/g, "").length !== 11) invalidos.push(p);
+        var valor = lerValor(form, p);
+        if (valor === "" || valor === null) invalidos.push(p);
+        // CPF incompleto conta como não preenchido (é a chave do sistema).
+        else if (p.tipo === "cpf" && String(valor).replace(/\D/g, "").length !== 11) invalidos.push(p);
+      });
     });
 
     invalidos.forEach(function (p) {
@@ -470,12 +513,6 @@
   function ehIdentificacao(p) {
     return ["nome_candidato", "data_entrevista", "nome_entrevistador"].indexOf(p.id) !== -1;
   }
-  function ehAvaliacao(p, schema) {
-    var secaoAval = schema.secoes.filter(function (s) {
-      return s.chave === "avaliador";
-    })[0];
-    return secaoAval ? secaoAval.perguntas.indexOf(p) !== -1 : false;
-  }
   function limparErros(form) {
     Array.prototype.forEach.call(form.querySelectorAll(".pergunta--erro"), function (n) {
       n.classList.remove("pergunta--erro");
@@ -485,8 +522,21 @@
   // ---------- Montagem do registro ----------
   function montarRegistro(form, schema) {
     var respostas = {};
-    todasPerguntas(schema).forEach(function (p) {
-      respostas[p.id] = lerValor(form, p);
+    // Só grava o que estava na tela: as perguntas do perfil que não foi
+    // avaliado ficam de fora do registro, em vez de virarem um monte de campo
+    // vazio que depois aparece na exportação como se tivesse sido perguntado.
+    schema.secoes.forEach(function (s) {
+      if (!secaoAtiva(form, schema, s)) return;
+      s.perguntas.forEach(function (p) {
+        if (!p.id) return;
+        respostas[p.id] = lerValor(form, p);
+      });
+    });
+    // Os marcadores moram na Identificação/Elegibilidade e precisam ser
+    // gravados mesmo quando a seção deles está escondida pelo outro marcador.
+    ["nao_compareceu", "nao_cumpre_requisitos"].forEach(function (id) {
+      var campo = form.querySelector('[name="' + id + '"]');
+      if (campo) respostas[id] = campo.checked;
     });
     // Identificador do candidato (o e-mail dele), vindo do link ?cid=... .
     // Serve para o painel casar esta entrevista com a ficha do candidato, sem
@@ -500,7 +550,10 @@
 
     return {
       tipo: schema.id,
-      perfil: "Avaliador (Entrevistador)",
+      // Perfil que a entrevista avaliou. Até 02/09/2026 só existia o roteiro do
+      // Avaliador e a coluna era fixa; entrevistas antigas continuam com esse
+      // valor, que é o que de fato foi avaliado.
+      perfil: respostas.perfil_avaliado || null,
       candidato: respostas.nome_candidato || null,
       // Coluna própria (além do JSON): é a chave que liga a entrevista à
       // inscrição e à formação, e permite corrigir/completar pelo painel.
@@ -658,25 +711,13 @@
       ]),
       el("div", { class: "score-box__aviso", id: "score-aviso" }),
     ]);
-    // A Recomendação Final (Bloco 4) sai da seção do Avaliador para um cartão
-    // próprio, com a caixa de pontuação logo acima — assim cada bloco fica
-    // sendo um cartão independente (cantos arredondados + sombra).
-    var alvoRec = form.querySelector('.pergunta[data-id="recomendacao_final"]');
-    if (alvoRec && alvoRec.parentNode) {
-      var secaoOrigem = alvoRec.parentNode;
-      var fechamento = el("section", { class: "secao secao--fechamento", "data-chave": "fechamento" });
-      var mover = [];
-      // título "Bloco 4: Fechamento" (irmão anterior sem data-id), se houver
-      var prev = alvoRec.previousElementSibling;
-      if (prev && prev.classList.contains("pergunta") && !prev.getAttribute("data-id")) {
-        mover.push(prev);
-      }
-      // recomendação + tudo que vier depois dela na seção
-      for (var cur = alvoRec; cur; cur = cur.nextElementSibling) mover.push(cur);
-      mover.forEach(function (n) { fechamento.appendChild(n); });
-      // insere logo após a seção de origem: [seção avaliador][score][fechamento]
-      secaoOrigem.parentNode.insertBefore(scoreBox, secaoOrigem.nextSibling);
-      scoreBox.parentNode.insertBefore(fechamento, scoreBox.nextSibling);
+    // A caixa de pontuação fica logo acima do Bloco 5 (Fechamento): a soma
+    // aparece na hora de recomendar. O Fechamento é uma seção própria no
+    // schema, então basta inserir a caixa antes dela.
+    var secFechamento = form.querySelector('.secao[data-chave="fechamento"]');
+    if (secFechamento) {
+      secFechamento.classList.add("secao--fechamento");
+      secFechamento.parentNode.insertBefore(scoreBox, secFechamento);
     } else {
       form.appendChild(scoreBox); // reserva
     }
@@ -734,7 +775,7 @@
           aviso.className = "score-box__aviso score-box__aviso--neutro";
         }
       } else {
-        var f = faixaPontuacao(r.total);
+        var f = faixaPontuacao(r.total, r.maximo);
         if (caixa) caixa.classList.add(f.classe);
         if (aviso) {
           aviso.textContent = f.texto;
@@ -745,7 +786,7 @@
 
     function aoAlterar() {
       formSujo = true;
-      aplicarColapso(form);
+      aplicarColapso(form, schema);
       atualizarCondicionais(form, schema);
       atualizarScore();
       salvarRascunho(form, schema);
@@ -761,7 +802,7 @@
       }
     });
 
-    aplicarColapso(form);
+    aplicarColapso(form, schema);
     atualizarCondicionais(form, schema);
     atualizarScore();
 

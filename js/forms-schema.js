@@ -1,9 +1,17 @@
 /**
  * Estrutura (schema) dos formulários de Entrevista Estruturada — RBCIP.
  *
- * Ambos os formulários referem-se APENAS ao perfil Avaliador (Entrevistador).
- * Capital e Interior compartilham exatamente os mesmos blocos de avaliação
- * (Blocos 1 a 4 + observação final); diferem somente na seção de Elegibilidade.
+ * A entrevista cobre DOIS perfis, escolhidos na pergunta "Qual perfil está
+ * sendo avaliado?" (fim da Elegibilidade): **Avaliador (Entrevistador)** e
+ * **Supervisor**. Cada um tem os seus Blocos 1 a 3; a seção do perfil não
+ * escolhido fica escondida e não é exigida nem pontuada.
+ *
+ * Depois vêm dois blocos comuns aos dois perfis: **Bloco 4 — Anuência e
+ * Conformidade** (ciências, não pontuam) e **Bloco 5 — Fechamento**
+ * (recomendação final + justificativa).
+ *
+ * Capital e Interior compartilham tudo isso; diferem somente na seção de
+ * Elegibilidade.
  *
  * Para manter: cada pergunta é um objeto. Para adicionar/editar uma pergunta,
  * basta alterar o array correspondente. Os campos `id` são as chaves usadas
@@ -18,6 +26,12 @@
  *   - "escala"    : nota de 1 a 5 (STAR)
  *   - "flag"      : marcador destacado (checkbox), ex.: candidato faltante
  *   - "titulo-bloco": apenas um subtítulo dentro da seção (não é resposta)
+ *
+ * Campos de apoio:
+ *   - `dependeDe`   : { campo, valor } — na pergunta OU na seção inteira; o
+ *                     que está escondido não é exigido nem pontuado.
+ *   - `semPontuacao`: pergunta de duas opções que NÃO vale ponto (é registro
+ *                     administrativo ou ciência, não mérito).
  */
 
 // Régua de pontuação STAR (exibida uma única vez, no cabeçalho do Bloco 1).
@@ -39,8 +53,16 @@ const DESC_NOTA = {
 
 const OPCOES_SIM_NAO = ["Sim", "Não"];
 // Avaliação das competências éticas/comportamentais.
-// A primeira opção ("Adequado") vale 1 ponto; a segunda vale 0.
-const OPCOES_APTO = ["Adequado", "Inadequado"];
+// A primeira opção ("Apto") vale 1 ponto; a segunda vale 0.
+// Até 02/09/2026 estas opções eram "Adequado"/"Inadequado"; as entrevistas
+// gravadas antes disso continuam mostrando o texto antigo, que é o que foi
+// realmente respondido na época.
+const OPCOES_APTO = ["Apto", "Não Apto"];
+
+// Perfil avaliado na entrevista. Define quais blocos aparecem.
+const PERFIL_AVALIADOR = "Avaliador (Entrevistador)";
+const PERFIL_SUPERVISOR = "Supervisor";
+const OPCOES_PERFIL = [PERFIL_AVALIADOR, PERFIL_SUPERVISOR];
 
 // Entrevistadores responsáveis pelas entrevistas.
 const ENTREVISTADORES = ["Christiane Borges", "Fabiola Seabra", "Luiz Rocha"];
@@ -155,6 +177,8 @@ function secaoAvaliador() {
   return {
     titulo: "Perfil Avaliador (Entrevistador)",
     chave: "avaliador",
+    avaliacao: true,
+    dependeDe: { campo: "perfil_avaliado", valor: PERFIL_AVALIADOR },
     perguntas: [
       // ---------- Bloco 1 ----------
       {
@@ -286,11 +310,246 @@ function secaoAvaliador() {
         obrigatorio: true,
       },
       { id: "lgpd_etica_aval", tipo: "radio", label: "LGPD e Ética: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+    ],
+  };
+}
 
-      // ---------- Bloco 4 ----------
+/**
+ * Blocos de avaliação do perfil Supervisor.
+ * Mesma estrutura do Avaliador (pergunta + avaliação), com as competências de
+ * gestão pedidas no roteiro aprovado. Idênticos para Capital e Interior.
+ */
+function secaoSupervisor() {
+  return {
+    titulo: "Perfil Supervisor",
+    chave: "supervisor",
+    avaliacao: true,
+    dependeDe: { campo: "perfil_avaliado", valor: PERFIL_SUPERVISOR },
+    perguntas: [
+      // ---------- Bloco 1 ----------
       {
         tipo: "titulo-bloco",
-        label: "Bloco 4: Fechamento",
+        label: "Bloco 1: Competências Técnicas e Comportamentais - STAR",
+        ajuda:
+          "Avaliar a experiência e as competências essenciais para a função de Supervisor. Pontue de 1 a 5 em cada item:",
+        rubrica: RUBRICA_STAR,
+      },
+      {
+        id: "sup_gestao_equipes",
+        tipo: "textarea",
+        label: "Gestão de Equipes (mínimo 2 anos)",
+        ajuda:
+          "Descreva uma situação em que liderou equipe para objetivo desafiador. Estratégias de motivação e gestão de conflitos?",
+        obrigatorio: true,
+      },
+      { id: "sup_gestao_equipes_nota", tipo: "escala", label: "Gestão de Equipes: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_relatorios",
+        tipo: "textarea",
+        label: "Relatórios Consolidados",
+        ajuda:
+          "Exemplo de relatório consolidado preparado por você. Como sintetizou dados e qual o impacto na decisão?",
+        obrigatorio: true,
+      },
+      { id: "sup_relatorios_nota", tipo: "escala", label: "Relatórios Consolidados: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_processos_avaliativos",
+        tipo: "textarea",
+        label: "Processos Avaliativos",
+        ajuda:
+          "Situação em que supervisionou processo de avaliação. Como garantiu padronização e qualidade?",
+        obrigatorio: true,
+      },
+      { id: "sup_processos_avaliativos_nota", tipo: "escala", label: "Processos Avaliativos: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_treinamento",
+        tipo: "textarea",
+        label: "Treinamento/Orientação (Entrevistas)",
+        ajuda:
+          "Momento em que treinou a equipe na coleta de dados sensíveis. Desafio e superação?",
+        obrigatorio: true,
+      },
+      { id: "sup_treinamento_nota", tipo: "escala", label: "Treinamento/Orientação: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_conflitos",
+        tipo: "textarea",
+        label: "Resolução de Conflitos (Público/Equipe)",
+        ajuda:
+          "Intervenção em problema entre equipe e entrevistado. Como protegeu a equipe e garantiu o trabalho?",
+        obrigatorio: true,
+      },
+      { id: "sup_conflitos_nota", tipo: "escala", label: "Resolução de Conflitos: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_organizacao_dados",
+        tipo: "textarea",
+        label: "Organização de Dados (Sistemas)",
+        ajuda:
+          "Implementação ou aprimoramento de sistema de organização. Benefícios em eficiência?",
+        obrigatorio: true,
+      },
+      { id: "sup_organizacao_dados_nota", tipo: "escala", label: "Organização de Dados: Avaliação do Candidato", obrigatorio: true },
+
+      {
+        id: "sup_metodologia",
+        tipo: "textarea",
+        label: "Metodologia Quali-Quanti",
+        ajuda:
+          "Como garantiria aplicação correta da metodologia no campo e integração no relatório final?",
+        obrigatorio: true,
+      },
+      { id: "sup_metodologia_nota", tipo: "escala", label: "Metodologia Quali-Quanti: Avaliação do Candidato", obrigatorio: true },
+
+      // ---------- Bloco 2 ----------
+      {
+        tipo: "titulo-bloco",
+        label: "Bloco 2: Competências Críticas e Éticas",
+        ajuda: "Confirmar o alinhamento ético e a ausência de conflito de interesses.",
+      },
+      {
+        id: "sup_alteracao_respostas",
+        tipo: "textarea",
+        label: "Alteração de Respostas",
+        ajuda:
+          "Você identifica que um entrevistador está alterando respostas para ganhar tempo ou evitar conflito. Como você age?",
+        obrigatorio: true,
+      },
+      { id: "sup_alteracao_respostas_aval", tipo: "radio", label: "Alteração de Respostas: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+
+      {
+        id: "sup_desgaste_parceiros",
+        tipo: "textarea",
+        label: "Desgaste com Parceiros",
+        ajuda:
+          "A correção de uma falha pode gerar desgaste com parceiros locais ou coordenação. Como você conduz essa situação?",
+        obrigatorio: true,
+      },
+      { id: "sup_desgaste_parceiros_aval", tipo: "radio", label: "Desgaste com Parceiros: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+
+      {
+        id: "sup_decisao_dificil",
+        tipo: "textarea",
+        label: "Decisão Difícil",
+        ajuda:
+          "Relate uma decisão difícil que você precisou tomar como gestor, mesmo sendo impopular. Quais critérios utilizou?",
+        obrigatorio: true,
+      },
+      { id: "sup_decisao_dificil_aval", tipo: "radio", label: "Decisão Difícil: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+
+      // ---------- Bloco 3 ----------
+      {
+        tipo: "titulo-bloco",
+        label: "Bloco 3: Ética e LGPD",
+        ajuda: "Confirmar o alinhamento ético e a ausência de conflito de interesses.",
+      },
+      {
+        id: "sup_conflito_interesses",
+        tipo: "radio",
+        label: "Conflito de Interesses",
+        ajuda:
+          "O candidato confirma que NÃO possui conflito de interesses com as Secretarias de Estado do Governo em SP?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+      },
+      { id: "sup_conflito_interesses_aval", tipo: "radio", label: "Conflito de Interesses: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+
+      {
+        id: "sup_lideranca_lgpd",
+        tipo: "textarea",
+        label: "Liderança Ética/LGPD",
+        ajuda:
+          "Qual a sua compreensão sobre a importância da LGPD e da confidencialidade no processo de coleta de dados?",
+        obrigatorio: true,
+      },
+      { id: "sup_lideranca_lgpd_aval", tipo: "radio", label: "Liderança Ética/LGPD: Avaliação do Candidato", opcoes: OPCOES_APTO, obrigatorio: true },
+    ],
+  };
+}
+
+/**
+ * Bloco 4 — Anuência e Conformidade. Comum aos dois perfis.
+ * São **ciências**, não avaliação: por isso `semPontuacao`. Responder "Sim"
+ * aqui não é mérito e não pode somar ponto no ranking (foi exatamente esse o
+ * erro que o sql/corrigir-pontuacao.sql precisou consertar uma vez).
+ */
+function secaoAnuencia() {
+  return {
+    chave: "anuencia",
+    avaliacao: true,
+    perguntas: [
+      {
+        tipo: "titulo-bloco",
+        label: "Bloco 4: Anuência e Conformidade",
+        ajuda: "Confirmar com o candidato as condições de participação no projeto.",
+      },
+      {
+        id: "anuencia_antecedentes",
+        tipo: "radio",
+        label: "Certidões de antecedentes criminais",
+        ajuda:
+          "Está ciente de que, antes do início das atividades, será obrigatória a apresentação de certidões de " +
+          "antecedentes criminais federal e estadual, em observância ao Estatuto da Criança e do Adolescente e à " +
+          "Lei nº 14.811/2024, conforme item 3.6 da Chamada Pública?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        semPontuacao: true,
+      },
+      {
+        id: "anuencia_transporte",
+        tipo: "radio",
+        label: "Transporte da RBCIP",
+        ajuda:
+          "Está ciente de que, em algumas situações, deverá utilizar transporte proporcionado pela RBCIP?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        semPontuacao: true,
+      },
+      {
+        id: "anuencia_lgpd_codigo_etica",
+        tipo: "radio",
+        label: "LGPD e Código de Ética",
+        ajuda:
+          "Está ciente que suas atividades deverão se pautar pelo que é determinado pela LGPD e pelo Código de " +
+          "Ética da RBCIP?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        semPontuacao: true,
+      },
+      {
+        id: "anuencia_pesquisa",
+        tipo: "radio",
+        label: "Atividade de pesquisa",
+        ajuda: "Está ciente que essa é uma atividade de pesquisa?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        semPontuacao: true,
+      },
+      {
+        id: "anuencia_bolsista",
+        tipo: "radio",
+        label: "Remuneração como bolsista",
+        ajuda: "Está ciente que você será remunerado como bolsista desse projeto de pesquisa?",
+        opcoes: OPCOES_SIM_NAO,
+        obrigatorio: true,
+        semPontuacao: true,
+      },
+    ],
+  };
+}
+
+/** Bloco 5 — Fechamento. Comum aos dois perfis. */
+function secaoFechamento() {
+  return {
+    chave: "fechamento",
+    avaliacao: true,
+    perguntas: [
+      {
+        tipo: "titulo-bloco",
+        label: "Bloco 5: Fechamento",
       },
       {
         id: "recomendacao_final",
@@ -316,6 +575,7 @@ function secaoAvaliador() {
 function secaoInformativa() {
   return {
     chave: "informativo",
+    avaliacao: true,
     perguntas: [
       {
         tipo: "info",
@@ -354,6 +614,23 @@ function secaoEnvio() {
         obrigatorio: false,
       },
     ],
+  };
+}
+
+/**
+ * Pergunta que escolhe o roteiro: Avaliador ou Supervisor. Fica no fim da
+ * Elegibilidade (logo antes do marcador de reprovação), nos dois formulários.
+ * Ela não pontua — escolher um perfil não é mérito.
+ */
+function perguntaPerfilAvaliado() {
+  return {
+    id: "perfil_avaliado",
+    tipo: "radio",
+    label: "Qual perfil está sendo avaliado?",
+    ajuda: "A escolha define quais blocos de avaliação aparecem abaixo.",
+    opcoes: OPCOES_PERFIL,
+    obrigatorio: true,
+    semPontuacao: true,
   };
 }
 
@@ -417,11 +694,15 @@ const FORM_CAPITAL = {
           opcoes: OPCOES_SIM_NAO,
           obrigatorio: true,
         },
+        perguntaPerfilAvaliado(),
         flagNaoCumpreRequisitos(),
       ],
     },
     secaoInformativa(),
     secaoAvaliador(),
+    secaoSupervisor(),
+    secaoAnuencia(),
+    secaoFechamento(),
     secaoEnvio(),
   ],
 };
@@ -481,11 +762,15 @@ const FORM_INTERIOR = {
           opcoes: OPCOES_SIM_NAO,
           obrigatorio: true,
         },
+        perguntaPerfilAvaliado(),
         flagNaoCumpreRequisitos(),
       ],
     },
     secaoInformativa(),
     secaoAvaliador(),
+    secaoSupervisor(),
+    secaoAnuencia(),
+    secaoFechamento(),
     secaoEnvio(),
   ],
 };
