@@ -1263,6 +1263,11 @@ input[type="date"].viz-data {
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+/* O grupo ocupa a largura que sobra depois do rótulo, em vez de ficar
+   encolhido à esquerda com o resto da linha vazio. Sem `min-width: 0` de
+   propósito: assim ele nunca encolhe abaixo do próprio conteúdo — quando não
+   cabe, a linha quebra em vez de os rótulos se sobreporem. */
+.projeto__opcoes { flex: 1; }
 .projeto__rot {
   font-size: 12px;
   font-weight: 700;
@@ -1280,11 +1285,16 @@ input[type="date"].viz-data {
 }
 .projeto__btn {
   display: flex;
+  /* Cada opção parte do tamanho do seu texto e divide a sobra: assim a linha
+     inteira é preenchida sem que um rótulo longo quebre em duas linhas. */
+  flex: 1 1 auto;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;          /* nome e contagem centralizados dentro da opção */
+  justify-content: center;
   gap: 1px;
   font-family: inherit;
   padding: 8px 20px;
+  text-align: center;
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
@@ -1292,7 +1302,7 @@ input[type="date"].viz-data {
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.projeto__nome { font-size: 15px; font-weight: 700; }
+.projeto__nome { font-size: 15px; font-weight: 700; white-space: nowrap; }
 .projeto__qtd { font-size: 11.5px; opacity: 0.85; }
 @media (hover: hover) and (pointer: fine) {
   .projeto__btn:not(.projeto__btn--ativa):hover {
@@ -1322,7 +1332,9 @@ input[type="date"].viz-data {
   align-items: center;
   margin-bottom: 16px;
 }
-.topo-controles .projeto { margin-bottom: 0; }
+/* Os dois seletores (Relatório e Projeto) dividem a linha; quando não cabem,
+   cada um ocupa a largura inteira. */
+.topo-controles .projeto { flex: 1 1 340px; margin-bottom: 0; }
 
 /* Nota explicativa no topo de um painel (aba Termos de Bolsa) */
 .painel__nota {
@@ -1338,7 +1350,8 @@ input[type="date"].viz-data {
   .projeto { flex-direction: column; align-items: stretch; gap: 6px; }
   .projeto__opcoes { flex-wrap: wrap; }
   .projeto__btn { flex: 1 1 44%; align-items: center; padding: 9px 8px; text-align: center; }
-  .projeto__nome { font-size: 14px; }
+  /* Na tela estreita o rótulo pode quebrar — melhor do que estourar a caixa. */
+  .projeto__nome { font-size: 14px; white-space: normal; }
   .topo-controles { display: block; }
   .topo-controles .projeto { margin-bottom: 12px; }
 }

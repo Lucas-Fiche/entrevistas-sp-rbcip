@@ -634,8 +634,10 @@ escolha do projeto é a **primeira coisa da tela**: um bloco com o rótulo
 `PROJETO` ao lado e, dentro de cada opção, quantas pessoas ela tem. É maior e
 tem desenho próprio de propósito — os recortes secundários (*No projeto /
 Desligados*, *Sem termo / Aptos / Com termo*) ficam em pastilhas menores, no
-cabeçalho da lista, para as duas coisas não se confundirem. No celular as
-opções dividem a largura, duas por linha.
+cabeçalho da lista, para as duas coisas não se confundirem.
+
+O bloco **ocupa a largura da página**, e as opções dividem esse espaço com o
+nome e a contagem centralizados. No celular ficam duas por linha.
 
 ### Aba Candidatos
 
