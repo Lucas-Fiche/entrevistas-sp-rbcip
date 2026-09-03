@@ -1560,11 +1560,18 @@
     var cab = el("div", { class: "lista-cab" });
     cab.appendChild(el("h3", { class: "lista-cab__titulo", text: titulo }));
     if (recortes && recortes.length) {
-      var filtro = el("div", { class: "cand-filtro lista-cab__filtro" });
+      // `role=group` + `aria-pressed`: para quem usa leitor de tela isto é um
+      // par de botões de duas posições, e não dois links quaisquer.
+      var filtro = el("div", {
+        class: "cand-filtro lista-cab__filtro", role: "group", "aria-label": titulo,
+      });
       recortes.forEach(function (v) {
         var b = el("button", {
-          class: "cand-tab cand-tab--mini" + (ativo === v.id ? " cand-tab--ativa" : ""),
-          type: "button", text: v.rot + (v.qtd === undefined ? "" : " (" + v.qtd + ")"),
+          class: "cand-tab cand-tab--mini" + (v.tom ? " cand-tab--" + v.tom : "") +
+            (ativo === v.id ? " cand-tab--ativa" : ""),
+          type: "button",
+          "aria-pressed": ativo === v.id ? "true" : "false",
+          text: v.rot + (v.qtd === undefined ? "" : " (" + v.qtd + ")"),
         });
         b.addEventListener("click", function () { aoTrocar(v.id); });
         filtro.appendChild(b);
@@ -5190,7 +5197,9 @@
     var saidos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Desligado"; });
     painel.appendChild(cabecalhoDaLista("Bolsistas — " + nomeRegiao(formTipo), [
       { id: "projeto", rot: "No projeto", qtd: noProjeto.length },
-      { id: "desligados", rot: "Desligados", qtd: saidos.length },
+      // `tom: "perigo"` deixa o interruptor vermelho quando é esta a lista na
+      // tela: dá para ver de longe que não se está olhando a equipe ativa.
+      { id: "desligados", rot: "Desligados", qtd: saidos.length, tom: "perigo" },
     ], formVer, function (id) { formVer = id; renderPainelFormacao(); }));
     doTipo = formVer === "desligados" ? saidos : noProjeto;
 

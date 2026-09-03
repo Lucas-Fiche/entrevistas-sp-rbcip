@@ -1427,7 +1427,52 @@ input[type="date"].viz-data {
   font-weight: 700;
   color: var(--cor-primaria-escura);
 }
-.lista-cab__filtro { margin-bottom: 0; }
+/* Interruptor do recorte da lista (No projeto / Desligados, Sem termo / Aptos
+   / Com termo). As duas metades ficam dentro de um trilho só, com a posição
+   escolhida preenchida — em vez de duas pastilhas soltas que não deixavam
+   claro que uma exclui a outra. Cantos mais retos de propósito: o seletor de
+   projeto lá em cima é o arredondado; este é a chave. */
+.lista-cab__filtro {
+  display: inline-flex;
+  gap: 3px;
+  margin-bottom: 0;
+  padding: 3px;
+  background: var(--cor-primaria-clara);
+  border: 1px solid var(--cor-borda);
+  border-radius: 8px;
+}
+.lista-cab__filtro .cand-tab {
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--cor-texto-suave);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .lista-cab__filtro .cand-tab:not(.cand-tab--ativa):hover {
+    background: var(--cor-branco);
+    color: var(--cor-primaria);
+  }
+}
+.lista-cab__filtro .cand-tab--ativa {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(16, 42, 58, 0.18);
+}
+/* Desligado é saída do projeto: com essa posição ligada, o interruptor inteiro
+   fica vermelho. É o mesmo vermelho da tag "Desligado" na coluna Situação. */
+.lista-cab__filtro .cand-tab--perigo.cand-tab--ativa {
+  background: var(--cor-erro);
+  border-color: var(--cor-erro);
+  box-shadow: 0 1px 3px rgba(217, 48, 37, 0.30);
+}
+@media (hover: hover) and (pointer: fine) {
+  .lista-cab__filtro .cand-tab--perigo:not(.cand-tab--ativa):hover { color: var(--cor-erro); }
+}
+.lista-cab__filtro .cand-tab:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .lista-cab__filtro .cand-tab { transition: none; } }
+
 .cand-tab--mini { font-size: 13px; padding: 5px 13px; }
 
 /* Bloco recolhido (importação de CSV e registros): tarefa ocasional, some do

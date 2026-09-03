@@ -704,7 +704,10 @@ nome e a contagem centralizados. No celular ficam duas por linha.
      do meio só aparecem quando há o que fazer, e o número diz quanto.
 4. **Metas e vagas**, fechado como antes.
 5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados*, a
-   busca e a tabela.
+   busca e a tabela. Esse recorte é um **interruptor de duas posições**: as duas
+   metades dividem um trilho só, e quando a posição escolhida é *Desligados* o
+   botão fica **vermelho** — dá para ver de longe que a lista na tela não é a de
+   quem está trabalhando.
 6. **Importar planilha e registros**, recolhido no fim.
 
 ### Aba Termos de Bolsa
