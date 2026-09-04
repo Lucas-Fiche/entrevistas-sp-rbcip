@@ -65,6 +65,12 @@ var SUPABASE_ANON_KEY = prop("SUPABASE_ANON_KEY", "sb_publishable_MEhaRpgmqmEW8w
 // >>> COLOQUE AQUI o e-mail que deve receber o RECIBO de cada envio. <<<
 var EMAIL_RECIBO = prop("EMAIL_RECIBO", "lucas@rbcip.org");
 
+// Logo do cabeçalho do e-mail ao financeiro. URL pública (o Gmail baixa a
+// imagem do site) e versão AZUL-MARINHO: a logo do topo do site é branca e
+// sumiria neste cabeçalho, que é branco. Em branco, o cabeçalho mostra o nome
+// escrito em vez de uma imagem quebrada.
+var LOGO_EMAIL = prop("LOGO_EMAIL", "https://entrevistasp.rbcip.org/assets/logo-rbcip-email.png");
+
 // ===== Planilha-ponte lida pela aba Formação =====
 // O script lê UMA planilha só: a "ponte" (Dados para o Sistema), que você
 // alimenta com IMPORTRANGE a partir das planilhas oficiais. Assim o script
@@ -153,7 +159,11 @@ function doPost(e) {
       var m = mensagens[i];
       if (!m || !m.para) { erros.push("mensagem " + i + " sem destinatário"); continue; }
       try {
-        GmailApp.sendEmail(m.para, m.assunto || "(sem assunto)", m.corpo || "");
+        // `m.corpo` é o texto puro e `m.html` a versão desenhada. Mandar os
+        // dois não é redundância: o texto é o que aparece em cliente sem HTML,
+        // na prévia da caixa de entrada e para os filtros de spam.
+        var opcoes = m.html ? { htmlBody: m.html } : undefined;
+        GmailApp.sendEmail(m.para, m.assunto || "(sem assunto)", m.corpo || "", opcoes);
         enviados++;
         destinatarios.push(m.para);
       } catch (errEnvio) {
@@ -478,6 +488,94 @@ function sincronizacaoAutomatica() {
   }
 }
 
+// ===== HTML do aviso ao financeiro =====
+// Esqueleto GÊMEO do js/email-templates.js (o do painel). São dois runtimes
+// diferentes — o painel não está aberto quando a rotina automática roda —,
+// então a moldura é a mesma escrita duas vezes: mudou uma, mude a outra.
+function escH(v) {
+  return String(v == null ? "" : v)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+// Endereço com um ponto de quebra explícito antes do "@", para a coluna
+// partir "fulano" / "@gmail.com" em vez de "fulano.de.ta" / "l@gmail.com".
+// O <wbr> é ignorado no Outlook antigo — por isso o `word-break` da célula
+// continua ali, como rede: no pior caso volta a partir no meio, não estoura.
+function emailQuebravel(v) {
+  var t = escH(v || "—");
+  var i = t.lastIndexOf("@");
+  return i > 0 ? t.slice(0, i) + "<wbr>" + t.slice(i) : t;
+}
+
+function htmlAviso(aptos) {
+  var linhas = "";
+  for (var i = 0; i < aptos.length; i++) {
+    var a = aptos[i];
+    var borda = "border-bottom: 1px solid #e2e8f0; vertical-align: top;";
+    // O e-mail não tem espaço: sem `break-word` ele reserva a largura do
+    // endereço inteiro e espreme a coluna do nome a uma palavra por linha.
+    linhas +=
+      "      <tr>\n" +
+      '        <td style="' + borda + '">' + escH(a.nome || "(sem nome)") + "</td>\n" +
+      '        <td style="' + borda + '">' + (a.tipo === "capital" ? "Capital" : "Interior") + "</td>\n" +
+      '        <td style="' + borda + '">' + escH(a.grupo || a.regiao || "—") + "</td>\n" +
+      '        <td style="' + borda + ' white-space: nowrap;">' + escH(a.cpf || "—") + "</td>\n" +
+      '        <td style="' + borda + ' word-break: break-word;">' + emailQuebravel(a.email) + "</td>\n" +
+      "      </tr>\n";
+  }
+
+  var cabecalho = LOGO_EMAIL
+    ? '<img src="' + escH(LOGO_EMAIL) + '" alt="RBCIP - Pesquisa e Inovação" width="180" style="max-width: 180px; height: auto; border: 0; display: inline-block;">'
+    : '<span style="font-size: 22px; font-weight: bold; color: #004B87; letter-spacing: 1px;">RBCIP</span><br><span style="font-size: 12px; color: #64748b;">pesquisa e inovação</span>';
+
+  var previa = aptos.length + " pessoa(s) concluíram cadastro e treinamento. Falta o termo de bolsa.";
+  var ano = new Date().getFullYear();
+
+  return '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n' +
+    '<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '<meta name="color-scheme" content="light">\n<meta name="supported-color-schemes" content="light">\n' +
+    "<title>RBCIP — Pessoas aptas, aguardando o termo de bolsa</title>\n</head>\n" +
+    '<body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif; color: #333333;">\n' +
+    '<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">' + escH(previa) + "</div>\n" +
+    '  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f6f8; padding: 30px 10px;">\n' +
+    '    <tr>\n      <td align="center">\n' +
+    '        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 600px; width: 100%;">\n' +
+    "          <tr>\n" +
+    '            <td style="background-color: #ffffff; padding: 30px 25px; text-align: center; border-bottom: 4px solid #004B87;">\n' +
+    "              " + cabecalho + "\n            </td>\n          </tr>\n" +
+    "          <tr>\n" +
+    '            <td style="padding: 40px 30px; font-size: 15px; line-height: 1.6; color: #444444;">\n' +
+    '<h3 style="margin-top: 0; color: #004B87; font-size: 18px;">Atualização: Pessoas Aptas (Termo de Bolsa)</h3>\n' +
+    "<p>Prezada equipe,</p>\n" +
+    "<p>Temos <strong>" + aptos.length + "</strong> pessoa(s) que concluíram o cadastro de bolsista e o treinamento.</p>\n" +
+    "<p>Falta apenas a emissão do termo de bolsa para começarem a atuar. Segue a relação detalhada:</p>\n" +
+    '<div style="margin: 25px 0;">\n' +
+    // Larguras em % fixadas no cabeçalho: sem elas o navegador dá quase tudo
+    // para a coluna do e-mail e o nome desce uma palavra por linha. Fonte 12px
+    // e respiro de 8px porque cinco colunas em 600px não cabem de outro jeito.
+    '  <table width="100%" cellpadding="8" cellspacing="0" border="0" style="border-collapse: collapse; font-size: 12px; text-align: left; border: 1px solid #e2e8f0; table-layout: fixed;">\n' +
+    "    <thead>\n" +
+    '      <tr style="background-color: #f1f5f9; color: #334155;">\n' +
+    '        <th width="26%" style="border-bottom: 2px solid #cbd5e1;">Nome</th>\n' +
+    '        <th width="13%" style="border-bottom: 2px solid #cbd5e1;">Projeto</th>\n' +
+    '        <th width="18%" style="border-bottom: 2px solid #cbd5e1;">Grupo / Região</th>\n' +
+    '        <th width="18%" style="border-bottom: 2px solid #cbd5e1; white-space: nowrap;">CPF</th>\n' +
+    '        <th width="25%" style="border-bottom: 2px solid #cbd5e1;">E-mail</th>\n' +
+    "      </tr>\n    </thead>\n    <tbody>\n" + linhas +
+    "    </tbody>\n  </table>\n</div>\n" +
+    '<p style="font-size: 12px; color: #64748b; margin-top: 20px;">\n' +
+    "  <em><strong>Informação do Sistema:</strong> Esta lista sai uma vez por pessoa: quem aparece aqui não volta no próximo aviso.<br>\n" +
+    '  Painel de controle: aba <strong>"Termos de Bolsa"</strong>.</em>\n</p>\n' +
+    "            </td>\n          </tr>\n" +
+    "          <tr>\n" +
+    '            <td style="background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #eeeeee;">\n' +
+    "              &copy; " + ano + " RBCIP. Todos os direitos reservados.<br>\n" +
+    "              Este é um e-mail automático, mas fique à vontade para responder se tiver dúvidas.\n" +
+    "            </td>\n          </tr>\n" +
+    "        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>";
+}
+
 // ===== Aviso ao financeiro: "apto, só falta o termo" =====
 // Apto = cadastro de bolsista preenchido E treinamento realizado E sem termo
 // E não desligado. A regra também existe no banco, na view aptos_para_termo
@@ -537,7 +635,10 @@ function avisarAptos(token) {
     "\n\nEsta lista sai uma vez por pessoa: quem aparece aqui não volta no próximo aviso.\n" +
     "Painel: aba \"Termos de Bolsa\".";
 
-  GmailApp.sendEmail(destinatarios.join(","), assunto, corpo);
+  // Texto puro E HTML: o texto é o que aparece em cliente sem HTML, na prévia
+  // da caixa de entrada e para os filtros de spam.
+  GmailApp.sendEmail(destinatarios.join(","), assunto, corpo,
+    { htmlBody: htmlAviso(aptos) });
 
   // Só marca depois de o e-mail ter saído.
   var agora = new Date().toISOString();
@@ -843,6 +944,38 @@ autorização.
   no painel. Ainda assim, mantenha a URL do Web App discreta.
 - **Teste antes:** abra a URL `/exec` no navegador — deve aparecer
   `{"ok":true,...}`. Depois, faça uma convocação de teste para um e-mail seu.
+### Os e-mails têm duas versões: HTML e texto
+
+Cada mensagem sai com **as duas**, e isso não é redundância:
+
+- o **HTML** (cabeçalho com a logo, botões, tabela) é o que quase todo mundo vê;
+- o **texto puro** é o que aparece em cliente sem HTML, na **prévia da caixa de
+  entrada** e para os **filtros de spam** — mensagem só-HTML costuma cair em
+  "Promoções".
+
+Onde mora cada coisa:
+
+| E-mail | HTML | Texto |
+|---|---|---|
+| Convite para entrevista | `js/email-templates.js` | `js/dashboard.js` |
+| Cadastro de bolsista | `js/email-templates.js` | `js/dashboard.js` |
+| Inscrição na região certa | `js/email-templates.js` | `js/dashboard.js` |
+| Aviso ao financeiro | `htmlAviso()`, aqui no script | `avisarAptos()`, aqui |
+
+**Mexeu num, mexa no outro.** Se o `js/email-templates.js` não carregar, o
+painel manda só o texto e o envio continua funcionando — o e-mail fica sem
+desenho, não deixa de sair.
+
+A **logo** vem por URL pública (`LOGO_EMAIL` aqui, `LOGO_EMAIL_URL` no
+`js/config.js`) e é a versão **azul-marinho**: a logo do topo do site é branca,
+feita para a barra colorida, e sumiria no cabeçalho branco do e-mail. Com a URL
+em branco, o cabeçalho escreve "RBCIP" em vez de mostrar imagem quebrada.
+
+> **A logo só existe depois do deploy.** Ela é servida pelo próprio site
+> (`entrevistasp.rbcip.org/assets/logo-rbcip-email.png`). Enquanto o commit não
+> for publicado na Vercel, o Gmail não acha o arquivo e o cabeçalho fica vazio.
+> Publique o site **antes** de republicar o Apps Script.
+
 - **Texto dos e-mails:** o conteúdo (assunto/corpo) está em `js/dashboard.js`
   nas funções `emailConvocacaoEntrevista` e `emailConvocacaoCadastro` — me peça
   para ajustar o texto quando quiser.

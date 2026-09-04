@@ -18,7 +18,7 @@ window.SUPABASE_CONFIG = {
   // Versão da publicação. Aparece no canto do painel e serve para conferir se o
   // navegador está com a versão nova (e não com uma cópia velha em cache).
   // Ao publicar mudanças, troque também o "?v=" dos arquivos nos .html.
-  VERSAO: "20260902k",
+  VERSAO: "20260904a",
 
   SUPABASE_URL: "https://gnqzcmzyupetpvlhsfsu.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",
@@ -30,6 +30,15 @@ window.SUPABASE_CONFIG = {
   // Deixe em branco até publicar o script (veja docs/APPS-SCRIPT-CONVOCACAO.md).
   // Enquanto estiver em branco, os botões de convocação ficam desativados.
   CONVOCACAO_BACKEND_URL: "https://script.google.com/macros/s/AKfycbxaGp9pcsh90dwLSbAVywmTBDLwcIUvzzk9ahhaeGtQGQ2-rrumTu7Hdr00glmK8R3b/exec",
+
+  // ---- Logo dos e-mails ----
+  // URL PÚBLICA da logo usada no cabeçalho dos e-mails. Não pode ser um
+  // caminho relativo (`assets/...`): quem recebe o e-mail não está no site.
+  // É a versão AZUL-MARINHO — a `logo-rbcip.png` do site é branca, feita para
+  // a barra colorida do topo, e sumiria no cabeçalho branco do e-mail.
+  // Só passa a existir depois que este commit for publicado na Vercel; até lá
+  // o cabeçalho mostra "RBCIP" escrito, em vez de imagem quebrada.
+  LOGO_EMAIL_URL: "https://entrevistasp.rbcip.org/assets/logo-rbcip-email.png",
 
   // Links de agendamento (Google Agenda) da entrevista — 3 opções no e-mail.
   AGENDA_LINKS: [

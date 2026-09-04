@@ -2188,13 +2188,25 @@
   function backendConvocacao() { return cfg.CONVOCACAO_BACKEND_URL || ""; }
   function primeiroNome(nome) { return (String(nome || "").trim().split(/\s+/)[0]) || ""; }
 
+  // Cada e-mail sai com as DUAS versões: `html` é o que a maioria vê, `corpo`
+  // é o texto puro. O texto não é sobra — é o que aparece em cliente sem HTML,
+  // na prévia da caixa de entrada e para os filtros de spam. Mexeu num, mexa
+  // no outro (o HTML fica em js/email-templates.js).
+  function htmlDoEmail(nome, args) {
+    var t = window.EMAIL_HTML;
+    if (!t || typeof t[nome] !== "function") return "";   // sem o arquivo, vai só o texto
+    try { return t[nome].apply(null, args); } catch (e) { return ""; }
+  }
+
   function emailConvocacaoEntrevista(cand) {
-    var links = (cfg.AGENDA_LINKS || [])
+    var agenda = cfg.AGENDA_LINKS || [];
+    var links = agenda
       .map(function (l, i) { return "Link para agendamento " + (i + 1) + ": " + l; })
       .join("\n");
     return {
       para: cand.email,
       assunto: "Convite para Entrevista - Processo Seletivo RBCIP",
+      html: htmlDoEmail("convocacaoEntrevista", [agenda]),
       corpo:
         "Prezado(a),\n\n" +
         "Espero que este e-mail o(a) encontre bem.\n\n" +
@@ -2211,6 +2223,7 @@
     return {
       para: cand.email,
       assunto: "Cadastro de Bolsista - Processo Seletivo RBCIP",
+      html: htmlDoEmail("convocacaoCadastro", [primeiroNome(cand.nome), link || ""]),
       corpo:
         "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
         "Sou o Lucas, da RBCIP. Você foi aprovado(a) em nossa entrevista.\n\n" +
@@ -2236,6 +2249,9 @@
     return {
       para: cand.email,
       assunto: "Inscrição no projeto " + doRegiao(tipoCerto) + " - Processo Seletivo RBCIP",
+      html: htmlDoEmail("cadastroRegiao", [
+        primeiroNome(cand.nome), nomeRegiao(tipoCerto), nomeRegiao(errado), linkPlataforma(tipoCerto),
+      ]),
       corpo:
         "Olá, " + primeiroNome(cand.nome) + "!\n\n" +
         "Sou o Lucas, da RBCIP. Obrigado pela sua participação em nossa entrevista.\n\n" +

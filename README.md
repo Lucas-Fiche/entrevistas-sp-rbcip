@@ -63,6 +63,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 ├── js/
 │   ├── config.js         # Credenciais do Supabase (URL + publishable key)
 │   ├── forms-schema.js   # Estrutura das perguntas dos dois formulários
+│   ├── email-templates.js# Corpos em HTML dos e-mails de convocação
 │   ├── app.js            # Renderiza o formulário, valida, pontua e envia
 │   ├── dashboard.js      # Login, tabelas, filtros, gráficos, mapa, exportação
 │   └── export.js         # Geração de CSV e XLSX no navegador (sem biblioteca)
@@ -91,7 +92,8 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── duplicados.sql    # Junta fichas duplicadas do mesmo CPF (com backup)
 │   └── limpar-controle.sql# Zera candidatos e formacao (com backup); não toca em entrevistas
 ├── assets/
-│   ├── logo-rbcip.png    # Logo (barra superior)
+│   ├── logo-rbcip.png    # Logo branca (barra superior do site)
+│   ├── logo-rbcip-email.png # Logo azul-marinho (cabeçalho dos e-mails)
 │   └── bandeira-sp.png   # Bandeira de SP (canto do mapa)
 └── docs/
     ├── GUIA-ENTREVISTADORES.md    # Guia simples para quem faz as entrevistas
