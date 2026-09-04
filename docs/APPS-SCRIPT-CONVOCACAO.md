@@ -394,10 +394,12 @@ function avisoAutomatico() {
     }
     return r.avisados;
   } catch (err) {
-    // Rotina automática que falha calada é o pior caso: avisa quem cuida.
+    // Rotina automática que falha calada é o pior caso: avisa quem cuida — e
+    // deixa a falha registrada, para aparecer no histórico do painel.
     try {
       GmailApp.sendEmail(EMAIL_RECIBO, "RBCIP — aviso ao financeiro FALHOU", String(err));
     } catch (e) {}
+    try { registrarAviso(tokenDoRobo(), "automatica", [], [], String(err)); } catch (e2) {}
     throw err;
   }
 }
@@ -646,7 +648,41 @@ function avisarAptos(token) {
     supabase(t, "formacao?id=eq." + aptos[m].id, "patch",
       { aviso_apto_em: agora, updated_at: agora });
   }
+
+  registrarAviso(t, token ? "manual" : "automatica", aptos, destinatarios, null);
   return { avisados: aptos.length, destinatarios: destinatarios };
+}
+
+// Registra o aviso na tabela `avisos_financeiro` (sql/avisos-financeiro.sql).
+//
+// É o que permite à aba Termos de Bolsa responder "os e-mails estão saindo?".
+// Sem isto, "não chegou nada" significaria ao mesmo tempo "não havia ninguém
+// apto" e "a rotina parou" — e não haveria como distinguir.
+//
+// Nunca deixa o envio falhar por causa do registro: se a tabela ainda não
+// existe, o e-mail já saiu e é isso que importa.
+function registrarAviso(token, origem, aptos, destinatarios, detalhe) {
+  try {
+    var pessoas = [];
+    for (var i = 0; i < (aptos || []).length; i++) {
+      var a = aptos[i];
+      pessoas.push({
+        nome: a.nome || "",
+        tipo: a.tipo || "",
+        grupo: a.grupo || a.regiao || "",
+        cpf: a.cpf || "",
+        email: a.email || "",
+      });
+    }
+    supabase(token, "avisos_financeiro", "post", {
+      origem: origem,
+      usuario: origem === "manual" ? "painel" : ROBO_EMAIL,
+      quantidade: pessoas.length,
+      destinatarios: destinatarios || [],
+      pessoas: pessoas,
+      detalhe: detalhe || null,
+    });
+  } catch (e) { /* registro é auditoria, não pode derrubar o envio */ }
 }
 
 function registrarSincronizacao(token, lidos, atualizadas, detalhe) {

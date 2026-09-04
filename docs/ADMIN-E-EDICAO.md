@@ -159,6 +159,33 @@ Só o administrador vê os dois botões da aba: **⬇ Baixar .xlsx** e
 Quando alguém fica apto, o pessoal do financeiro recebe um e-mail dizendo que
 a pessoa concluiu cadastro e treinamento e só depende do termo para atuar.
 
+### Histórico dos avisos
+
+Rode **`sql/avisos-financeiro.sql`** uma vez. Ele cria a tabela
+`avisos_financeiro`, onde **cada e-mail enviado deixa registro**: quando saiu,
+se foi automático ou pelo botão, quantas pessoas entraram na lista, para quais
+endereços foi — e, quando dá errado, o erro.
+
+O bloco **Histórico de avisos ao financeiro** aparece na aba *Termos de Bolsa*,
+logo abaixo da linha do envio automático, e é visto pelo administrador **e pelo
+financeiro** (é ele quem recebe os avisos e quem mais precisa saber se algum
+deixou de chegar). Vem recolhido: o cabeçalho já responde *"está saindo?"* com
+a data do último envio, o total e um selo vermelho se houve falha.
+
+Na tabela, a coluna *Pessoas* mostra quantas entraram no aviso e traz os nomes
+no "passe o mouse"; *Enviado para* mostra o endereço (ou quantos foram, se mais
+de um).
+
+> **Por que isto existe.** A linha acima diz que o **gatilho está ligado** —
+> mas um gatilho pode estar instalado e falhando toda hora. Sem o histórico,
+> "não chegou nada" significa ao mesmo tempo *"está tudo certo e não havia
+> ninguém apto"* e *"parou de funcionar"*, e não há como distinguir. Por isso
+> as **falhas também entram na lista**, e não só os envios que deram certo.
+
+Enquanto o SQL não for rodado, o bloco diz qual arquivo falta — e **os avisos
+continuam sendo enviados normalmente**, só não ficam registrados. O registro é
+auditoria: uma falha ao gravar nunca derruba o envio.
+
 ### Ligando o envio automático (uma vez)
 
 No Apps Script, abra o editor, escolha a função **`instalarGatilhoAviso`** no

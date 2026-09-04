@@ -1521,6 +1521,11 @@ input[type="date"].viz-data {
 .recolhe__nota { font-size: 12.5px; color: var(--cor-texto-suave); }
 .recolhe__corpo { padding-top: 12px; }
 .recolhe__corpo .imp-info:last-child { margin-bottom: 0; }
+/* Histórico de avisos: fica logo abaixo da linha do envio automático, então
+   encosta nela em vez de abrir a distância dos blocos de importação. */
+.recolhe--avisos { margin-top: 6px; }
+.recolhe--avisos .cand-resumo:first-child { margin-top: 0; }
+.tabela--avisos { font-size: 13px; }
 @media (prefers-reduced-motion: reduce) { .recolhe__seta { transition: none; } }
 
 .metas {

@@ -462,7 +462,7 @@
       client.auth.signOut().then(function () {
         // Nada da sessão anterior sobrevive ao logout, nem em memória.
         linhas = []; candidatos = []; formacao = []; metas = [];
-        supervisores = []; importacoes = []; sincronizacoes = [];
+        supervisores = []; importacoes = []; sincronizacoes = []; avisos = [];
         usuarioEmail = "";
         esquecerCasamentos();
         mostrarLogin();
@@ -676,7 +676,7 @@
       renderTudo();
       // Histórico e supervisores primeiro: os painéis dependem dos dois.
       Promise.all([carregarImportacoes(), carregarSupervisores(), carregarSincronizacoes(),
-        carregarMetas()]).then(function () {
+        carregarAvisos(), carregarMetas()]).then(function () {
         carregarCandidatos(); // busca as fichas e re-renderiza o painel de candidatos
         carregarFormacao();   // idem para o painel de formação (bolsistas)
       });
@@ -3665,6 +3665,24 @@
     } catch (e) { sincronizacoes = []; return Promise.resolve(); }
   }
 
+  // ---------- Registro dos avisos ao financeiro ----------
+  // Quem grava é o Apps Script (sql/avisos-financeiro.sql): o aviso sai de hora
+  // em hora, sem o painel aberto. Aqui só lemos, para mostrar o histórico.
+  var avisos = [];
+
+  function carregarAvisos() {
+    if (!client) return Promise.resolve();
+    try {
+      return client.from("avisos_financeiro").select("*").then(function (resp) {
+        // Tabela ainda não criada é o caso normal antes de rodar o SQL: o
+        // painel segue funcionando e o bloco diz qual arquivo falta.
+        avisos = (!resp.error && resp.data) ? resp.data : [];
+        avisosOk = !resp.error;
+      }).catch(function () { avisos = []; avisosOk = false; });
+    } catch (e) { avisos = []; avisosOk = false; return Promise.resolve(); }
+  }
+  var avisosOk = true;
+
   function registrarSincronizacao(lidos, atualizadas, detalhe) {
     if (!client) return Promise.resolve();
     var reg = {
@@ -4783,6 +4801,9 @@
       painel.appendChild(acoes);
       painel.appendChild(blocoAutomacaoAviso());
     }
+    // O histórico também para o financeiro: é ele quem recebe os avisos e quem
+    // mais precisa saber se algum deixou de chegar.
+    if (podeVerTermos()) painel.appendChild(blocoHistoricoAvisos());
 
     // --- Recorte da lista ---
     var vistas = [
@@ -4923,6 +4944,136 @@
   // avisar" seriam a mesma tela silenciosa, e o botão viraria obrigação sem
   // ninguém perceber.
   var statusAutomacao = null; // null = ainda não consultado
+
+  // Histórico dos avisos ao financeiro: prova de que os e-mails estão saindo.
+  //
+  // A linha de "envio automático ligado" logo acima diz que o gatilho existe;
+  // isto diz que ele está funcionando. São coisas diferentes — um gatilho pode
+  // estar instalado e falhando toda hora.
+  function blocoHistoricoAvisos() {
+    var caixa = el("details", { class: "recolhe recolhe--avisos" });
+    var resumo = el("summary", { class: "recolhe__resumo" });
+    var seta = el("span", { class: "recolhe__seta", "aria-hidden": "true" });
+    seta.innerHTML = '<svg viewBox="0 0 16 16" focusable="false">' +
+      '<path d="M6 3.5L10.5 8L6 12.5" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    resumo.appendChild(seta);
+    resumo.appendChild(el("span", { class: "recolhe__titulo", text: "Histórico de avisos ao financeiro" }));
+
+    var lista = avisos.slice().sort(function (a, b) {
+      return (b.criado_em || "").localeCompare(a.criado_em || "");
+    });
+    var comFalha = lista.filter(function (a) { return !!a.detalhe; }).length;
+
+    // O resumo do cabeçalho já responde "está saindo?" sem precisar abrir.
+    if (!avisosOk) {
+      resumo.appendChild(el("span", {
+        class: "recolhe__nota", text: "depende de sql/avisos-financeiro.sql",
+      }));
+    } else if (!lista.length) {
+      resumo.appendChild(el("span", { class: "recolhe__nota", text: "nenhum aviso registrado ainda" }));
+    } else {
+      var ultimo = lista[0];
+      resumo.appendChild(el("span", {
+        class: "recolhe__nota",
+        text: "último em " + formatarDataHora(ultimo.criado_em) +
+          " · " + lista.length + " no total",
+      }));
+      if (comFalha) {
+        resumo.appendChild(el("span", {
+          class: "tag tag--vermelho metas__chip",
+          text: comFalha + (comFalha === 1 ? " falha" : " falhas"),
+        }));
+      }
+    }
+    caixa.appendChild(resumo);
+
+    var corpo = el("div", { class: "recolhe__corpo" });
+    if (!avisosOk) {
+      corpo.appendChild(el("p", {
+        class: "cand-resumo",
+        text: "O registro dos avisos ainda não existe no banco. Rode " +
+          "sql/avisos-financeiro.sql no SQL Editor do Supabase — os avisos continuam " +
+          "sendo enviados normalmente, só não ficam registrados.",
+      }));
+      caixa.appendChild(corpo);
+      return caixa;
+    }
+    if (!lista.length) {
+      corpo.appendChild(el("p", {
+        class: "cand-resumo",
+        text: "Nenhum aviso saiu ainda. Enquanto não houver ninguém apto — cadastro de " +
+          "bolsista e treinamento concluídos, sem termo —, não há o que avisar, e o " +
+          "silêncio aqui é o esperado.",
+      }));
+      caixa.appendChild(corpo);
+      return caixa;
+    }
+
+    var tabela = el("table", { class: "tabela tabela--cand tabela--avisos" });
+    var trh = el("tr");
+    ["Quando", "Origem", "Pessoas", "Enviado para", "Situação"].forEach(function (c) {
+      trh.appendChild(el("th", { class: "tabela__th", text: c }));
+    });
+    tabela.appendChild(el("thead", {}, [trh]));
+
+    var tbody = el("tbody");
+    // As 20 últimas: é histórico de conferência, não arquivo morto.
+    lista.slice(0, 20).forEach(function (a) {
+      var tr = el("tr", { class: "tabela__tr" });
+      tr.appendChild(el("td", {
+        class: "tabela__td col-firme cand-td-nome", "data-label": "Quando",
+        text: formatarDataHora(a.criado_em),
+      }));
+      tr.appendChild(el("td", {
+        class: "tabela__td", "data-label": "Origem",
+        text: a.origem === "automatica" ? "Automático" : "Pelo botão",
+      }));
+
+      // Os nomes ficam no "passe o mouse": a coluna mostra quantos, e quem
+      // quiser saber quem eram não precisa de outra tela.
+      var pessoas = a.pessoas || [];
+      var nomes = pessoas.map(function (p) { return p.nome || "(sem nome)"; });
+      var tdQtd = el("td", {
+        class: "tabela__td", "data-label": "Pessoas",
+        title: nomes.join("\n"),
+        text: String(a.quantidade == null ? pessoas.length : a.quantidade),
+      });
+      tr.appendChild(tdQtd);
+
+      var dest = a.destinatarios || [];
+      tr.appendChild(el("td", {
+        class: "tabela__td cand-email", "data-label": "Enviado para",
+        title: dest.join(", "),
+        text: dest.length ? (dest.length === 1 ? dest[0] : dest.length + " endereços") : "—",
+      }));
+
+      var tdSit = el("td", { class: "tabela__td", "data-label": "Situação" });
+      if (a.detalhe) {
+        tdSit.appendChild(el("span", {
+          class: "cand-bounce", title: a.detalhe,
+          text: "✗ falhou",
+        }));
+      } else {
+        tdSit.appendChild(el("span", { class: "cand-enviado", text: "✓ enviado" }));
+      }
+      tr.appendChild(tdSit);
+      tbody.appendChild(tr);
+    });
+    tabela.appendChild(tbody);
+
+    if (lista.length > 20) {
+      corpo.appendChild(el("p", {
+        class: "cand-resumo",
+        text: "Mostrando os 20 avisos mais recentes, de " + lista.length + ".",
+      }));
+    }
+    var wrap = el("div", { class: "tabela-wrap" });
+    wrap.appendChild(tabela);
+    corpo.appendChild(wrap);
+    caixa.appendChild(corpo);
+    return caixa;
+  }
 
   function blocoAutomacaoAviso() {
     var caixa = el("p", { class: "cand-resumo automacao" });

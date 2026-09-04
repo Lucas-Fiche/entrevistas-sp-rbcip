@@ -78,6 +78,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só define grupo vazio na Capital)
 │   ├── usuarios.sql      # Página "Gerenciar usuários": contas, perfis e histórico
 │   ├── perfil-financeiro.sql # Perfil FINANCEIRO + aviso de "apto, falta o termo"
+│   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
 │   ├── historico.sql     # Data de entrada + registro de toda alteração (gatilho)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
@@ -233,7 +234,9 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 - **Termos de Bolsa** (admin e financeiro): quem já tem termo e quem ainda não,
   com o recorte **Aptos** — cadastro de bolsista e treinamento feitos, faltando
   só o termo. Exporta em .xlsx, mostra se o envio automático está ligado e
-  permite avisar o financeiro na hora.
+  permite avisar o financeiro na hora. O **histórico de avisos** registra cada
+  e-mail que saiu (quando, para quem, quantas pessoas) e também as falhas —
+  sem ele, "não chegou nada" seria a mesma coisa que "parou de funcionar".
 - **Visualização de dados:** filtros (**Tipo**, **Período** e **Região**) e três
   sub-abas, uma por etapa do funil:
   - **Inscrições no SIPE** — funil do processo, inscrições por região e
