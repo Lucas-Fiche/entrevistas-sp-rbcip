@@ -441,6 +441,11 @@ da plataforma do projeto certo:
 | Capital | `PLATAFORMA_CADASTRO_CAPITAL` (em `js/config.js`) |
 | Interior | `PLATAFORMA_CADASTRO_INTERIOR` |
 
+São as **mesmas duas chaves** que o formulário de entrevista usa no aviso da
+pergunta *"O candidato possui inscrição no SIPE?"* quando a resposta é **Não**.
+Se o endereço da plataforma mudar, troque só aqui: os dois lugares leem do
+mesmo ponto e não têm como divergir.
+
 A ideia é justamente **não remendar a inscrição por dentro do sistema**: ela
 nasce certa na origem, e daí para frente todas as etapas — região, supervisor,
 planilha de controle e termo de bolsa — seguem sozinhas pelo lado correto.

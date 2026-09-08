@@ -90,10 +90,15 @@ const OPCOES_RECOMENDACAO = [
  * `tipo` ("capital" | "interior") define apenas o link de cadastro no SIPE.
  */
 function secaoIdentificacao(tipo) {
+  // O link vem de js/config.js (PLATAFORMA_CADASTRO_*), o mesmo que o painel
+  // usa no e-mail de "cadastro na região errada" — para que trocar o endereço
+  // da plataforma seja uma edição só, e não duas que podem divergir. Os valores
+  // abaixo são só a rede de segurança se config.js não tiver carregado.
+  var cfg = (typeof window !== "undefined" && window.SUPABASE_CONFIG) || {};
   var linkSipe =
     tipo === "interior"
-      ? "https://sp.rbcip.org/link/c2interior/cadastro/bolsista/"
-      : "https://sp.rbcip.org/link/c2/cadastro/bolsista/";
+      ? cfg.PLATAFORMA_CADASTRO_INTERIOR || "https://sp.rbcip.org/link/c3interior/cadastro/bolsista/"
+      : cfg.PLATAFORMA_CADASTRO_CAPITAL || "https://sp.rbcip.org/link/c3/cadastro/bolsista/";
   return {
     titulo: "Identificação",
     chave: "identificacao",

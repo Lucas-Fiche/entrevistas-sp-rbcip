@@ -18,7 +18,7 @@ window.SUPABASE_CONFIG = {
   // Versão da publicação. Aparece no canto do painel e serve para conferir se o
   // navegador está com a versão nova (e não com uma cópia velha em cache).
   // Ao publicar mudanças, troque também o "?v=" dos arquivos nos .html.
-  VERSAO: "20260904b",
+  VERSAO: "20260908a",
 
   SUPABASE_URL: "https://gnqzcmzyupetpvlhsfsu.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_MEhaRpgmqmEW8wkh39N3Wg_brzS5bX_",
@@ -58,8 +58,12 @@ window.SUPABASE_CONFIG = {
   // cadastra na plataforma, um para cada projeto (Capital e Interior). São
   // usados quando alguém se cadastrou na região errada — o painel envia o link
   // da região certa em vez de o sistema remendar o cadastro por dentro.
-  PLATAFORMA_CADASTRO_CAPITAL: "https://sp.rbcip.org/link/c2/cadastro/bolsista/",
-  PLATAFORMA_CADASTRO_INTERIOR: "https://sp.rbcip.org/link/c2interior/cadastro/bolsista/",
+  //
+  // São OS MESMOS links que o formulário de entrevista mostra quando o
+  // candidato responde "Não" em "possui inscrição no SIPE?": o formulário lê
+  // daqui, então trocar aqui troca nos dois lugares de uma vez.
+  PLATAFORMA_CADASTRO_CAPITAL: "https://sp.rbcip.org/link/c3/cadastro/bolsista/",
+  PLATAFORMA_CADASTRO_INTERIOR: "https://sp.rbcip.org/link/c3interior/cadastro/bolsista/",
 
   // ---- Administradores (quem pode editar dados e enviar convocações) ----
   // Esta lista é só o "plano B" da interface. A regra que vale de verdade está
