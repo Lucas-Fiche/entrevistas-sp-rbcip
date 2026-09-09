@@ -93,6 +93,11 @@ comment on column public.formacao.aviso_apto_em is
 --         E treinamento realizado
 --         E sem termo de bolsa
 --         E não desligado.
+--
+--  ATENÇÃO: sql/antecedentes.sql SUBSTITUI esta view por uma que exige também
+--  os antecedentes criminais (as três etapas). Rodar este arquivo depois
+--  daquele devolve a regra antiga, de duas etapas — se acontecer, é só rodar
+--  sql/antecedentes.sql outra vez.
 -- ------------------------------------------------------------
 create or replace view public.aptos_para_termo as
   select

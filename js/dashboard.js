@@ -4206,6 +4206,15 @@
     campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento", dica: "dd/mm/aaaa",
       valor: dataTreinamentoDe(f) });
     campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
+    // Terceira etapa antes do termo. O lugar de rotina é a coluna da aba Termos
+    // de Bolsa; aqui é para acertar as fichas antigas, de antes de a etapa
+    // existir no sistema. Vai pela mesma função do banco, não pelo update da
+    // ficha — uma porta só para a coluna, venha de onde vier.
+    if (temColunaAntecedentes()) {
+      campos.push({ id: "antecedentes_em", rot: "Antecedentes criminais (data do envio)",
+        dica: "dd/mm/aaaa — o dia em que a certidão foi enviada. Em branco = ainda não enviou. " +
+          "Também dá para registrar direto na aba Termos de Bolsa." });
+    }
     campos.push({ id: "termo_link", rot: "Link do termo de bolsa",
       dica: "Preenchido pela planilha de termos. Ter link = bolsista ativo." });
     // Desligamento NÃO entra aqui: é ação própria, com botão e tela próprios.
@@ -4276,24 +4285,58 @@
         if (valor !== (f[c.id] || "")) patch[c.id] = valor || null;
       });
       if (!Object.keys(patch).length) { msg.textContent = "Nada foi alterado."; return; }
+
+      // Os antecedentes saem do patch e vão pela função própria do banco. Uma
+      // porta só para essa coluna, venha da aba Termos de Bolsa ou daqui: assim
+      // a data é conferida do mesmo jeito nos dois caminhos.
+      var mudouAntec = Object.prototype.hasOwnProperty.call(patch, "antecedentes_em");
+      var dataAntec = mudouAntec ? (patch.antecedentes_em || "") : "";
+      if (mudouAntec) {
+        var erroData = erroNaDataAntecedentes(dataAntec);
+        if (erroData) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = erroData;
+          return;
+        }
+        delete patch.antecedentes_em;
+      }
+
       salvar.disabled = true;
       msg.className = "edicao__msg";
       msg.textContent = "Salvando…";
       // O supervisor não tem permissão de update na tabela (e não deve ter: o
       // RLS decide por linha, e liberar a linha liberaria a ficha inteira). Ele
       // grava pela função `definir_grupo`, que só sabe mexer no grupo.
-      var gravar = ehAdmin()
-        ? client.from(formTabela()).update(
-            Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq("id", f.id)
-        : client.rpc("definir_grupo", { p_id: f.id, p_grupo: patch.grupo || null });
+      var gravar = !ehAdmin()
+        ? client.rpc("definir_grupo", { p_id: f.id, p_grupo: patch.grupo || null })
+        : Object.keys(patch).length
+          ? client.from(formTabela()).update(
+              Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq("id", f.id)
+          : Promise.resolve({ error: null });
       Promise.resolve(gravar).then(function (resp) {
+        if (resp && resp.error) return resp;
+        // O que já gravou vale, mesmo que o passo seguinte falhe: guardar na
+        // ficha agora evita a tela mostrar como "não salvo" algo que está no
+        // banco.
+        Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+        if (!mudouAntec) return resp;
+        return client.rpc("definir_antecedentes", { p_id: f.id, p_data: dataAntec || null })
+          .then(function (r2) {
+            // Erro daqui tem mensagem própria: mandar rodar perfil-supervisor.sql
+            // quando o que falta é antecedentes.sql aponta o arquivo errado.
+            if (r2 && r2.error) return { error: r2.error, deAntecedentes: true };
+            f.antecedentes_em = dataAntec || null;
+            return resp;
+          });
+      }).then(function (resp) {
         salvar.disabled = false;
         if (resp && resp.error) {
           msg.className = "edicao__msg edicao__msg--erro";
-          msg.textContent = mensagemDeErroAoSalvarFormacao(resp.error);
+          msg.textContent = resp.deAntecedentes
+            ? mensagemDeErroAoSalvarAntecedentes(resp.error)
+            : mensagemDeErroAoSalvarFormacao(resp.error);
           return;
         }
-        Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
         fecharModal();
         renderPainelFormacao();
       });
@@ -4363,29 +4406,11 @@
       e.preventDefault();
       var valor = entrada.value.trim();
       var antes = f.antecedentes_em || "";
-      // A mesma conferência que a função do banco faz. Aqui é só para a
-      // resposta ser imediata: quem manda continua sendo o banco.
-      if (valor) {
-        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(valor) || !normalizarDataHora(valor)) {
-          msg.className = "edicao__msg edicao__msg--erro";
-          msg.textContent = "Data inválida. Use dd/mm/aaaa.";
-          return;
-        }
-        var iso = normalizarDataHora(valor);
-        var d = new Date(iso + "T12:00:00");
-        // Dia que não existe (31/02) chega aqui como 03/03: a volta denuncia.
-        if (isNaN(d.getTime()) ||
-            String(d.getDate()).padStart(2, "0") + "/" +
-            String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear() !== valor) {
-          msg.className = "edicao__msg edicao__msg--erro";
-          msg.textContent = "Essa data não existe no calendário.";
-          return;
-        }
-        if (iso > new Date().toISOString().slice(0, 10)) {
-          msg.className = "edicao__msg edicao__msg--erro";
-          msg.textContent = "A data do envio não pode estar no futuro. Confira o ano.";
-          return;
-        }
+      var erroData = erroNaDataAntecedentes(valor);
+      if (erroData) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = erroData;
+        return;
       }
       if (valor === antes) { msg.textContent = "Nada foi alterado."; return; }
 
@@ -4409,6 +4434,30 @@
     alvo.appendChild(form);
     mostrar($("#modal"), true);
     entrada.focus();
+  }
+
+  // A mesma conferência que a função `definir_antecedentes` faz no banco.
+  // Duplicar aqui é de propósito: a resposta sai na hora, sem ida e volta. Quem
+  // manda continua sendo o banco — esta cópia poupa a viagem, não a decisão.
+  // Devolve "" quando está tudo certo (vazio inclusive: apagar é permitido).
+  function erroNaDataAntecedentes(valor) {
+    var v = String(valor || "").trim();
+    if (!v) return "";
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(v) || !normalizarDataHora(v)) {
+      return "Data dos antecedentes inválida. Use dd/mm/aaaa.";
+    }
+    var iso = normalizarDataHora(v);
+    var d = new Date(iso + "T12:00:00");
+    // Dia que não existe (31/02) chega aqui como 03/03: a volta denuncia.
+    if (isNaN(d.getTime()) ||
+        String(d.getDate()).padStart(2, "0") + "/" +
+        String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear() !== v) {
+      return "Essa data dos antecedentes não existe no calendário.";
+    }
+    if (iso > new Date().toISOString().slice(0, 10)) {
+      return "A data dos antecedentes não pode estar no futuro. Confira o ano.";
+    }
+    return "";
   }
 
   function mensagemDeErroAoSalvarAntecedentes(erro) {
@@ -4904,13 +4953,44 @@
   var termosVer = "pendentes"; // pendentes | aptos | ativos
   var termosBusca = "";
 
+  // Apto = as TRÊS etapas cumpridas (cadastro de bolsista, treinamento e
+  // antecedentes criminais), sem termo e sem desligamento. É a mesma definição
+  // da view `aptos_para_termo` no banco, que o aviso por e-mail usa: se as duas
+  // discordarem, o painel mostra uma lista e o financeiro recebe outra.
+  //
+  // A exceção do `temColunaAntecedentes()` é para o banco que ainda não rodou
+  // sql/antecedentes.sql: ali a data não existe para ninguém, e exigi-la
+  // zeraria a lista de aptos — o painel diria que não há ninguém esperando o
+  // termo, o que seria falso. Sem a coluna, vale a regra antiga.
   function aptoParaTermo(f) {
-    return !f.desligado_em && !f.termo_link &&
-      ehRealizado(f.cadastro_bolsista) && fezTreinamento(f);
+    if (f.desligado_em || f.termo_link) return false;
+    if (!ehRealizado(f.cadastro_bolsista) || !fezTreinamento(f)) return false;
+    return temColunaAntecedentes() ? !!f.antecedentes_em : true;
   }
   // Pendente = está no projeto e ainda não tem termo (apto ou não).
   function pendenteDeTermo(f) {
     return !f.desligado_em && !f.termo_link;
+  }
+
+  // "Não apto" com três etapas possíveis vira adivinhação: esta frase diz
+  // exatamente o que falta, para o "passe o mouse" resolver em vez de mandar
+  // procurar nas outras colunas.
+  function etapasQueFaltam(f) {
+    var faltam = [];
+    if (!ehRealizado(f.cadastro_bolsista)) faltam.push("o cadastro de bolsista");
+    if (!fezTreinamento(f)) faltam.push("o treinamento");
+    // "os antecedentes" é plural: com ele sozinho o verbo ainda é "faltam".
+    var soAntecedentes = false;
+    if (temColunaAntecedentes() && !f.antecedentes_em) {
+      soAntecedentes = !faltam.length;
+      faltam.push("os antecedentes criminais");
+    }
+    if (!faltam.length) return "";
+    if (faltam.length === 1) {
+      return (soAntecedentes ? "Faltam " : "Falta ") + faltam[0] + " antes do termo.";
+    }
+    return "Faltam " + faltam.slice(0, -1).join(", ") + " e " + faltam[faltam.length - 1] +
+      " antes do termo.";
   }
 
   function formacaoDosTermos() {
@@ -4952,9 +5032,9 @@
 
     painel.appendChild(el("p", {
       class: "painel__nota",
-      text: "Quem já tem termo de bolsa e quem ainda não tem. “Apto” é quem preencheu o " +
-        "cadastro de bolsista e fez o treinamento: falta só o termo para começar a atuar. " +
-        "Os antecedentes criminais são registrados nesta aba, na coluna própria.",
+      text: "Quem já tem termo de bolsa e quem ainda não tem. “Apto” é quem cumpriu as três " +
+        "etapas — cadastro de bolsista, treinamento e antecedentes criminais: falta só o " +
+        "termo para começar a atuar. Os antecedentes são registrados nesta aba, na coluna própria.",
     }));
 
     // Sem a coluna no banco não há o que registrar — e a tabela mostraria um
@@ -5051,7 +5131,7 @@
         class: "cand-vazio",
         text: termosBusca ? "Ninguém encontrado para esta busca."
           : termosVer === "aptos" ? "Ninguém apto no momento: todo mundo sem termo ainda tem " +
-            "cadastro ou treinamento pendente."
+            "cadastro, treinamento ou antecedentes criminais pendentes."
           : "Nenhuma ficha neste recorte.",
       }));
       return;
@@ -5102,7 +5182,8 @@
       if (aptoParaTermo(f)) {
         tdNome.appendChild(el("span", {
           class: "termo-apto",
-          title: "Cadastro e treinamento feitos. Falta só o termo de bolsa." +
+          title: "As três etapas feitas — cadastro, treinamento e antecedentes criminais. " +
+            "Falta só o termo de bolsa." +
             (f.aviso_apto_em ? " Financeiro avisado em " + formatarDataHora(f.aviso_apto_em) + "."
               : " O financeiro ainda não foi avisado."),
           text: f.aviso_apto_em ? "✓ apto — financeiro avisado" : "★ apto — avisar financeiro",
@@ -5131,8 +5212,9 @@
         }));
       } else {
         tdTermo.appendChild(aptoParaTermo(f)
-          ? tagPendente("aguardando termo", "Cadastro e treinamento feitos: o termo é o próximo passo.")
-          : tagNaoApto("Falta cadastro de bolsista ou treinamento antes do termo."));
+          ? tagPendente("aguardando termo",
+              "As três etapas feitas: o termo é o próximo passo.")
+          : tagNaoApto(etapasQueFaltam(f)));
       }
       tr.appendChild(tdTermo);
 

@@ -233,8 +233,8 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
   alguém. **Meu perfil** mostra o perfil de quem está logado, o que ele permite
   e onde **trocar a própria senha**.
 - **Termos de Bolsa** (admin e financeiro): quem já tem termo e quem ainda não,
-  com o recorte **Aptos** — cadastro de bolsista e treinamento feitos, faltando
-  só o termo. Exporta em .xlsx, mostra se o envio automático está ligado e
+  com o recorte **Aptos** — as três etapas cumpridas (cadastro de bolsista,
+  treinamento e antecedentes criminais), faltando só o termo. Exporta em .xlsx, mostra se o envio automático está ligado e
   permite avisar o financeiro na hora. O **histórico de avisos** registra cada
   e-mail que saiu (quando, para quem, quantas pessoas) e também as falhas —
   sem ele, "não chegou nada" seria a mesma coisa que "parou de funcionar".

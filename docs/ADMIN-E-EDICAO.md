@@ -148,12 +148,18 @@ antecedentes → termo** —, então dá para ler a linha da esquerda para a dir
 e ver em que etapa a pessoa parou.
 
 Na coluna *Termo de bolsa*, **📄 Emitido** é quem já tem o documento,
-**aguardando termo** (âmbar) é quem cumpriu as duas etapas e só espera o termo,
-e **Não apto** (vermelho) é quem ainda tem cadastro ou treinamento pendente.
+**aguardando termo** (âmbar) é quem cumpriu as três etapas e só espera o termo,
+e **Não apto** (vermelho) é quem ainda tem alguma pendente — passe o mouse e a
+marca diz **qual** falta, para não ter de procurar nas outras colunas.
 
 **Apto** quer dizer: cadastro de bolsista preenchido **e** treinamento
-realizado, **sem** termo e **sem** desligamento. É quem já pode começar assim
-que o termo sair — a linha ganha a marca `★ apto` embaixo do nome.
+realizado **e** antecedentes criminais entregues, **sem** termo e **sem**
+desligamento. É quem já pode começar assim que o termo sair — a linha ganha a
+marca `★ apto` embaixo do nome.
+
+A mesma definição vale em três lugares — o painel, a view `aptos_para_termo` no
+banco e o Apps Script que manda o e-mail. Se discordassem, a tela mostraria uma
+lista e o financeiro receberia outra.
 
 Só o administrador vê os dois botões da aba: **⬇ Baixar .xlsx** e
 **✉ Avisar o financeiro (N)**.
@@ -185,19 +191,33 @@ linha para o financeiro liberaria a ficha inteira.
 A data é conferida nos dois lados (tela e banco): formato `dd/mm/aaaa`, dia que
 exista no calendário e **nada no futuro** — o que costuma pegar o ano trocado.
 
-Na aba *Formação* a mesma coluna aparece **só para leitura**, com o que foi
-registrado aqui. Dois lugares para preencher o mesmo campo é convite para
-divergência; um lugar para preencher e outro para consultar, não.
+Na aba *Formação* a coluna aparece **só para leitura** na tabela, com o que foi
+registrado aqui. Para **acertar as fichas antigas** — quem entrou antes de esta
+etapa existir no sistema — abra a ficha no lápis: o campo *Antecedentes
+criminais (data do envio)* está lá, entre o facilitador e o link do termo.
 
-> **Isto não muda quem é "apto".** Apto continua sendo cadastro + treinamento,
-> como sempre foi — é o que decide quem entra no aviso ao financeiro. Se a
-> regra tiver de passar a exigir os antecedentes, é uma decisão à parte: quem
-> hoje está apto sem a data cairia da lista no mesmo instante.
+> Mesmo vindo da ficha, a gravação passa pela **mesma** função
+> `definir_antecedentes`. Uma porta só para essa coluna, venha de onde vier — é
+> o que garante que a data seja conferida do mesmo jeito nos dois caminhos.
+
+#### Isto muda quem é "apto"
+
+Antes: cadastro + treinamento. **Agora: as três etapas.** Quem estava apto e
+ainda não entregou a certidão sai da lista de *Aptos* e volta como **Não apto**,
+até a data ser registrada.
+
+`sql/antecedentes.sql` cuida da parte incômoda dessa virada: **limpa a marca de
+"financeiro já avisado"** de quem tinha sido anunciado pela regra antiga e não
+tem antecedentes. Sem isso, essas pessoas ficariam num limbo — o sistema as
+considera já anunciadas, então no dia em que entregassem a certidão **ninguém
+seria avisado**, e elas esperariam um termo que o financeiro não sabe que
+precisa emitir. O e-mail que já saiu continua no *Histórico de avisos*, e a
+alteração fica no histórico da ficha: nada se perde.
 
 ### O aviso por e-mail
 
 Quando alguém fica apto, o pessoal do financeiro recebe um e-mail dizendo que
-a pessoa concluiu cadastro e treinamento e só depende do termo para atuar.
+a pessoa concluiu as três etapas e só depende do termo para atuar.
 
 ### Histórico dos avisos
 

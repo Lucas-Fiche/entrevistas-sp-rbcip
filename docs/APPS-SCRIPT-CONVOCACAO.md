@@ -531,7 +531,7 @@ function htmlAviso(aptos) {
     ? '<img src="' + escH(LOGO_EMAIL) + '" alt="RBCIP - Pesquisa e Inovação" width="180" style="max-width: 180px; height: auto; border: 0; display: inline-block;">'
     : '<span style="font-size: 22px; font-weight: bold; color: #004B87; letter-spacing: 1px;">RBCIP</span><br><span style="font-size: 12px; color: #64748b;">pesquisa e inovação</span>';
 
-  var previa = aptos.length + " pessoa(s) concluíram cadastro e treinamento. Falta o termo de bolsa.";
+  var previa = aptos.length + " pessoa(s) concluíram cadastro, treinamento e antecedentes. Falta o termo de bolsa.";
   var ano = new Date().getFullYear();
 
   return '<!DOCTYPE html>\n<html lang="pt-BR">\n<head>\n' +
@@ -550,7 +550,7 @@ function htmlAviso(aptos) {
     '            <td style="padding: 40px 30px; font-size: 15px; line-height: 1.6; color: #444444;">\n' +
     '<h3 style="margin-top: 0; color: #004B87; font-size: 18px;">Atualização: Pessoas Aptas (Termo de Bolsa)</h3>\n' +
     "<p>Prezada equipe,</p>\n" +
-    "<p>Temos <strong>" + aptos.length + "</strong> pessoa(s) que concluíram o cadastro de bolsista e o treinamento.</p>\n" +
+    "<p>Temos <strong>" + aptos.length + "</strong> pessoa(s) que concluíram as três etapas: cadastro de bolsista, treinamento e envio dos antecedentes criminais.</p>\n" +
     "<p>Falta apenas a emissão do termo de bolsa para começarem a atuar. Segue a relação detalhada:</p>\n" +
     '<div style="margin: 25px 0;">\n' +
     // Larguras em % fixadas no cabeçalho: sem elas o navegador dá quase tudo
@@ -597,8 +597,11 @@ function avisarAptos(token) {
 
   var fichas = supabase(t,
     "formacao?select=id,nome,tipo,cpf,email,grupo,regiao,data_entrada,cadastro_bolsista," +
-    "treinamento_presencial,treinamento_online,termo_link,desligado_em,aviso_apto_em") || [];
+    "treinamento_presencial,treinamento_online,antecedentes_em,termo_link,desligado_em,aviso_apto_em") || [];
 
+  // Apto = as TRÊS etapas: cadastro de bolsista, treinamento e antecedentes
+  // criminais. Mesma regra da view `aptos_para_termo` e do painel — se as três
+  // discordarem, a tela mostra uma lista e o e-mail leva outra.
   var aptos = [];
   for (var j = 0; j < fichas.length; j++) {
     var f = fichas[j];
@@ -608,6 +611,7 @@ function avisarAptos(token) {
     if (String(f.cadastro_bolsista || "").toLowerCase() !== "realizado") continue;
     var treino = String(f.treinamento_presencial || f.treinamento_online || "").toLowerCase();
     if (treino !== "realizado") continue;
+    if (!String(f.antecedentes_em || "").trim()) continue;
     aptos.push(f);
   }
   if (!aptos.length) return { avisados: 0, destinatarios: destinatarios };
@@ -631,7 +635,8 @@ function avisarAptos(token) {
     (aptos.length === 1 ? " pessoa apta, aguardando o termo de bolsa"
                         : " pessoas aptas, aguardando o termo de bolsa");
   var corpo =
-    "As pessoas abaixo concluíram o cadastro de bolsista e o treinamento.\n" +
+    "As pessoas abaixo concluíram as três etapas: cadastro de bolsista, treinamento e\n" +
+    "envio dos antecedentes criminais.\n" +
     "Falta apenas o termo de bolsa para começarem a atuar.\n\n" +
     linhas.join("\n") +
     "\n\nEsta lista sai uma vez por pessoa: quem aparece aqui não volta no próximo aviso.\n" +
@@ -845,7 +850,7 @@ São duas automações, independentes entre si:
 
 | Função | O que faz | Frequência |
 | --- | --- | --- |
-| `avisoAutomatico` | Avisa o financeiro de quem ficou **apto** (cadastro + treinamento feitos, sem termo) | de hora em hora |
+| `avisoAutomatico` | Avisa o financeiro de quem ficou **apto** (cadastro + treinamento + antecedentes, sem termo) | de hora em hora |
 | `sincronizacaoAutomatica` | Lê a planilha-ponte, marca cadastros e termos **e** manda o aviso ao final | de 6 em 6 horas |
 
 Ligar as duas não duplica e-mail: cada pessoa entra em **um aviso só**.

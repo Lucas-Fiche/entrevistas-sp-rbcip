@@ -16,11 +16,16 @@
 --  porta e só sabe escrever nesta coluna — o mesmo desenho de `definir_grupo`,
 --  usado pelo supervisor.
 --
+--  Este arquivo também muda a definição de APTO: passa a exigir as três
+--  etapas, e não mais só cadastro + treinamento. Ver as seções 3 e 4 no fim.
+--
 --  Cole no SQL Editor do Supabase e clique em Run. É idempotente (pode rodar
 --  de novo) e não apaga nenhum dado.
 --
 --  Depende de: sql/formacao.sql, sql/admin.sql (`eh_admin`) e
---  sql/perfil-financeiro.sql (`eh_financeiro`).
+--  sql/perfil-financeiro.sql (`eh_financeiro`). Se rodar
+--  sql/perfil-financeiro.sql outra vez depois deste, a view `aptos_para_termo`
+--  volta à regra antiga (duas etapas) — é só rodar este de novo.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -118,3 +123,52 @@ grant execute on function public.definir_antecedentes(uuid, text) to authenticat
 
 comment on function public.definir_antecedentes(uuid, text) is
   'Registra (ou apaga) a data de envio dos antecedentes criminais de uma ficha. Única porta de escrita dessa coluna: só admin e financeiro, e só nela.';
+
+-- ------------------------------------------------------------
+--  3) "Apto" passa a exigir as TRÊS etapas
+--
+--  Antes: cadastro + treinamento. Agora: cadastro + treinamento +
+--  antecedentes. A regra mora nesta view porque o painel, o Apps Script e
+--  qualquer consulta manual leem daqui — se cada um tivesse a sua, a tela
+--  mostraria uma lista e o financeiro receberia outra.
+-- ------------------------------------------------------------
+create or replace view public.aptos_para_termo as
+  select
+    f.id, f.tipo, f.nome, f.cpf, f.email, f.grupo, f.regiao,
+    f.data_entrada, f.aviso_apto_em
+  from public.formacao f
+  where coalesce(f.desligado_em, '') = ''
+    and coalesce(f.termo_link, '') = ''
+    and lower(coalesce(f.cadastro_bolsista, '')) = 'realizado'
+    -- "Treinamento" é um campo só nos dois projetos, mas fichas antigas ainda
+    -- podem trazer o valor no campo online: as duas colunas valem.
+    and (lower(coalesce(f.treinamento_presencial, '')) = 'realizado'
+      or lower(coalesce(f.treinamento_online, '')) = 'realizado')
+    and coalesce(f.antecedentes_em, '') <> '';
+
+comment on view public.aptos_para_termo is
+  'Quem já fez cadastro, treinamento e entregou os antecedentes criminais, e só depende do termo de bolsa para atuar.';
+
+grant select on public.aptos_para_termo to authenticated;
+
+-- ------------------------------------------------------------
+--  4) Desmarcar o aviso de quem foi anunciado cedo demais
+--
+--  `aviso_apto_em` preenchido quer dizer "o financeiro já sabe desta pessoa", e
+--  é o que impede o mesmo aviso de sair de novo. Quem foi marcado pela regra
+--  ANTIGA (sem os antecedentes) não está apto pela regra nova — e, com a marca
+--  no lugar, no dia em que entregasse a certidão NINGUÉM seria avisado: a
+--  pessoa ficaria parada esperando um termo que o financeiro não sabe que
+--  precisa emitir.
+--
+--  Limpar a marca devolve essas fichas à fila. O e-mail que já saiu continua
+--  registrado em `avisos_financeiro`, e a alteração fica no `historico`: nada
+--  se perde.
+-- ------------------------------------------------------------
+update public.formacao
+   set aviso_apto_em = null,
+       updated_at = now()
+ where aviso_apto_em is not null
+   and coalesce(desligado_em, '') = ''
+   and coalesce(termo_link, '') = ''
+   and coalesce(antecedentes_em, '') = '';

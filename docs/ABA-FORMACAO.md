@@ -60,10 +60,12 @@ bolsista:
 - **Cadastro** — se o formulário de cadastro foi preenchido.
 - **Treinamento** — uma coluna só, nos dois projetos: vale **qualquer
   treinamento realizado** (online ou presencial), com a data.
-- **Antecedentes criminais** — a data em que a certidão foi enviada. Aqui é
-  **só leitura**: quem registra é o administrador ou o financeiro, na aba
-  *Termos de Bolsa* (veja `docs/ADMIN-E-EDICAO.md`). Depende de
-  `sql/antecedentes.sql`.
+- **Antecedentes criminais** — a data em que a certidão foi enviada. Na tabela é
+  **só leitura**: o registro do dia a dia é feito na aba *Termos de Bolsa*, pelo
+  administrador ou pelo financeiro. Para acertar fichas antigas, o campo também
+  está na ficha (lápis → *Antecedentes criminais (data do envio)*), e grava pela
+  mesma função do banco. Depende de `sql/antecedentes.sql`. É uma das **três
+  etapas** que definem quem está apto ao termo de bolsa.
 - **Termo de bolsa** — quando existe o documento, vira um link direto para o
   arquivo no Drive.
 
