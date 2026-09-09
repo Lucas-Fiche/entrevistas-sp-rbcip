@@ -140,8 +140,12 @@ Mostra, para Capital e Interior:
 
 - **No projeto · Com termo · Sem termo · Aptos · Aguardando etapa** em números;
 - três recortes: **Sem termo**, **Aptos** e **Com termo**;
-- a tabela com cadastro, treinamento, situação do termo (com o link do
-  documento, quando existe) e data de entrada no projeto.
+- a tabela com cadastro, treinamento, **antecedentes criminais**, situação do
+  termo (com o link do documento, quando existe) e data de entrada no projeto.
+
+As colunas seguem a ordem do caminho real — **cadastro → treinamento →
+antecedentes → termo** —, então dá para ler a linha da esquerda para a direita
+e ver em que etapa a pessoa parou.
 
 Na coluna *Termo de bolsa*, **📄 Emitido** é quem já tem o documento,
 **aguardando termo** (âmbar) é quem cumpriu as duas etapas e só espera o termo,
@@ -153,6 +157,42 @@ que o termo sair — a linha ganha a marca `★ apto` embaixo do nome.
 
 Só o administrador vê os dois botões da aba: **⬇ Baixar .xlsx** e
 **✉ Avisar o financeiro (N)**.
+
+### Antecedentes criminais
+
+Rode **`sql/antecedentes.sql`** uma vez (ele exige `sql/admin.sql` e
+`sql/perfil-financeiro.sql` já rodados, e avisa se faltar algum).
+
+É a terceira etapa antes do termo, e a única que **não chega por planilha
+nenhuma**: o cadastro vem sozinho na sincronização, o treinamento é marcado na
+ficha, e os antecedentes são digitados aqui.
+
+Na coluna *Antecedentes criminais* da aba *Termos de Bolsa*:
+
+- **+ registrar** — ninguém enviou ainda. Clique e informe a data (`dd/mm/aaaa`;
+  há um botão **Hoje**).
+- **✓ 15/07/2026** — enviados nesse dia. Clicando de novo dá para corrigir a
+  data, ou apagá-la (deixe o campo em branco e salve) se o lançamento foi na
+  ficha errada.
+
+Quem preenche é o **administrador e o financeiro** — mais ninguém. Isso não é
+só a tela escondendo o botão: a gravação passa pela função
+`definir_antecedentes`, que confere o perfil de quem chamou e **só sabe
+escrever nessa coluna**. É o mesmo desenho do `definir_grupo` do supervisor, e
+existe porque o RLS do Postgres decide por *linha*, não por *coluna*: liberar a
+linha para o financeiro liberaria a ficha inteira.
+
+A data é conferida nos dois lados (tela e banco): formato `dd/mm/aaaa`, dia que
+exista no calendário e **nada no futuro** — o que costuma pegar o ano trocado.
+
+Na aba *Formação* a mesma coluna aparece **só para leitura**, com o que foi
+registrado aqui. Dois lugares para preencher o mesmo campo é convite para
+divergência; um lugar para preencher e outro para consultar, não.
+
+> **Isto não muda quem é "apto".** Apto continua sendo cadastro + treinamento,
+> como sempre foi — é o que decide quem entra no aviso ao financeiro. Se a
+> regra tiver de passar a exigir os antecedentes, é uma decisão à parte: quem
+> hoje está apto sem a data cairia da lista no mesmo instante.
 
 ### O aviso por e-mail
 

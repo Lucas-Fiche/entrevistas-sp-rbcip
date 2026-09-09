@@ -1315,16 +1315,23 @@
 
   // Cabeçalho com os títulos clicáveis. Colunas sem chave em `chaves` (as de
   // ação, por exemplo) continuam sendo texto simples.
-  function cabecalhoOrdenavel(cols, estado, chaves, aoOrdenar) {
+  // `extras`: classe a mais em colunas específicas (mapa título → classe). Só
+  // "Antecedentes criminais" usa, para o título poder quebrar em duas linhas em
+  // vez de alargar a tabela inteira com um cabeçalho de uma palavra só.
+  function cabecalhoOrdenavel(cols, estado, chaves, aoOrdenar, extras) {
     var trh = el("tr");
+    var maisClasse = function (titulo) {
+      var c = extras && extras[titulo];
+      return c ? " " + c : "";
+    };
     cols.forEach(function (titulo) {
       if (!chaves[titulo]) {
-        trh.appendChild(el("th", { class: "tabela__th", text: titulo }));
+        trh.appendChild(el("th", { class: "tabela__th" + maisClasse(titulo), text: titulo }));
         return;
       }
       var ativa = estado.col === titulo;
       var th = el("th", {
-        class: "tabela__th tabela__th--ord",
+        class: "tabela__th tabela__th--ord" + maisClasse(titulo),
         "aria-sort": ativa ? (estado.asc ? "ascending" : "descending") : "none",
       });
       var b = el("button", {
@@ -1626,6 +1633,64 @@
     tag.innerHTML = ICONE_BLOQUEIO;
     tag.appendChild(el("span", { text: "Não apto" }));
     return tag;
+  }
+
+  // ---------- Antecedentes criminais ----------
+  //
+  // Terceira etapa do caminho até o termo: cadastro de bolsista (chega sozinho
+  // na sincronização) → treinamento (preenchido na ficha) → antecedentes. Esta
+  // é a única que não vem de planilha nenhuma: é digitada à mão, na aba Termos
+  // de Bolsa, por quem cobra o documento.
+  //
+  // Quem escreve: ADMIN e FINANCEIRO. Esconder o botão dos outros perfis é
+  // cortesia, não segurança — quem decide é a função `definir_antecedentes` no
+  // banco, que confere o perfil de quem chamou. A tela só evita oferecer o que
+  // seria recusado.
+  function podeEditarAntecedentes() { return ehAdmin() || ehFinanceiro(); }
+
+  // A coluna já existe no banco? `select *` traz só o que existe: se a chave
+  // não veio nas fichas, sql/antecedentes.sql ainda não foi rodado. Sem esta
+  // conferência, a coluna diria "Não enviado" em todas as linhas — o que
+  // parece dado, e não é.
+  function temColunaAntecedentes() {
+    return !formacao.length || ("antecedentes_em" in formacao[0]);
+  }
+
+  // A célula das duas tabelas. `editavel` liga o clique; sem ele é só leitura
+  // (é o caso da aba Formação, que mostra o que foi preenchido nos Termos).
+  function celulaAntecedentes(f, editavel, aoSalvar) {
+    var td = el("td", { class: "tabela__td col-antec", "data-label": "Antecedentes criminais" });
+    if (!temColunaAntecedentes()) {
+      td.appendChild(el("span", {
+        class: "cand-pendente",
+        title: "A coluna ainda não existe no banco — rode sql/antecedentes.sql no Supabase. " +
+          "Enquanto isso, não há como saber quem enviou.",
+        text: "—",
+      }));
+      return td;
+    }
+    var data = f.antecedentes_em || "";
+    if (!editavel) {
+      td.appendChild(data
+        ? el("span", { class: "cand-enviado", title: "Antecedentes criminais enviados em " + data,
+            text: "✓ " + data })
+        : el("span", { class: "cand-pendente", title: "Ainda não enviou os antecedentes criminais. " +
+            "Quem registra a data é o administrador ou o financeiro, na aba Termos de Bolsa.",
+            text: "Não enviado" }));
+      return td;
+    }
+    var quem = f.nome || "este bolsista";
+    var b = el("button", {
+      class: "btn-antec" + (data ? " btn-antec--ok" : ""), type: "button",
+      text: data ? "✓ " + data : "+ registrar",
+      title: data ? "Enviados em " + data + ". Clique para corrigir ou apagar a data."
+        : "Registrar a data em que " + quem + " enviou os antecedentes criminais",
+      "aria-label": (data ? "Antecedentes de " + quem + " enviados em " + data + ". Corrigir."
+        : "Registrar antecedentes criminais de " + quem),
+    });
+    b.addEventListener("click", function () { abrirAntecedentes(f, aoSalvar); });
+    td.appendChild(b);
+    return td;
   }
 
   function tagResultado(res, fonte) {
@@ -3863,6 +3928,7 @@
     var cabecalho = ["Status", tipo === "capital" ? "Grupo" : "Região", "Nome",
       "CPF", "Telefone", "Email", "Entrada no projeto", "Cadastro de Bolsista", "Supervisor"];
     cabecalho.push("Treinamento", "Data do Treinamento");
+    cabecalho.push("Antecedentes Criminais");
     cabecalho.push("Termo de Bolsa", "Documento do Termo de Bolsa",
       "Facilitador", "Desligado em", "Motivo do desligamento");
 
@@ -3876,6 +3942,7 @@
         f.data_entrada || "", f.cadastro_bolsista || "", supervisorDe(f) || "",
       ];
       linha.push(treinamentoDe(f), dataTreinamentoDe(f));
+      linha.push(f.antecedentes_em || "");
       linha.push(f.termo_link ? "Emitido" : (f.termo_bolsa || "Não Emitido"), f.termo_link || "",
         f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "");
       aoa.push(linha);
@@ -4241,6 +4308,126 @@
     mostrar($("#modal"), true);
   }
 
+  // ---------- Antecedentes criminais: registrar a data de envio ----------
+  //
+  // Tela pequena de propósito: um campo só. A data vai por RPC
+  // (`definir_antecedentes`), nunca por update direto na tabela — é o que
+  // permite o financeiro escrever AQUI sem poder mexer em mais nada da ficha.
+  // O admin usa a mesma porta: um caminho só, uma regra só.
+  function abrirAntecedentes(f, aoTerminar) {
+    if (!podeEditarAntecedentes()) return;
+    var alvo = $("#modal-conteudo");
+    alvo.innerHTML = "";
+    alvo.appendChild(el("h2", { class: "modal__titulo", text: "Antecedentes criminais" }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: (f.nome || "(sem nome)") + " · " + (f.tipo === "capital" ? "Capital" : "Interior") +
+        " · " + formatarCPF(f.cpf),
+    }));
+    alvo.appendChild(el("p", {
+      class: "modal__meta",
+      text: "O dia em que a pessoa ENVIOU a certidão. É a terceira etapa antes do termo de " +
+        "bolsa, depois do cadastro e do treinamento — e a única que não chega por planilha.",
+    }));
+
+    var form = el("form", { class: "edicao" });
+    var linha = el("div", { class: "edicao__campo" });
+    linha.appendChild(el("label", { class: "edicao__rot", for: "antec-data", text: "Data do envio" }));
+    var entrada = el("input", {
+      class: "edicao__entrada", type: "text", id: "antec-data",
+      placeholder: "dd/mm/aaaa", value: f.antecedentes_em || "",
+      inputmode: "numeric", autocomplete: "off",
+    });
+    linha.appendChild(entrada);
+    var atalho = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "Hoje",
+      title: "Preencher com a data de hoje (" + hojeBR() + ")",
+    });
+    atalho.addEventListener("click", function () { entrada.value = hojeBR(); entrada.focus(); });
+    linha.appendChild(el("div", { class: "edicao__acoes" }, [atalho]));
+    linha.appendChild(el("p", {
+      class: "edicao__dica",
+      text: "dd/mm/aaaa. Deixar em branco e salvar apaga a data — é assim que se corrige um " +
+        "lançamento na ficha errada.",
+    }));
+    form.appendChild(linha);
+
+    var msg = el("p", { class: "edicao__msg" });
+    var salvar = el("button", { class: "btn btn--pequeno", type: "submit", text: "Salvar" });
+    var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
+    cancelar.addEventListener("click", fecharModal);
+    form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
+    form.appendChild(msg);
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var valor = entrada.value.trim();
+      var antes = f.antecedentes_em || "";
+      // A mesma conferência que a função do banco faz. Aqui é só para a
+      // resposta ser imediata: quem manda continua sendo o banco.
+      if (valor) {
+        if (!/^\d{2}\/\d{2}\/\d{4}$/.test(valor) || !normalizarDataHora(valor)) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = "Data inválida. Use dd/mm/aaaa.";
+          return;
+        }
+        var iso = normalizarDataHora(valor);
+        var d = new Date(iso + "T12:00:00");
+        // Dia que não existe (31/02) chega aqui como 03/03: a volta denuncia.
+        if (isNaN(d.getTime()) ||
+            String(d.getDate()).padStart(2, "0") + "/" +
+            String(d.getMonth() + 1).padStart(2, "0") + "/" + d.getFullYear() !== valor) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = "Essa data não existe no calendário.";
+          return;
+        }
+        if (iso > new Date().toISOString().slice(0, 10)) {
+          msg.className = "edicao__msg edicao__msg--erro";
+          msg.textContent = "A data do envio não pode estar no futuro. Confira o ano.";
+          return;
+        }
+      }
+      if (valor === antes) { msg.textContent = "Nada foi alterado."; return; }
+
+      salvar.disabled = true;
+      msg.className = "edicao__msg";
+      msg.textContent = "Salvando…";
+      client.rpc("definir_antecedentes", { p_id: f.id, p_data: valor || null })
+        .then(function (resp) {
+          salvar.disabled = false;
+          if (resp && resp.error) {
+            msg.className = "edicao__msg edicao__msg--erro";
+            msg.textContent = mensagemDeErroAoSalvarAntecedentes(resp.error);
+            return;
+          }
+          f.antecedentes_em = valor || null;
+          fecharModal();
+          if (aoTerminar) aoTerminar();
+        });
+    });
+
+    alvo.appendChild(form);
+    mostrar($("#modal"), true);
+    entrada.focus();
+  }
+
+  function mensagemDeErroAoSalvarAntecedentes(erro) {
+    var texto = String((erro && (erro.message || erro.hint || erro)) || "");
+    var codigo = String((erro && erro.code) || "");
+    if (/definir_antecedentes|PGRST202|schema cache/i.test(texto + codigo)) {
+      return "A função definir_antecedentes ainda não existe no banco. Peça ao administrador " +
+        "para rodar sql/antecedentes.sql no SQL Editor do Supabase.";
+    }
+    // A função do banco devolve o motivo já redigido ("não existe no
+    // calendário", "não pode estar no futuro"): repetir a frase dela é melhor
+    // do que trocar por um texto genérico.
+    if (/Data inválida|no futuro|Ficha não encontrada|Sem permiss/i.test(texto)) return texto;
+    if (/row-level security|permission|42501/i.test(texto + codigo)) {
+      return "Sem permissão: só o administrador e o financeiro registram os antecedentes criminais.";
+    }
+    return "Não foi possível salvar: " + texto;
+  }
+
   // ---------- Datas de entrada das fichas antigas ----------
   // Quem entrou antes do sistema não tem data em lugar nenhum. Sem ela, a
   // pessoa não aparece em nenhuma contagem por mês — e um relatório com gente
@@ -4376,7 +4563,8 @@
     treinamento_presencial: "Treinamento", treinamento_online: "Treinamento (online)",
     data_treinamento_presencial: "Data do treinamento",
     data_treinamento_online: "Data do treinamento (online)",
-    facilitador: "Facilitador", termo_bolsa: "Termo de bolsa",
+    facilitador: "Facilitador", antecedentes_em: "Antecedentes criminais",
+    termo_bolsa: "Termo de bolsa",
     termo_link: "Documento do termo", data_entrada: "Entrada no projeto",
     desligado_em: "Desligado em", desligado_motivo: "Motivo do desligamento",
     candidato_id: "Vínculo com a inscrição",
@@ -4765,8 +4953,20 @@
     painel.appendChild(el("p", {
       class: "painel__nota",
       text: "Quem já tem termo de bolsa e quem ainda não tem. “Apto” é quem preencheu o " +
-        "cadastro de bolsista e fez o treinamento: falta só o termo para começar a atuar.",
+        "cadastro de bolsista e fez o treinamento: falta só o termo para começar a atuar. " +
+        "Os antecedentes criminais são registrados nesta aba, na coluna própria.",
     }));
+
+    // Sem a coluna no banco não há o que registrar — e a tabela mostraria um
+    // traço em cada linha sem dizer por quê.
+    if (!temColunaAntecedentes()) {
+      painel.appendChild(el("p", {
+        class: "painel__nota painel__nota--alerta",
+        text: "A coluna “Antecedentes criminais” ainda não existe no banco: rode " +
+          "sql/antecedentes.sql no SQL Editor do Supabase. Até lá ela aparece vazia e não " +
+          "aceita registro; o resto da aba funciona normalmente.",
+      }));
+    }
 
     // --- Números ---
     painel.appendChild(el("div", { class: "stats stats--form" }, [
@@ -4858,8 +5058,11 @@
     }
 
     // --- Tabela ---
+    // A ordem das colunas é a ordem do caminho: cadastro → treinamento →
+    // antecedentes → termo. Quem lê a linha da esquerda para a direita vê em
+    // que etapa a pessoa parou.
     var cols = ["Nome", "Projeto", "Grupo / Região", "CPF", "E-mail",
-      "Cadastro", "Treinamento", "Termo de bolsa", "Entrada no projeto"];
+      "Cadastro", "Treinamento", "Antecedentes criminais", "Termo de bolsa", "Entrada no projeto"];
     var chavesTermos = {
       "Nome": function (f) { return normStr(f.nome); },
       "Projeto": function (f) { return f.tipo === "capital" ? "Capital" : "Interior"; },
@@ -4869,6 +5072,11 @@
       "Cadastro": function (f) { return ehRealizado(f.cadastro_bolsista) ? "1" : "0"; },
       "Treinamento": function (f) {
         return (fezTreinamento(f) ? "1 " : "0 ") + chaveData(dataTreinamentoDe(f));
+      },
+      // Ordena por etapa cumprida (quem não enviou primeiro, que é quem se
+      // procura), e dentro dela pela data.
+      "Antecedentes criminais": function (f) {
+        return (f.antecedentes_em ? "1 " : "0 ") + chaveData(f.antecedentes_em);
       },
       "Termo de bolsa": function (f) {
         return f.termo_link ? "2" : aptoParaTermo(f) ? "1 apto" : "0";
@@ -4881,7 +5089,8 @@
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--termos" });
     tabela.appendChild(el("thead", {}, [
-      cabecalhoOrdenavel(cols, estadoTermos, chavesTermos, renderPainelTermos),
+      cabecalhoOrdenavel(cols, estadoTermos, chavesTermos, renderPainelTermos,
+        { "Antecedentes criminais": "tabela__th--antec" }),
     ]));
 
     var tbody = el("tbody");
@@ -4910,6 +5119,9 @@
       tr.appendChild(celulaEmail(f.email));
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
       tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
+      // Esta é a aba onde os antecedentes se preenchem. Na Formação a mesma
+      // coluna aparece, mas só para leitura.
+      tr.appendChild(celulaAntecedentes(f, podeEditarAntecedentes(), renderPainelTermos));
 
       var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });
       if (f.termo_link) {
@@ -5134,12 +5346,14 @@
   function exportarTermos() {
     var base = formacaoDosTermos();
     var aoa = [["Nome", "Projeto", "Grupo / Região", "CPF", "E-mail", "Cadastro de bolsista",
-      "Treinamento", "Termo de bolsa", "Documento do termo", "Entrada no projeto", "Situação"]];
+      "Treinamento", "Antecedentes Criminais", "Termo de bolsa", "Documento do termo",
+      "Entrada no projeto", "Situação"]];
     base.slice().sort(porOrdemPlanilha).forEach(function (f) {
       aoa.push([
         f.nome || "", f.tipo === "capital" ? "Capital" : "Interior",
         regiaoCurta(chaveSupervisao(f)) || "", formatarCPF(f.cpf), f.email || "",
         f.cadastro_bolsista || "Não Realizado", treinamentoDe(f) || "Não Realizado",
+        f.antecedentes_em || "Não enviado",
         f.termo_link ? "Emitido" : "Não emitido", f.termo_link || "", f.data_entrada || "",
         f.termo_link ? "Com termo" : aptoParaTermo(f) ? "Apto — aguardando termo" : "Etapa pendente",
       ]);
@@ -5413,6 +5627,9 @@
     cols.push(formTipo === "capital" ? "Grupo" : "Região");
     cols = cols.concat(["CPF", "Telefone", "E-mail", "Supervisor", "Cadastro"]);
     cols.push("Treinamento");
+    // Só leitura aqui: o registro é feito na aba Termos de Bolsa, por admin ou
+    // financeiro. Aparece nesta aba porque é onde se acompanha a ficha inteira.
+    cols.push("Antecedentes criminais");
     cols.push("Termo de bolsa");
     // Na lista de desligados, o que importa é quando saiu e por quê.
     if (formVer === "desligados") cols.push("Desligado em", "Motivo");
@@ -5437,6 +5654,9 @@
       "Treinamento": function (f) {
         return (fezTreinamento(f) ? "1 " : "0 ") + chaveData(dataTreinamentoDe(f));
       },
+      "Antecedentes criminais": function (f) {
+        return (f.antecedentes_em ? "1 " : "0 ") + chaveData(f.antecedentes_em);
+      },
       "Termo de bolsa": function (f) {
         return f.termo_link ? "2" : aptoParaTermo(f) ? "1 apto" : "0";
       },
@@ -5451,7 +5671,8 @@
 
     var tabela = el("table", { class: "tabela tabela--cand tabela--form" });
     var thead = el("thead");
-    thead.appendChild(cabecalhoOrdenavel(cols, estadoForm, chavesForm, renderPainelFormacao));
+    thead.appendChild(cabecalhoOrdenavel(cols, estadoForm, chavesForm, renderPainelFormacao,
+      { "Antecedentes criminais": "tabela__th--antec" }));
     tabela.appendChild(thead);
 
     var tbody = el("tbody");
@@ -5491,6 +5712,9 @@
       tr.appendChild(celulaEtapa("Cadastro", f.cadastro_bolsista));
 
       tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
+      // Espelho do que foi registrado na aba Termos de Bolsa. Sem botão: dois
+      // lugares para preencher o mesmo campo é convite para divergência.
+      tr.appendChild(celulaAntecedentes(f, false));
 
       // Termo de bolsa: link do documento quando existe (é o que define "Ativo").
       var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });

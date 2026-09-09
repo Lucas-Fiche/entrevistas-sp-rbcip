@@ -79,6 +79,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── usuarios.sql      # Página "Gerenciar usuários": contas, perfis e histórico
 │   ├── perfil-financeiro.sql # Perfil FINANCEIRO + aviso de "apto, falta o termo"
 │   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
+│   ├── antecedentes.sql  # Data de envio dos antecedentes criminais (admin e financeiro)
 │   ├── historico.sql     # Data de entrada + registro de toda alteração (gatilho)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
@@ -270,7 +271,7 @@ Dentro de quem tem login, há **três perfis** (detalhes em
 | --- | --- | --- |
 | **Admin** | `app_admins` (`sql/admin.sql`) | Tudo: importar, editar, convocar, desligar, metas. |
 | **Supervisor** | `app_supervisores` (`sql/perfil-supervisor.sql`) | Vê Candidatos, Entrevistas e Formação (sem a aba *Visualização de dados*) e **define o Grupo** de bolsistas da **Capital** que ainda não têm grupo, pela função `definir_grupo`. Trocar um grupo já definido é só do admin. |
-| **Financeiro** | `app_financeiro` (`sql/perfil-financeiro.sql`) | Vê tudo como o somente leitura, **mais a aba Termos de Bolsa**, e recebe por e-mail o aviso de quem ficou apto. Não grava nada. |
+| **Financeiro** | `app_financeiro` (`sql/perfil-financeiro.sql`) | Vê tudo como o somente leitura, **mais a aba Termos de Bolsa**, e recebe por e-mail o aviso de quem ficou apto. Grava um campo só: a data dos **antecedentes criminais**, pela função `definir_antecedentes` (`sql/antecedentes.sql`). |
 | **Somente leitura** | qualquer outro login | Vê tudo, não grava nada. |
 
 ---

@@ -1152,10 +1152,52 @@ input[type="date"].viz-data {
    empilhado — não compensa.) */
 .col-regiao { white-space: nowrap; }
 
+/* ---------- Antecedentes criminais ----------
+   O conteúdo é sempre uma data ou uma palavra: a coluna não quebra. O que
+   quebra é o CABEÇALHO — "Antecedentes criminais" em uma linha só custaria
+   ~60px a mais numa tabela que já é larga, e em duas linhas custa a maior
+   palavra. Por isso a exceção ao `white-space: nowrap` dos <th>. */
+.col-antec { white-space: nowrap; }
+/* O nowrap está no <th> E no botão de ordenar (.th-ord) — soltar só um deixa o
+   outro segurando o título em uma linha. */
+.tabela__th--antec,
+.tabela__th--antec .th-ord { white-space: normal; }
+.tabela__th--antec .th-ord { align-items: flex-start; text-align: left; }
+/* A seta de ordenação não pode ser empurrada para uma terceira linha. */
+.tabela__th--antec .th-ord__seta { flex: 0 0 auto; }
+
+/* Botão que registra a data: a célula inteira é o alvo do clique, então
+   parece um dado clicável e não mais um botão empilhado na linha. */
+.btn-antec {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--cor-texto-suave);
+  background: transparent;
+  border: 1px dashed var(--cor-borda);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-antec--ok {
+  color: var(--cor-sucesso);
+  font-weight: 600;
+  border-style: solid;
+  border-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-antec:hover { border-color: var(--cor-primaria); color: var(--cor-primaria); }
+}
+.btn-antec:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 1px; }
+
 @media (max-width: 760px) {
   .col-firme { white-space: normal; }
   /* No modo cartão cada célula ocupa a linha inteira e pode quebrar à vontade. */
   .col-regiao { white-space: normal; }
+  .col-antec { white-space: normal; }
 }
 
 /* ---------- Perfil (admin × somente leitura) ---------- */
@@ -1395,6 +1437,16 @@ input[type="date"].viz-data {
   color: var(--cor-texto-suave);
   font-size: 13px;
   max-width: 78ch;
+}
+
+/* Nota que pede uma ação (rodar um SQL, por exemplo): precisa se distinguir
+   do texto explicativo, ou passa despercebida junto dele. */
+.painel__nota--alerta {
+  padding: 8px 12px;
+  color: var(--cor-texto);
+  background: #fff8e6;
+  border-left: 3px solid #e0a800;
+  border-radius: 0 6px 6px 0;
 }
 
 @media (max-width: 760px) {

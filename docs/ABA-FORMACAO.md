@@ -60,6 +60,10 @@ bolsista:
 - **Cadastro** — se o formulário de cadastro foi preenchido.
 - **Treinamento** — uma coluna só, nos dois projetos: vale **qualquer
   treinamento realizado** (online ou presencial), com a data.
+- **Antecedentes criminais** — a data em que a certidão foi enviada. Aqui é
+  **só leitura**: quem registra é o administrador ou o financeiro, na aba
+  *Termos de Bolsa* (veja `docs/ADMIN-E-EDICAO.md`). Depende de
+  `sql/antecedentes.sql`.
 - **Termo de bolsa** — quando existe o documento, vira um link direto para o
   arquivo no Drive.
 
@@ -129,12 +133,16 @@ cadastrado.
 > **O que a sincronização preenche:** apenas **Cadastro de bolsista** (quem
 > aparece no formulário de cadastro) e o **termo de bolsa** (link e situação).
 > **Treinamento é marcado à mão**, por decisão do projeto: em *Editar*, escolha
-> *Realizado*, preencha a data e o facilitador.
+> *Realizado*, preencha a data e o facilitador. Os **antecedentes criminais**
+> também são digitados — na aba *Termos de Bolsa*. Nem a sincronização nem a
+> importação de CSV encostam nessa coluna: reimportar a planilha não apaga o
+> que foi registrado ali.
 
 **Treinamento é um só**, para a Capital e para o Interior: conta qualquer
 treinamento realizado. Na ficha há um campo *Treinamento*, a *Data do
 treinamento* e o *Facilitador*; na tabela, uma coluna *Treinamento*. Os
-arquivos exportados saem com as colunas *Treinamento* e *Data do Treinamento*.
+arquivos exportados saem com as colunas *Treinamento*, *Data do Treinamento* e
+*Antecedentes Criminais*.
 
 > **Quem já marcava antes:** havia dois campos (online e presencial) e, na
 > Capital, o formulário editava um e a tabela lia o outro. Tudo o que foi
