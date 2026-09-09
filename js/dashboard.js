@@ -284,11 +284,33 @@
     mostrar($("#dashboard"), true);
     usuarioEmail = (session && session.user && session.user.email) || "";
     $("#usuario-email").textContent = usuarioEmail;
+    registrarAcesso();
     resolverAdmin().then(function () {
       marcarSeloAdmin();
       aplicarPerfilNasAbas();
       carregarDados();
     });
+  }
+
+  // Carimba a visita para a coluna "Último acesso" de Gerenciar usuários dizer
+  // o que promete.
+  //
+  // O `last_sign_in_at` do Supabase só muda quando alguém DIGITA e-mail e
+  // senha. Quem já está logado abre o painel por meses sem passar por ali — a
+  // sessão se renova sozinha — e a data ficava congelada no último login. Uma
+  // pessoa que usou o sistema ontem aparecia sumida há semanas, justamente na
+  // coluna que serve para decidir quem não usa mais.
+  //
+  // Falhar aqui não pode atrapalhar em nada: quem entrou tem trabalho a fazer,
+  // e registrar a visita é o menos importante do que está acontecendo.
+  function registrarAcesso() {
+    if (!client) return;
+    try {
+      // `Promise.resolve` porque o retorno do supabase-js é "thenable", mas não
+      // uma Promise de verdade: chamar .catch direto nele quebraria.
+      Promise.resolve(client.rpc("registrar_acesso"))
+        .catch(function () { /* sql/ultimo-acesso.sql ainda não rodado, ou rede */ });
+    } catch (e) { /* idem */ }
   }
 
   // ---------- Perfis (admin · supervisor · financeiro · somente leitura) ----
@@ -7244,6 +7266,13 @@
       class: "pagina__secao-sub",
       text: "Trocar o perfil aqui vale na hora. Criar ou apagar uma conta continua " +
         "sendo no Supabase, em Authentication → Users — é lá que a senha é definida.",
+    }));
+    sec.appendChild(el("p", {
+      class: "pagina__secao-sub",
+      text: "“Último acesso” é a última vez que a pessoa abriu o painel. Quem só tem a data " +
+        "do login antigo é quem não entra desde antes desta contagem começar — o Supabase " +
+        "sozinho só registra a digitação da senha, e quem fica logado renova a sessão " +
+        "sem passar por ela.",
     }));
 
     var cols = ["E-mail", "Perfil", "Último acesso", "Conta criada", "E-mail confirmado", "Alterar perfil"];

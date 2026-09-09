@@ -77,6 +77,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── admin.sql         # Super admin (quem pode gravar) + campos editados à mão
 │   ├── perfil-supervisor.sql # Perfil SUPERVISOR (vê tudo; só define grupo vazio na Capital)
 │   ├── usuarios.sql      # Página "Gerenciar usuários": contas, perfis e histórico
+│   ├── ultimo-acesso.sql # "Último acesso" real (carimbo do painel, não só o login)
 │   ├── perfil-financeiro.sql # Perfil FINANCEIRO + aviso de "apto, falta o termo"
 │   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
 │   ├── antecedentes.sql  # Data de envio dos antecedentes criminais (admin e financeiro)
@@ -230,7 +231,9 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 - **Menu lateral (☰):** *Formulários*, *Gerenciar usuários* (só admin), *Meu
   perfil* e *Sair*. **Gerenciar usuários** lista as contas com perfil, último
   acesso e o histórico de mudanças de acesso, e permite trocar o perfil de
-  alguém. **Meu perfil** mostra o perfil de quem está logado, o que ele permite
+  alguém. *Último acesso* é a última vez que a pessoa **abriu o painel** — não
+  o último login, que ficava congelado para quem nunca desloga
+  (`sql/ultimo-acesso.sql`). **Meu perfil** mostra o perfil de quem está logado, o que ele permite
   e onde **trocar a própria senha**.
 - **Termos de Bolsa** (admin e financeiro): quem já tem termo e quem ainda não,
   com o recorte **Aptos** — as três etapas cumpridas (cadastro de bolsista,

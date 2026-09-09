@@ -314,6 +314,33 @@ Depende de **`sql/usuarios.sql`** (rode uma vez no SQL Editor). A página mostra
   feitas direto no SQL Editor aparecem como *SQL Editor*, porque ali não existe
   usuário logado.
 
+#### “Último acesso” — o que essa data conta
+
+Rode **`sql/ultimo-acesso.sql`** uma vez.
+
+Sem ele, a coluna vinha de `auth.users.last_sign_in_at`, que o Supabase só
+atualiza quando alguém **digita e-mail e senha**. Quem já está logado abre o
+painel por meses sem passar por ali — a sessão se renova sozinha — e a data
+ficava congelada no dia do último login. Na prática a coluna dizia *último
+login*, não *último acesso*: gente que usou o sistema ontem aparecia sumida há
+semanas. E é justamente essa coluna que serve para decidir quem não usa mais e
+pode perder o acesso.
+
+Depois do arquivo, o valor é o **mais recente de três fontes**:
+
+| Fonte | O que é | Precisão |
+|---|---|---|
+| `public.acessos` | carimbo que o painel grava toda vez que abre | a melhor |
+| `auth.sessions` | renovação da sessão de quem continua logado | boa |
+| `auth.users.last_sign_in_at` | o valor antigo, o último login | a de sempre |
+
+Como pega o maior dos três, **nenhuma data diminui** com a mudança: só sobe.
+
+O carimbo é gravado pela função `registrar_acesso`, que **não recebe e-mail
+nenhum como parâmetro** — a conta vem do token de quem chamou. Se recebesse,
+qualquer pessoa logada poderia forjar o acesso de outra, e a coluna deixaria de
+servir para o que existe.
+
 Duas coisas que essa página **não** faz, de propósito:
 
 - **Criar e apagar contas** continua no Supabase, em *Authentication → Users* —
