@@ -3234,10 +3234,9 @@
       formacao = resp.data || [];
       var badge = $("#cont-formacao");
       if (badge) badge.textContent = formacao.length;
-      renderPainelFormacao();
-      // A aba Termos de Bolsa lê as mesmas fichas: sem isto ela ficaria zerada
-      // até a próxima vez que a tela inteira fosse redesenhada.
-      renderPainelTermos();
+      // Todas as telas que leem as fichas, não só a aba Formação: a de Termos
+      // de Bolsa e a de Visualização de dados leem as mesmas.
+      renderFichas();
     });
   }
 
@@ -3885,7 +3884,7 @@
 
       if (!mudancas.length) {
         return registrarSincronizacao(lidos, 0, null).then(function () {
-          renderPainelFormacao();
+          renderFichas();
           alert("Nada mudou desde a última sincronização.\n\n" + resumo);
         });
       }
@@ -3907,7 +3906,7 @@
         });
       });
     }).catch(function (e) {
-      renderPainelFormacao();
+      renderFichas();
       alert("Não foi possível sincronizar: " + (e.message || e) + "\n\n" + dicaDaSincronizacao(e));
     });
   }
@@ -4188,7 +4187,7 @@
               "\n· " + semFicha.slice(0, 10).join("\n· ") : ""));
       });
     }).catch(function (e) {
-      renderPainelFormacao();
+      renderFichas();
       alert("Não foi possível completar: " + (e.message || e));
     });
   }
@@ -4360,7 +4359,8 @@
           return;
         }
         fecharModal();
-        renderPainelFormacao();
+        // Grupo, treinamento, antecedentes e termo aparecem nas duas abas.
+        renderFichas();
       });
     });
 
@@ -4882,8 +4882,8 @@
       // Desligado sai da lista de quem está no projeto; revertido, volta para ela.
       formVer = patch.desligado_em ? "desligados" : "projeto";
       fecharModal();
-      renderPainelFormacao();
-      renderDados();
+      // Inclui a aba Termos de Bolsa: quem é desligado sai de lá também.
+      renderFichas();
     });
   }
 
@@ -4954,7 +4954,7 @@
         }
         carregarSupervisores().then(function () {
           fecharModal();
-          renderPainelFormacao();
+          renderFichas();
         });
       });
     });
@@ -5224,7 +5224,7 @@
       tr.appendChild(celulaEtapa("Treinamento", treinamentoDe(f), dataTreinamentoDe(f)));
       // Esta é a aba onde os antecedentes se preenchem. Na Formação a mesma
       // coluna aparece, mas só para leitura.
-      tr.appendChild(celulaAntecedentes(f, podeEditarAntecedentes(), renderPainelTermos));
+      tr.appendChild(celulaAntecedentes(f, podeEditarAntecedentes(), renderFichas));
 
       var tdTermo = el("td", { class: "tabela__td", "data-label": "Termo de bolsa" });
       if (f.termo_link) {
@@ -6920,6 +6920,20 @@
     }
 
     painel.appendChild(grid);
+  }
+
+  // Uma ficha mudou: TODAS as telas que leem `formacao` precisam ser
+  // redesenhadas, e não só a aba onde o clique aconteceu.
+  //
+  // Trocar de aba apenas mostra e esconde painéis — não redesenha nenhum. Então
+  // o painel que já estava montado antes da mudança continua na tela com o dado
+  // velho até alguém recarregar a página. Foi exatamente isso com os
+  // desligamentos: a pessoa saía da aba Formação e seguia aparecendo na aba
+  // Termos de Bolsa, como se o desligamento não tivesse sido gravado.
+  function renderFichas() {
+    renderPainelFormacao();
+    renderPainelTermos();
+    renderDados();
   }
 
   // ---------- Render geral ----------
