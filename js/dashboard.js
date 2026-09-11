@@ -1576,10 +1576,17 @@
     return wrap;
   }
 
+  // `unidade`: o substantivo contado ("bolsista" → "3 bolsistas"). Também
+  // aceita uma função, para quando o rótulo não é um plural simples
+  // ("3 no projeto").
   function seletorDeProjeto(ativo, contar, unidade, aoTrocar) {
     return seletorSegmentado("Projeto", ["capital", "interior"].map(function (t) {
       var n = contar(t);
-      return { id: t, nome: nomeRegiao(t), detalhe: n + " " + unidade + (n === 1 ? "" : "s") };
+      return {
+        id: t, nome: nomeRegiao(t),
+        detalhe: typeof unidade === "function"
+          ? unidade(n) : n + " " + unidade + (n === 1 ? "" : "s"),
+      };
     }), ativo, aoTrocar);
   }
 
@@ -3232,10 +3239,9 @@
         return;
       }
       formacao = resp.data || [];
-      var badge = $("#cont-formacao");
-      if (badge) badge.textContent = formacao.length;
       // Todas as telas que leem as fichas, não só a aba Formação: a de Termos
-      // de Bolsa e a de Visualização de dados leem as mesmas.
+      // de Bolsa e a de Visualização de dados leem as mesmas. O contador da aba
+      // é atualizado lá dentro, para acompanhar cada desligamento.
       renderFichas();
     });
   }
@@ -5573,9 +5579,20 @@
     if (!painel) return;
     painel.innerHTML = "";
 
+    // O contador da aba conta quem está NO PROJETO, nos dois projetos — a mesma
+    // régua dos números lá dentro. Somando os desligados, ele contradizia o
+    // primeiro cartão do painel que ele mesmo abre.
+    var badge = $("#cont-formacao");
+    if (badge) {
+      badge.textContent = String(formacao.filter(function (f) { return !f.desligado_em; }).length);
+    }
+
+    // Conta quem está no projeto, igual à aba Termos de Bolsa. Com o total
+    // cheio aqui e os cards logo abaixo sem os desligados, os dois números
+    // brigariam na mesma tela.
     painel.appendChild(seletorDeProjeto(formTipo, function (t) {
-      return formacao.filter(function (f) { return f.tipo === t; }).length;
-    }, "bolsista", function (t) {
+      return formacao.filter(function (f) { return f.tipo === t && !f.desligado_em; }).length;
+    }, function (n) { return n + " no projeto"; }, function (t) {
       formTipo = t; formBusca = ""; renderPainelFormacao();
     }));
 
@@ -5591,16 +5608,28 @@
     }
 
     // --- Resumo (Ativos, termo emitido, treinamento pendente…) ---
-    var ativos = doTipo.filter(function (f) { return situacaoFormacao(f) === "Ativo"; }).length;
-    var aguardandoTermo = doTipo.filter(function (f) { return situacaoFormacao(f) === "Aguardando termo"; }).length;
-    var desligados = doTipo.filter(function (f) { return !!f.desligado_em; }).length;
-    var comTermo = doTipo.filter(function (f) { return !!f.termo_link; }).length;
-    var semCadastro = doTipo.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
-    var semTreino = doTipo.filter(function (f) {
-      return !fezTreinamento(f);
+    //
+    // Tudo aqui é contado sobre quem está NO PROJETO. Desligado sai de todas as
+    // contas — é assim que a lista, as metas e a aba Termos de Bolsa já
+    // tratavam. Enquanto o primeiro número somava todo mundo que já passou pelo
+    // projeto, ele não fechava com "Ativos + Aguardando termo" nem com as
+    // "Ocupadas" das metas, e a diferença era justamente quem tinha saído:
+    // parecia erro de conta, e era só rótulo errado.
+    //
+    // Pendência de cadastro ou treinamento de quem foi desligado também não é
+    // pendência de ninguém — cobrar etapa de quem saiu só inflava o número.
+    var noProjeto = doTipo.filter(function (f) { return !f.desligado_em; });
+    var desligados = doTipo.length - noProjeto.length;
+    var ativos = noProjeto.filter(function (f) { return situacaoFormacao(f) === "Ativo"; }).length;
+    var aguardandoTermo = noProjeto.filter(function (f) {
+      return situacaoFormacao(f) === "Aguardando termo";
     }).length;
+    var semCadastro = noProjeto.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
+    var semTreino = noProjeto.filter(function (f) { return !fezTreinamento(f); }).length;
     var stats = el("div", { class: "stats stats--form" }, [
-      statCard("Bolsistas", doTipo.length),
+      // "No projeto" e não "Bolsistas": é o mesmo vocabulário do interruptor
+      // logo abaixo e do primeiro número da aba Termos de Bolsa.
+      statCard("No projeto", noProjeto.length),
       statCard("Ativos", ativos),
       // Pela situação, e não por subtração: quem foi desligado COM termo
       // emitido era descontado duas vezes e o número saía menor do que é.
@@ -5610,6 +5639,30 @@
       desligados ? statCard("Desligados", desligados) : null,
     ]);
     painel.appendChild(stats);
+    // A conta explicitada: sem isto, "por que 67 e não 77?" volta toda vez que
+    // alguém for desligado.
+    //
+    // A igualdade com as "Ocupadas" das metas é afirmada só depois de somada.
+    // Ficha sem região não entra em nenhuma linha de Metas e vagas — e aí os
+    // dois números realmente não batem. Dizer isso é melhor do que afirmar uma
+    // igualdade que a tela logo abaixo desmente.
+    var ocupadasSomadas = regioesDaMeta(formTipo).reduce(function (s, r) {
+      return s + ocupacaoDe(formTipo, r).total;
+    }, 0);
+    var foraDaConta = noProjeto.length - ocupadasSomadas;
+    painel.appendChild(el("p", {
+      class: "painel__nota",
+      text: "No projeto = ativos + aguardando termo" +
+        (foraDaConta > 0 ? ". " : ", e é o mesmo total das “Ocupadas” em Metas e vagas. ") +
+        "Quem é desligado sai destas contas e devolve a vaga" +
+        (desligados ? " — são " + desligados + " em " + nomeRegiao(formTipo) +
+          ", no interruptor “Desligados”." : ".") +
+        (foraDaConta > 0
+          ? " Atenção: " + foraDaConta + " ficha(s) estão sem região preenchida e por isso " +
+            "não aparecem em nenhuma linha de Metas e vagas — a soma das “Ocupadas” dá " +
+            ocupadasSomadas + "."
+          : ""),
+    }));
 
     // --- Ações da aba ---
     // Três controles no lugar de seis botões soltos: a rotina (sincronizar),

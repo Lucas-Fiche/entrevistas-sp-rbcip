@@ -69,8 +69,25 @@ bolsista:
 - **Termo de bolsa** — quando existe o documento, vira um link direto para o
   arquivo no Drive.
 
-No topo há um resumo (bolsistas, ativos, termo emitido, cadastro pendente, sem
-treinamento) e uma busca por nome, CPF, e-mail, supervisor ou região.
+No topo há um resumo e uma busca por nome, CPF, e-mail, supervisor ou região.
+
+**Os números do resumo contam quem está no projeto.** Desligado sai de todos
+eles — inclusive de *Cadastro pendente* e *Sem treinamento*, porque cobrar etapa
+de quem saiu não é pendência de ninguém — e aparece no seu próprio cartão,
+*Desligados*. Assim vale sempre:
+
+```
+No projeto  =  Ativos  +  Aguardando termo  =  soma das “Ocupadas” em Metas e vagas
+```
+
+> Antes, o primeiro número somava **todo mundo que já passou pelo projeto**. Ele
+> não fechava com os outros dois nem com as metas, e a diferença era justamente
+> quem tinha sido desligado: parecia erro de conta, e era rótulo errado.
+
+A única coisa que quebra a igualdade com as metas é **ficha sem região
+preenchida**: ela não entra em nenhuma linha de *Metas e vagas*. Quando isso
+acontece, a nota abaixo dos números diz quantas são, em vez de afirmar uma
+igualdade que a tabela logo abaixo desmente.
 
 Ao lado do nome aparece o selo **"entrevista no sistema"** quando aquele
 bolsista foi casado com uma entrevista feita aqui — é o CPF fazendo o trabalho.
