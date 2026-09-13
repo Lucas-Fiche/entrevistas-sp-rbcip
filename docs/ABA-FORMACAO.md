@@ -89,6 +89,33 @@ preenchida**: ela não entra em nenhuma linha de *Metas e vagas*. Quando isso
 acontece, a nota abaixo dos números diz quantas são, em vez de afirmar uma
 igualdade que a tabela logo abaixo desmente.
 
+#### As cores e os cartões que filtram
+
+Dois cartões têm cor, e a cor quer dizer alguma coisa: **Ativos em verde** (quem
+está trabalhando, com termo emitido) e **Desligados em vermelho** (quem saiu).
+Os outros ficam neutros de propósito — cor em tudo é o mesmo que cor em nada.
+
+Os três cartões de pendência — **Aguardando termo**, **Cadastro pendente** e
+**Sem treinamento** — são **clicáveis**: o número deixa de ser só um total e
+vira o caminho para as pessoas que estão atrás dele. Ao clicar:
+
+- a tabela passa a mostrar **só** quem se encaixa naquela pendência, e a
+  quantidade de linhas bate com o número do cartão;
+- o cartão fica preenchido em azul, e aparece **"Filtrando por: …"** com um
+  **✕ Limpar filtro** logo acima da tabela;
+- clicar no mesmo cartão de novo desliga o filtro; clicar em outro troca de
+  filtro (nunca somam).
+
+Os números dos cartões **não mudam** com o filtro ligado: eles continuam sendo
+o total. Quem explica o recorte é o aviso azul — sem ele, uma lista curta
+pareceria ficha sumida.
+
+Dois cuidados que o filtro toma sozinho: ligar um filtro **volta para a lista
+"No projeto"** (os cartões só contam quem está no projeto, então filtrar sobre
+os desligados daria zero), e ir para **"Desligados"** **desliga o filtro**. E se
+uma pendência estiver zerada, a mensagem diz exatamente isso — não "nenhum
+bolsista", que seria falso e assustador.
+
 Ao lado do nome aparece o selo **"entrevista no sistema"** quando aquele
 bolsista foi casado com uma entrevista feita aqui — é o CPF fazendo o trabalho.
 

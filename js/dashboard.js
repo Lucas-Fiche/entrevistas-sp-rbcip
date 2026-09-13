@@ -3158,6 +3158,28 @@
   var formMsg = "";
   var formBusca = "";
 
+  // Filtro ligado por um cartão do resumo ("" = nenhum). Cada número do topo
+  // vira a lista que ele conta: o cartão deixa de ser só um total e passa a
+  // ser o caminho para as pessoas que estão atrás dele.
+  var formFiltro = "";
+  var FILTROS_FORM = {
+    aguardando: {
+      rot: "Aguardando termo",
+      dica: "Mostra só quem está no projeto e ainda não tem termo de bolsa.",
+      cabe: function (f) { return situacaoFormacao(f) === "Aguardando termo"; },
+    },
+    "sem-cadastro": {
+      rot: "Cadastro pendente",
+      dica: "Mostra só quem ainda não preencheu o Cadastro de Bolsista.",
+      cabe: function (f) { return !ehRealizado(f.cadastro_bolsista); },
+    },
+    "sem-treino": {
+      rot: "Sem treinamento",
+      dica: "Mostra só quem ainda não fez o treinamento.",
+      cabe: function (f) { return !fezTreinamento(f); },
+    },
+  };
+
   function formTabela() { return cfg.FORMACAO_TABELA || "formacao"; }
 
   // Converte uma linha do CSV de formação numa ficha de bolsista.
@@ -5646,17 +5668,38 @@
     }).length;
     var semCadastro = noProjeto.filter(function (f) { return !ehRealizado(f.cadastro_bolsista); }).length;
     var semTreino = noProjeto.filter(function (f) { return !fezTreinamento(f); }).length;
+    // Clicar num cartão de pendência filtra a lista; clicar de novo desliga.
+    var alternarFiltro = function (id) {
+      formFiltro = (formFiltro === id) ? "" : id;
+      // Os cartões contam quem está NO PROJETO. Filtrar com a lista de
+      // desligados na tela daria zero e pareceria defeito — então o clique
+      // também traz de volta para a lista certa.
+      if (formFiltro) formVer = "projeto";
+      renderPainelFormacao();
+    };
+    var cartaoFiltro = function (id, valor) {
+      var f = FILTROS_FORM[id];
+      var ligado = formFiltro === id;
+      return statCard(f.rot, valor, {
+        aoClicar: function () { alternarFiltro(id); },
+        ativo: ligado,
+        titulo: ligado ? "Clique para mostrar todo mundo de novo." : f.dica,
+      });
+    };
     var stats = el("div", { class: "stats stats--form" }, [
       // "No projeto" e não "Bolsistas": é o mesmo vocabulário do interruptor
       // logo abaixo e do primeiro número da aba Termos de Bolsa.
       statCard("No projeto", noProjeto.length),
-      statCard("Ativos", ativos),
+      statCard("Ativos", ativos, { cor: "verde", titulo: "Com termo de bolsa emitido." }),
       // Pela situação, e não por subtração: quem foi desligado COM termo
       // emitido era descontado duas vezes e o número saía menor do que é.
-      statCard("Aguardando termo", aguardandoTermo),
-      statCard("Cadastro pendente", semCadastro),
-      statCard("Sem treinamento", semTreino),
-      desligados ? statCard("Desligados", desligados) : null,
+      cartaoFiltro("aguardando", aguardandoTermo),
+      cartaoFiltro("sem-cadastro", semCadastro),
+      cartaoFiltro("sem-treino", semTreino),
+      desligados ? statCard("Desligados", desligados, {
+        cor: "vermelho",
+        titulo: "Saíram do projeto. Estão no interruptor “Desligados”, abaixo.",
+      }) : null,
     ]);
     painel.appendChild(stats);
     // A conta explicitada: sem isto, "por que 67 e não 77?" volta toda vez que
@@ -5758,8 +5801,36 @@
       // `tom: "perigo"` deixa o interruptor vermelho quando é esta a lista na
       // tela: dá para ver de longe que não se está olhando a equipe ativa.
       { id: "desligados", rot: "Desligados", qtd: saidos.length, tom: "perigo" },
-    ], formVer, function (id) { formVer = id; renderPainelFormacao(); }));
+    ], formVer, function (id) {
+      formVer = id;
+      // Os filtros dos cartões só falam de quem está no projeto: ir para os
+      // desligados com um deles ligado mostraria uma lista vazia sem explicar
+      // por quê.
+      if (id === "desligados") formFiltro = "";
+      renderPainelFormacao();
+    }));
     doTipo = formVer === "desligados" ? saidos : noProjeto;
+
+    // --- Filtro vindo de um cartão ---
+    // Filtro ligado tem de ficar VISÍVEL e ter saída num clique. Um número
+    // menor do que o esperado, sem nada na tela explicando, é a receita para
+    // alguém achar que sumiram fichas.
+    if (formFiltro && FILTROS_FORM[formFiltro]) {
+      var fAtivo = FILTROS_FORM[formFiltro];
+      var barraFiltro = el("div", { class: "filtro-ativo" });
+      barraFiltro.appendChild(el("span", {
+        class: "filtro-ativo__rot",
+        text: "Filtrando por: " + fAtivo.rot,
+      }));
+      var limpar = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "✕ Limpar filtro",
+        title: "Voltar a mostrar todos os bolsistas no projeto",
+      });
+      limpar.addEventListener("click", function () { formFiltro = ""; renderPainelFormacao(); });
+      barraFiltro.appendChild(limpar);
+      painel.appendChild(barraFiltro);
+      doTipo = doTipo.filter(fAtivo.cabe);
+    }
 
     // --- Busca ---
     var buscaWrap = el("div", { class: "painel__barra" });
@@ -5792,6 +5863,11 @@
       painel.appendChild(el("p", {
         class: "cand-vazio",
         text: formBusca ? "Nenhum bolsista encontrado para esta busca."
+          // Com filtro ligado, "nenhum bolsista" seria assustador e falso: há
+          // gente no projeto, só ninguém nesta pendência — que é boa notícia.
+          : formFiltro && FILTROS_FORM[formFiltro]
+            ? "Ninguém em “" + FILTROS_FORM[formFiltro].rot + "” em " + nomeRegiao(formTipo) +
+              " — essa pendência está zerada. Use “✕ Limpar filtro” para ver todos."
           : formVer === "desligados" ? "Ninguém foi desligado nesta região."
           : "Nenhum bolsista no projeto nesta região.",
       }));
@@ -6010,11 +6086,32 @@
     return lista;
   }
 
-  function statCard(rotulo, valor) {
-    return el("div", { class: "stat" }, [
-      el("div", { class: "stat__valor", text: String(valor) }),
-      el("div", { class: "stat__rotulo", text: rotulo }),
-    ]);
+  // `opcoes` (todas dispensáveis):
+  //   cor      — "verde" | "vermelho": pinta a barra lateral e o número.
+  //   aoClicar — torna o cartão um botão de filtro (vira <button>, não <div>).
+  //   ativo    — o filtro deste cartão está ligado.
+  //   titulo   — o "passe o mouse".
+  function statCard(rotulo, valor, opcoes) {
+    var o = opcoes || {};
+    var classe = "stat" +
+      (o.cor ? " stat--" + o.cor : "") +
+      (o.aoClicar ? " stat--clicavel" : "") +
+      (o.ativo ? " stat--ativo" : "");
+    var valorEl = el("div", { class: "stat__valor", text: String(valor) });
+    var rotuloEl = el("div", { class: "stat__rotulo", text: rotulo });
+    if (!o.aoClicar) {
+      return el("div", { class: classe, title: o.titulo || "" }, [valorEl, rotuloEl]);
+    }
+    // Botão de verdade, e não um <div> com clique: teclado e leitor de tela
+    // ganham de graça o que o mouse já tinha.
+    var b = el("button", {
+      class: classe, type: "button", title: o.titulo || "",
+      "aria-pressed": o.ativo ? "true" : "false",
+    });
+    b.appendChild(valorEl);
+    b.appendChild(rotuloEl);
+    b.addEventListener("click", o.aoClicar);
+    return b;
   }
 
   function graficoBarras(titulo, dados) {

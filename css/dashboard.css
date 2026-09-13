@@ -488,6 +488,63 @@ input[type="date"].viz-data {
   color: var(--cor-texto-suave);
 }
 
+/* Cores por significado, não por enfeite: verde é quem está trabalhando,
+   vermelho é quem saiu. A barra lateral e o número andam juntos — pintar só
+   um dos dois deixa o cartão com duas identidades. */
+.stat--verde { border-left-color: var(--cor-sucesso); }
+.stat--verde .stat__valor { color: var(--cor-sucesso); }
+.stat--vermelho { border-left-color: var(--cor-erro); }
+.stat--vermelho .stat__valor { color: var(--cor-erro); }
+
+/* Cartão que filtra a lista. É um <button>, então precisa desfazer o estilo
+   que o navegador dá e recuperar o alinhamento à esquerda do texto. */
+.stat--clicavel {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .stat--clicavel:hover {
+    border-color: var(--cor-primaria);
+    box-shadow: 0 2px 10px rgba(0, 75, 135, 0.16);
+    transform: translateY(-1px);
+  }
+}
+.stat--clicavel:focus-visible { outline: 2px solid var(--cor-primaria); outline-offset: 2px; }
+/* Filtro ligado: o cartão fica preenchido, para a lista abaixo nunca parecer
+   "faltando gente" sem que se veja de onde o recorte veio. */
+.stat--ativo {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  border-left-color: var(--cor-primaria-escura);
+}
+.stat--ativo .stat__valor,
+.stat--ativo .stat__rotulo { color: var(--cor-branco); }
+@media (hover: hover) and (pointer: fine) {
+  .stat--ativo:hover { border-color: var(--cor-primaria-escura); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stat--clicavel { transition: none; }
+  .stat--clicavel:hover { transform: none; }
+}
+
+/* Aviso de filtro ligado, entre o interruptor e a busca. */
+.filtro-ativo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  background: var(--cor-primaria-clara);
+  border-left: 3px solid var(--cor-primaria);
+  border-radius: 0 var(--raio) var(--raio) 0;
+}
+.filtro-ativo__rot { font-size: 13px; font-weight: 600; color: var(--cor-primaria-escura); }
+
 .graficos {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
