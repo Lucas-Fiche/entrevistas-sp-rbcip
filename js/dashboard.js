@@ -2661,11 +2661,24 @@
         metaDe(cand.tipo, cand.regiao) + " (ativos + aguardando termo). Convocando, " +
         "a região passa da meta."
       : "";
+    // Segunda porta, para o caso de o botão ter vindo por outro caminho (o
+    // reenvio depois de um e-mail devolvido, por exemplo). Com ficha do lado
+    // certo já existente, convocar por aqui não tem leitura possível: seria a
+    // mesma pessoa aberta duas vezes na Formação, uma delas na região errada.
+    var assumiu = fichaQueAssumiu(cand);
+    if (assumiu) {
+      alert("Esta convocação precisa sair pela ficha " + doRegiao(assumiu.tipo) + ".\n\n" +
+        (cand.nome || "A pessoa") + " se inscreveu " + emRegiao(assumiu.tipo) +
+        " depois da entrevista, e é lá que a ficha de formação deve nascer — com o " +
+        "supervisor e a planilha de controle certos.\n\n" +
+        "Abra a aba de " + nomeRegiao(assumiu.tipo) + " e convoque por lá.");
+      return;
+    }
     var alertaLado = (entCad && entCad.tipo !== cand.tipo)
       ? "\n\nATENÇÃO: a entrevista foi feita no formulário " + doRegiao(entCad.tipo) +
         ", mas esta ficha é " + doRegiao(cand.tipo) + ". Convocando por aqui, a ficha de " +
         "formação nasce " + emRegiao(cand.tipo) + " — com o supervisor e a planilha de controle " +
-        "dessa região."
+        "dessa região, e a pessoa passa a ocupar vaga na região errada."
       : "";
     if (!confirm((reenvioCad ? "REENVIAR" : "Enviar") + " a convocação de CADASTRO para " +
       (cand.nome || "") + " (" + cand.email + ")?" + alertaVaga + alertaLado)) return;
@@ -3038,26 +3051,6 @@
           btnReCad.addEventListener("click", function () { convocarCadastro(c, btnReCad); });
           tdConvC.appendChild(btnReCad);
         }
-      } else if (selecionado && !recadastrada && emReserva(c)) {
-        // Região sem vaga: o próximo passo não é convocar, é esperar abrir vaga
-        // (ou decidir conscientemente convocar assim mesmo).
-        var vagasReg = ocupacaoDe(c.tipo, c.regiao);
-        var caixaRes = el("div", { class: "cand-divergencia" });
-        caixaRes.appendChild(el("span", {
-          class: "tag tag--ambar tag--com-icone cand-reserva",
-          title: (c.tipo === "capital" ? "Capital" : regiaoCurta(c.regiao)) + " está com " +
-            vagasReg.total + " de " + metaDe(c.tipo, c.regiao) + " (ativos + aguardando termo). " +
-            "Quando alguém for desligado, a vaga abre.",
-          text: "⏸ Reserva",
-        }));
-        if (ehAdmin() && c.email) {
-          var btnMesmo = el("button", {
-            class: "btn btn--secundario btn--pequeno", type: "button", text: "Convocar mesmo assim",
-          });
-          btnMesmo.addEventListener("click", function () { convocarCadastro(c, btnMesmo); });
-          caixaRes.appendChild(btnMesmo);
-        }
-        tdConvC.appendChild(caixaRes);
       } else if (selecionado && recadastrada) {
         // Já existe ficha do lado certo: convocar por aqui criaria a pessoa
         // duas vezes na Formação, e do lado errado.
@@ -3084,6 +3077,33 @@
             text: "aguarda inscrição " + emRegiao(certoCad),
           }));
         }
+      } else if (selecionado && emReserva(c)) {
+        // Região sem vaga: o próximo passo não é convocar, é esperar abrir vaga
+        // (ou decidir conscientemente convocar assim mesmo).
+        //
+        // Esta verificação vem DEPOIS das duas de região acima, e a ordem é o
+        // que importa: "aqui não tem vaga" só faz sentido quando é aqui que se
+        // convoca. Estando antes, uma região lotada trocava o "Solicitar
+        // inscrição na Capital" por um "Convocar mesmo assim" — e quem clicasse
+        // abriria a ficha de formação do lado errado, que é justamente o que a
+        // outra verificação existe para impedir.
+        var vagasReg = ocupacaoDe(c.tipo, c.regiao);
+        var caixaRes = el("div", { class: "cand-divergencia" });
+        caixaRes.appendChild(el("span", {
+          class: "tag tag--ambar tag--com-icone cand-reserva",
+          title: (c.tipo === "capital" ? "Capital" : regiaoCurta(c.regiao)) + " está com " +
+            vagasReg.total + " de " + metaDe(c.tipo, c.regiao) + " (ativos + aguardando termo). " +
+            "Quando alguém for desligado, a vaga abre.",
+          text: "⏸ Reserva",
+        }));
+        if (ehAdmin() && c.email) {
+          var btnMesmo = el("button", {
+            class: "btn btn--secundario btn--pequeno", type: "button", text: "Convocar mesmo assim",
+          });
+          btnMesmo.addEventListener("click", function () { convocarCadastro(c, btnMesmo); });
+          caixaRes.appendChild(btnMesmo);
+        }
+        tdConvC.appendChild(caixaRes);
       } else if (selecionado && ehAdmin() && c.email) {
         var btnCad = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "✉ Convocar cadastro" });
         btnCad.addEventListener("click", function () { convocarCadastro(c, btnCad); });
@@ -5841,7 +5861,21 @@
 
       var tdNome = el("td", { class: "tabela__td cand-td-nome" });
       tdNome.appendChild(el("span", { text: f.nome || "—" }));
-      if (ent) tdNome.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "entrevista no sistema" }));
+      if (ent && ent.tipo !== f.tipo) {
+        // A ficha está de um lado e a entrevista do outro. Quase sempre quer
+        // dizer que a ficha nasceu no projeto errado — e, enquanto estiver
+        // aqui, ela ocupa uma vaga desta região que não é dela.
+        tdNome.appendChild(el("span", {
+          class: "cand-fonte cand-fonte--alerta",
+          title: "A entrevista desta pessoa foi feita no formulário " + doRegiao(ent.tipo) +
+            ", mas a ficha está " + emRegiao(f.tipo) + ". Provavelmente a convocação de " +
+            "cadastro saiu pela aba errada: a ficha certa é " + emRegiao(ent.tipo) + ", e esta " +
+            "está ocupando uma vaga " + emRegiao(f.tipo) + " que não é dela.",
+          text: "⇄ entrevista: " + nomeRegiao(ent.tipo),
+        }));
+      } else if (ent) {
+        tdNome.appendChild(el("span", { class: "cand-fonte cand-fonte--sistema", text: "entrevista no sistema" }));
+      }
       tr.appendChild(tdNome);
 
       var st = situacaoFormacao(f);

@@ -550,6 +550,57 @@ Para o registro do pedido ficar gravado, rode **`sql/regiao-divergente.sql`**.
 Sem ele o e-mail continua sendo enviado; só não fica a marca (o painel avisa
 quando é esse o caso).
 
+### Região lotada NÃO reabre a convocação pelo lado errado
+
+A coluna *Convocação cadastro* decide o que mostrar em cadeia, e **a ordem das
+perguntas importa**:
+
+1. já foi convocada? → mostra a data;
+2. existe ficha do lado certo? → **→ convocar na Capital** (ou no Interior);
+3. entrevista de um lado e inscrição do outro? → **✉ Solicitar inscrição**;
+4. região sem vaga? → **⏸ Reserva**, com *Convocar mesmo assim*;
+5. nada disso? → **✉ Convocar cadastro**.
+
+A pergunta da vaga (4) tem de vir **depois** das duas de região (2 e 3):
+*"aqui não tem vaga"* só faz sentido quando é aqui que se convoca. Com a vaga
+perguntada antes, uma região lotada trocava o *Solicitar inscrição* por um
+*Convocar mesmo assim* — e quem clicasse abria a ficha de formação **na região
+errada**, que é exatamente o que o passo 3 existe para impedir.
+
+Havia ainda uma segunda porta: o botão *✉ Reenviar* que aparece quando o e-mail
+volta com falha. Hoje a convocação **recusa** sair por uma ficha cuja pessoa já
+tem ficha do lado certo, e diz por qual aba convocar.
+
+### Quando uma ficha já nasceu na região errada
+
+Ela se denuncia sozinha na aba *Formação*: ao lado do nome, no lugar do discreto
+*entrevista no sistema*, aparece em vermelho **⇄ entrevista: Capital** (ou
+*Interior*). Quer dizer que a entrevista foi feita de um lado e a ficha está do
+outro — e, enquanto estiver ali, **ela ocupa uma vaga daquela região que não é
+dela**, podendo bloquear a convocação de outra pessoa.
+
+Para consertar, na ordem:
+
+1. **Convoque o cadastro pela ficha certa** (a aba do projeto onde a entrevista
+   foi feita). Isso abre a ficha de formação no lado correto.
+2. **Apague a ficha errada** no SQL Editor do Supabase — confira antes de
+   apagar:
+
+   ```sql
+   -- 1) veja as duas fichas da pessoa (troque pelo CPF, só dígitos)
+   select id, tipo, regiao, nome, cadastro_bolsista, termo_link, desligado_em, origem
+     from public.formacao
+    where regexp_replace(coalesce(cpf, ''), '\D', '', 'g') = '00000000000';
+
+   -- 2) apague SÓ a do lado errado, pelo id que você acabou de ver
+   delete from public.formacao where id = 'cole-o-id-aqui';
+   ```
+
+> **Por que apagar e não desligar.** Desligar também libera a vaga, mas registra
+> uma saída que não houve: a pessoa entraria nos relatórios de desligamento e no
+> histórico como alguém que deixou o projeto. Ela nunca esteve nessa região —
+> a ficha é que não deveria existir.
+
 ### A ficha nova não volta para a fila de convocação
 
 A ficha que nasce do recadastro não tem registro do convite de entrevista —

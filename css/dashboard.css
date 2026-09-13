@@ -959,6 +959,9 @@ input[type="date"].viz-data {
   vertical-align: middle;
 }
 .cand-fonte--sistema { color: var(--cor-primaria); font-weight: 600; }
+/* Ficha de um lado com entrevista do outro: não é um detalhe de origem, é um
+   erro que precisa de ação — e por isso não pode ter a mesma cor discreta. */
+.cand-fonte--alerta { color: var(--cor-erro); font-weight: 700; }
 
 /* Legenda dos ícones de origem, ao lado do resumo da tabela */
 .legenda-fontes {
