@@ -70,6 +70,11 @@ create index if not exists formacao_tipo_idx on public.formacao (tipo);
 
 -- ------------------------------------------------------------
 --  Row Level Security — SOMENTE usuários autenticados
+--
+--  OBS: se você já rodou `sql/admin.sql` (super admin), rode-o DE NOVO depois
+--  deste arquivo — ele restringe a ESCRITA aos administradores, e as políticas
+--  abaixo devolvem a escrita para qualquer usuário logado. Políticas de RLS se
+--  somam: basta uma aberta existir para a porta ficar aberta.
 -- ------------------------------------------------------------
 alter table public.formacao enable row level security;
 

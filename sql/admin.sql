@@ -77,9 +77,18 @@ comment on column public.candidatos.editado is
 -- ------------------------------------------------------------
 
 -- candidatos
+--
+-- Apaga as políticas ABERTAS (`_auth`, de sql/candidatos.sql) e também as que
+-- este arquivo cria (`_admin`). Sem a segunda leva, rodar admin.sql uma segunda
+-- vez parava em "policy candidatos_insert_admin already exists" — e quem
+-- estivesse rodando o arquivo por causa de outra correção ficava sem ela. Todo
+-- arquivo daqui tem de poder rodar de novo.
 drop policy if exists "candidatos_insert_auth" on public.candidatos;
 drop policy if exists "candidatos_update_auth" on public.candidatos;
 drop policy if exists "candidatos_delete_auth" on public.candidatos;
+drop policy if exists "candidatos_insert_admin" on public.candidatos;
+drop policy if exists "candidatos_update_admin" on public.candidatos;
+drop policy if exists "candidatos_delete_admin" on public.candidatos;
 
 create policy "candidatos_insert_admin"
   on public.candidatos for insert to authenticated with check (public.eh_admin());
