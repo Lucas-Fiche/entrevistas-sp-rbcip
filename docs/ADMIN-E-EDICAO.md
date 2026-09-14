@@ -33,11 +33,22 @@ permissão pegou.
 
 ### O que o perfil SOMENTE LEITURA vê
 
-Todas as abas e todos os números — e **nenhum botão de ação**. Não aparecem: a
-barra de importar CSV, o registro das importações e sincronizações, *Convocar
-todos para entrevista*, *Verificar entregas*, *Baixar CSV*, *Convocar cadastro*
-(nem o individual, nem o da fila de reserva), *Solicitar inscrição*, *Editar*,
-*Editar metas*, *Supervisores* e *Sincronizar planilhas*.
+Todas as abas e todos os números — e **nenhum botão que grave alguma coisa**.
+Não aparecem: a barra de importar CSV, o registro das importações e
+sincronizações, *Convocar todos para entrevista*, *Verificar entregas*,
+*Convocar cadastro* (nem o individual, nem o da fila de reserva), *Solicitar
+inscrição*, *Editar*, *Editar metas*, *Supervisores* e *Sincronizar planilhas*.
+
+**Baixar é exceção, e de propósito.** *⬇ Baixar CSV*, *⬇ Baixar Excel*,
+*⬇ Baixar .xlsx*, o menu *⬇ Baixar* da Formação e o *⬇ Baixar PDF* dos Detalhes
+funcionam para **todos os perfis**. O arquivo é montado no navegador com as
+linhas que já estão na tela — nada é lido do banco além do que aquele perfil já
+podia ler. Negar o download não protegia dado nenhum; só obrigava quem precisa
+da planilha a pedir para um administrador.
+
+> Corolário prático: quem não pode ver um dado também não o baixa. O recorte do
+> arquivo é o mesmo da tela, então a permissão continua sendo decidida num lugar
+> só — a leitura.
 
 No lugar do botão de convocação, a coluna mostra o **estado** — `⏱ pendente` com
 a explicação no "passe o mouse". Quem só lê precisa saber que falta convocar

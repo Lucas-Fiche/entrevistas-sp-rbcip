@@ -2800,11 +2800,24 @@
     // Atenção: a convocação geral considera TODOS do tipo, não só os filtrados
     // pela busca — o número no botão e a confirmação deixam isso explícito.
     var pendEntr = doTipo.filter(function (c) { return c.email && !jaConvocadoEntrevista(c); }).length;
-    // Convocar em massa, verificar entregas e baixar a planilha são ações de
-    // administrador: para os outros perfis a barra nem é construída (escondê-la
-    // com CSS deixava os botões no HTML, ao alcance de um clique no inspetor).
+    // Convocar em massa e verificar entregas são ações de administrador: para os
+    // outros perfis esses botões nem são construídos (escondê-los com CSS
+    // deixava tudo no HTML, ao alcance de um clique no inspetor).
+    //
+    // BAIXAR não entra nessa regra. O arquivo é montado no navegador com as
+    // linhas que já estão na tela — nada é lido do banco além do que o perfil
+    // já podia ler. Negar o download não protegia dado nenhum; só obrigava quem
+    // precisa da planilha a pedir para um administrador.
+    var acoes = el("div", { class: "cand-acoes" });
+    // Ordem: a ação do dia (convocar), o download e o resto. É a mesma de antes
+    // — só o download deixou de estar preso ao perfil.
+    var btnExp = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
+      title: "Planilha completa de " + candTipo + ": colunas de controle preenchidas + todas as colunas da inscrição",
+    });
+    btnExp.addEventListener("click", function () { exportarCandidatos(candTipo); });
+
     if (ehAdmin()) {
-      var acoes = el("div", { class: "cand-acoes" });
       var btnGeral = el("button", {
         class: "btn btn--pequeno",
         type: "button",
@@ -2813,12 +2826,6 @@
       if (!pendEntr) btnGeral.disabled = true;
       btnGeral.addEventListener("click", function () { convocarEntrevistaTodos(btnGeral); });
       acoes.appendChild(btnGeral);
-
-      var btnExp = el("button", {
-        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar CSV",
-        title: "Planilha completa de " + candTipo + ": colunas de controle preenchidas + todas as colunas da inscrição",
-      });
-      btnExp.addEventListener("click", function () { exportarCandidatos(candTipo); });
       acoes.appendChild(btnExp);
 
       var btnMaisC = menuSuspenso("⚙ Mais", "Conferência de entregas e importação", [
@@ -2844,8 +2851,10 @@
       if (!backendConvocacao()) {
         acoes.appendChild(el("span", { class: "cand-status", text: "Envio ainda não configurado — veja docs/APPS-SCRIPT-CONVOCACAO.md" }));
       }
-      painel.appendChild(acoes);
+    } else {
+      acoes.appendChild(btnExp);
     }
+    painel.appendChild(acoes);
 
     // --- Metas e vagas (fechado: aqui é consulta, não leitura diária) ---
     painel.appendChild(blocoMetas(candTipo));
@@ -5140,9 +5149,9 @@
       statCard("Aguardando etapa", pendentes.length - aptos.length),
     ]));
 
-    // --- Ações do administrador ---
+    // --- Ações da aba ---
+    var acoes = el("div", { class: "cand-acoes" });
     if (ehAdmin()) {
-      var acoes = el("div", { class: "cand-acoes" });
       var naoAvisados = aptos.filter(function (f) { return !f.aviso_apto_em; });
       var bAviso = el("button", {
         class: "btn btn--pequeno", type: "button",
@@ -5154,16 +5163,20 @@
       if (!naoAvisados.length) bAviso.disabled = true;
       bAviso.addEventListener("click", function () { avisarFinanceiro(bAviso); });
       acoes.appendChild(bAviso);
-
-      var bExp = el("button", {
-        class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar .xlsx",
-        title: "Planilha em Excel com a lista do recorte escolhido",
-      });
-      bExp.addEventListener("click", function () { exportarTermos(); });
-      acoes.appendChild(bExp);
-      painel.appendChild(acoes);
-      painel.appendChild(blocoAutomacaoAviso());
     }
+
+    // Baixar vale para quem vê a aba — aqui, o financeiro também. É ele quem
+    // emite os termos; negar-lhe a planilha da própria fila obrigaria a pedir
+    // ao administrador uma lista que já está na tela dele.
+    var bExp = el("button", {
+      class: "btn btn--secundario btn--pequeno", type: "button", text: "⬇ Baixar .xlsx",
+      title: "Planilha em Excel com a lista do recorte escolhido",
+    });
+    bExp.addEventListener("click", function () { exportarTermos(); });
+    acoes.appendChild(bExp);
+    painel.appendChild(acoes);
+
+    if (ehAdmin()) painel.appendChild(blocoAutomacaoAviso());
     // O histórico também para o financeiro: é ele quem recebe os avisos e quem
     // mais precisa saber se algum deixou de chegar.
     if (podeVerTermos()) painel.appendChild(blocoHistoricoAvisos());
@@ -5744,21 +5757,25 @@
     // Três controles no lugar de seis botões soltos: a rotina (sincronizar),
     // os downloads e o resto. Nada saiu — só deixou de disputar espaço com o
     // que se usa todo dia.
+    var acoesForm = el("div", { class: "cand-acoes" });
+    // Baixar vale para todos os perfis: o arquivo sai das fichas que já estão
+    // na tela, sem nenhuma leitura a mais no banco. A ordem (rotina, download,
+    // resto) é a mesma de antes.
+    var menuBaixar = menuSuspenso(
+      "⬇ Baixar",
+      "Planilha de formação em CSV ou Excel, inteira ou por " +
+        (formTipo === "capital" ? "grupo" : "região"),
+      itensDeDownload(formTipo)
+    );
+
     if (ehAdmin()) {
-      var acoesForm = el("div", { class: "cand-acoes" });
       var btnSinc = el("button", {
         class: "btn btn--pequeno", type: "button", text: "🔄 Sincronizar planilhas",
         title: "Lê o cadastro de bolsista e os termos de bolsa, e atualiza as fichas pelo CPF",
       });
       btnSinc.addEventListener("click", function () { sincronizarFormacao(btnSinc); });
       acoesForm.appendChild(btnSinc);
-
-      acoesForm.appendChild(menuSuspenso(
-        "⬇ Baixar",
-        "Planilha de formação em CSV ou Excel, inteira ou por " +
-          (formTipo === "capital" ? "grupo" : "região"),
-        itensDeDownload(formTipo)
-      ));
+      acoesForm.appendChild(menuBaixar);
 
       // O relatório de entradas e saídas só conta quem tem data de entrada. As
       // fichas anteriores ao sistema não têm — o item é o caminho para
@@ -5800,8 +5817,10 @@
       });
       var btnMais = menuSuspenso("⚙ Mais", "Supervisores, pendências e importação", maisItens);
       acoesForm.appendChild(btnMais);
-      painel.appendChild(acoesForm);
+    } else {
+      acoesForm.appendChild(menuBaixar);
     }
+    painel.appendChild(acoesForm);
 
     // --- Metas e vagas: a Formação é onde a ocupação acontece ---
     painel.appendChild(blocoMetas(formTipo));

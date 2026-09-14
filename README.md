@@ -275,7 +275,11 @@ Dentro de quem tem login, há **três perfis** (detalhes em
 | **Admin** | `app_admins` (`sql/admin.sql`) | Tudo: importar, editar, convocar, desligar, metas. |
 | **Supervisor** | `app_supervisores` (`sql/perfil-supervisor.sql`) | Vê Candidatos, Entrevistas e Formação (sem a aba *Visualização de dados*) e **define o Grupo** de bolsistas da **Capital** que ainda não têm grupo, pela função `definir_grupo`. Trocar um grupo já definido é só do admin. |
 | **Financeiro** | `app_financeiro` (`sql/perfil-financeiro.sql`) | Vê tudo como o somente leitura, **mais a aba Termos de Bolsa**, e recebe por e-mail o aviso de quem ficou apto. Grava um campo só: a data dos **antecedentes criminais**, pela função `definir_antecedentes` (`sql/antecedentes.sql`). |
-| **Somente leitura** | qualquer outro login | Vê tudo, não grava nada. |
+| **Somente leitura** | qualquer outro login | Vê tudo e **baixa as planilhas**; não grava nada. |
+
+**Baixar vale para todos os perfis.** O arquivo é montado no navegador a partir
+das linhas que já estão na tela — quem não pode ver um dado também não o baixa,
+então a permissão continua sendo decidida num lugar só: a leitura.
 
 ---
 
