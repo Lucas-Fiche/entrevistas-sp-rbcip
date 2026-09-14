@@ -973,6 +973,19 @@
       return;
     }
 
+    // Sem link e sem permissão: mostra o ESTADO, não o formulário. Oferecer o
+    // campo a quem só lê é prometer uma ação que `salvarAtaLink` e a política do
+    // banco vão recusar — e o erro vira a forma de descobrir a regra.
+    if (!ehAdmin()) {
+      wrap.appendChild(el("p", {
+        class: "ata__vazio",
+        title: "Só administradores registram o link da pasta. Depois de salvo, ele fica " +
+          "visível para todos aqui.",
+        text: "Nenhuma pasta registrada ainda.",
+      }));
+      return;
+    }
+
     var input = el("input", {
       class: "ata__input",
       type: "url",

@@ -103,3 +103,21 @@ begin
     execute 'create policy "formacao_delete_admin" on public.formacao for delete to authenticated using (public.eh_admin())';
   end if;
 end $$;
+
+-- entrevistas: o link da pasta de gravações/atas
+--
+-- `sql/schema.sql` libera esse UPDATE para qualquer usuário logado, porque lá
+-- ainda não existe a noção de administrador. A partir daqui existe — e gravar o
+-- link é ação de admin, como todo o resto da escrita.
+--
+-- As duas travas do schema continuam valendo e são somadas, não substituídas:
+--   • o grant é só na coluna `ata_link` (nenhuma outra coluna é alcançável);
+--   • "write-once" (`ata_link is null`): depois de salvo, nem o admin reescreve
+--     pelo painel — se precisar corrigir, é no Table Editor do Supabase.
+drop policy if exists "entrevistas_update_ata" on public.entrevistas;
+create policy "entrevistas_update_ata"
+  on public.entrevistas
+  for update
+  to authenticated
+  using (ata_link is null and public.eh_admin())
+  with check (ata_link is not null and public.eh_admin());

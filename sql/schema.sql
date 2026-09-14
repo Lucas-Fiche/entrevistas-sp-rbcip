@@ -80,6 +80,12 @@ alter table public.entrevistas add column if not exists ata_link text;
 --     o link ainda está vazio. Depois de salvo, fica somente-leitura, como um
 --     registro de auditoria. (Se precisar corrigir, faça direto no Table Editor
 --     do Supabase.)
+--
+-- ATENÇÃO: aqui ainda não existe a noção de administrador, então esta política
+-- vale para QUALQUER usuário logado — inclusive os de somente leitura.
+-- `sql/admin.sql` substitui esta mesma política por uma que também exige
+-- `eh_admin()`. Rodar este arquivo de novo depois daquele devolve a versão
+-- aberta: se isso acontecer, rode `sql/admin.sql` outra vez.
 grant update (ata_link) on public.entrevistas to authenticated;
 
 drop policy if exists "entrevistas_update_ata" on public.entrevistas;

@@ -898,6 +898,8 @@ input[type="date"].viz-data {
 }
 .ata__msg { margin: 8px 0 0; font-size: 13px; }
 .ata__msg--erro { color: #b3261e; }
+/* O que quem só lê vê no lugar do formulário. */
+.ata__vazio { margin: 6px 0 0; font-size: 13px; color: var(--cor-texto-suave); }
 
 .detalhe { margin: 18px 0 0; }
 .detalhe__secao {

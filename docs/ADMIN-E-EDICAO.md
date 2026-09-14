@@ -43,6 +43,11 @@ No lugar do botão de convocação, a coluna mostra o **estado** — `⏱ penden
 a explicação no "passe o mouse". Quem só lê precisa saber que falta convocar
 alguém; não precisa poder convocar.
 
+Em **Detalhes** de uma entrevista, o bloco **📁 Pasta de gravações / atas** segue
+a mesma regra: com o link já salvo, todos os perfis o veem e podem abrir; **sem
+link**, só o administrador vê o campo e o botão *Salvar link* — os demais leem
+*"Nenhuma pasta registrada ainda."*.
+
 O bloco **Metas e vagas** continua inteiro: metas, ocupação, vagas e a fila de
 reserva (quem está esperando e em que ordem). O que some de dentro da fila é a
 coluna de convocar.
@@ -50,6 +55,14 @@ coluna de convocar.
 > A checagem de permissão está **nos dois lugares**: o botão não é desenhado e a
 > ação também se recusa a rodar. Se um botão escapar de alguma condição — como
 > escapou o *Convocar cadastro* —, o clique não envia nada.
+
+> **Tela escondida não é permissão.** O link das atas mostrou isso: o formulário
+> aparecia para todo mundo e o JavaScript recusava o clique, mas a política do
+> banco liberava aquele UPDATE para **qualquer usuário logado** — quem chamasse
+> a API por fora gravava. Quem decide é sempre o banco; esconder o botão é
+> cortesia com quem não pode, não a tranca. Para a tranca valer, é preciso ter
+> rodado **`sql/admin.sql`** (ele substitui a política aberta que
+> `sql/schema.sql` cria).
 
 ---
 
