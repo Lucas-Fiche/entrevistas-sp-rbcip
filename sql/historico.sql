@@ -1,18 +1,7 @@
 -- ============================================================
---  HISTÓRICO: data de entrada + registro de tudo que muda
+--  HISTÓRICO: registro de tudo que muda
 --
---  Resolve a pergunta que a planilha não respondia:
---  "quantos entrevistadores tínhamos em maio, junho e julho, separados por
---   Capital e Interior? quantos entraram e quantos saíram em cada mês?"
---
---  Para responder isso são precisas duas datas por pessoa: quando ENTROU e
---  quando SAIU. A saída já existia (`desligado_em`); a entrada não existia em
---  lugar nenhum — daí a coluna `data_entrada`. Com as duas, o número de
---  qualquer mês passado é uma conta, não uma lembrança:
---
---      ativos no fim do mês = entradas até o fim do mês − saídas até o fim do mês
---
---  E, para além dessas duas datas, a tabela `historico` guarda TODA alteração
+--  A tabela `historico` guarda TODA alteração
 --  em `formacao` e `candidatos`: qual ficha, qual campo, o valor de antes, o
 --  valor de depois, quando e por quem. É gravada por gatilho, então vale para
 --  o que é feito no painel, na importação de CSV, na sincronização das
@@ -25,21 +14,17 @@
 --  sql/candidatos.sql.
 --
 --  ATENÇÃO — o histórico começa AGORA. O que aconteceu antes de você rodar
---  este arquivo não existe em lugar nenhum e não pode ser reconstruído. Para
---  os meses já passados, preencha a `data_entrada` das fichas à mão (o painel
---  tem uma ação em lote para isso, na aba Formação).
+--  este arquivo não existe em lugar nenhum e não pode ser reconstruído.
+--
+--  NOTA: este arquivo também criava a coluna `data_entrada` ("data de entrada
+--  no projeto"). Ela foi removida do sistema por `sql/remover-data-entrada.sql`
+--  — o dia do Cadastro de Bolsista não era o dia em que a pessoa passava a
+--  atuar, e o número parecia preciso sem ser. Se rodar este arquivo de novo, a
+--  coluna NÃO volta.
 -- ============================================================
 
 -- ------------------------------------------------------------
---  1) Data de entrada no projeto
--- ------------------------------------------------------------
-alter table public.formacao add column if not exists data_entrada text;
-
-comment on column public.formacao.data_entrada is
-  'Quando a pessoa entrou no projeto (dd/mm/aaaa). Preenchida sozinha na convocação para cadastro; nas fichas antigas, à mão.';
-
--- ------------------------------------------------------------
---  2) Histórico de alterações
+--  1) Histórico de alterações
 -- ------------------------------------------------------------
 create table if not exists public.historico (
   id          bigint generated always as identity primary key,

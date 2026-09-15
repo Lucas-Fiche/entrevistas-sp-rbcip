@@ -88,12 +88,10 @@ var ABA_PONTE = prop("ABA_PONTE", "");
 //   A: CPF do Cadastro de Bolsista
 //   B: CPF Capital    C: Link do termo — Capital
 //   D: CPF Interior   E: Link do termo — Interior
-//   F: Data do Cadastro de Bolsista  ← o carimbo de data/hora do formulário
 //
-// A coluna F é a data em que a pessoa PREENCHEU o cadastro — é ela que vira a
-// "entrada no projeto" no painel. Puxe-a no mesmo IMPORTRANGE da coluna A, para
-// as duas andarem juntas (mesma linha = mesma pessoa). Se a coluna F ficar
-// vazia, nada quebra: o painel só continua sem saber a data de entrada.
+// A coluna F (data do Cadastro de Bolsista) deixou de ser usada: a "data de
+// entrada no projeto" saiu do sistema, porque o dia do cadastro não é o dia em
+// que a pessoa passa a atuar. Pode deixá-la na planilha — o script ignora.
 
 // ===== Conta do robô (só para a sincronização automática) =====
 // Crie no Supabase, em Authentication → Users, um usuário SÓ para isto
@@ -241,7 +239,7 @@ function limparEmail(s) {
 }
 
 // ===== Leitura da planilha-ponte =====
-// Devolve { cadastros: [cpf…], datas_cadastro: {cpf: "dd/mm/aaaa"},
+// Devolve { cadastros: [cpf…],
 //           termos: { capital: {cpf: link}, interior: {…} }, lidos: {…} }.
 // `lidos` diz qual aba foi lida e quantas linhas vieram de cada coluna — é o
 // que permite perceber na hora que algo veio do lugar errado, em vez de
@@ -258,57 +256,28 @@ function dadosFormacao() {
   if (!sh) throw new Error('Aba "' + ABA_PONTE + '" nao existe na planilha-ponte.');
 
   var ult = sh.getLastRow();
-  var nc = Math.min(6, sh.getMaxColumns());
+  var nc = Math.min(5, sh.getMaxColumns());
   var vals = ult > 1 ? sh.getRange(2, 1, ult - 1, nc).getValues() : [];
 
-  var cadastros = [], datas = {}, capital = {}, interior = {};
+  var cadastros = [], capital = {}, interior = {};
   for (var i = 0; i < vals.length; i++) {
     var cpfCad = apenasDigitos(vals[i][0]);
-    if (cpfCad.length === 11) {
-      cadastros.push(cpfCad);
-      // A data do cadastro (coluna F). Guarda a MAIS ANTIGA quando o mesmo CPF
-      // aparece duas vezes: se a pessoa preencheu o formulário de novo, quem
-      // marca a entrada no projeto é a primeira vez.
-      var d = dataBR(vals[i][5]);
-      if (d && (!datas[cpfCad] || maisAntiga(d, datas[cpfCad]))) datas[cpfCad] = d;
-    }
+    if (cpfCad.length === 11) cadastros.push(cpfCad);
     juntarTermo(capital, vals[i][1], vals[i][2]);
     juntarTermo(interior, vals[i][3], vals[i][4]);
   }
 
   return {
     cadastros: cadastros,
-    datas_cadastro: datas,
     termos: { capital: capital, interior: interior },
     lidos: {
       aba: sh.getName(),
       linhas: vals.length,
       cadastros: cadastros.length,
-      datas_cadastro: Object.keys(datas).length,
       termos_capital: Object.keys(capital).length,
       termos_interior: Object.keys(interior).length,
     },
   };
-}
-
-// Célula da coluna F -> "dd/mm/aaaa". O carimbo do Google Forms chega como Date;
-// se alguém colar texto, aceita dd/mm/aaaa e aaaa-mm-dd. Qualquer outra coisa
-// vira vazio — data inventada aqui viraria número errado no relatório depois.
-function dataBR(v) {
-  if (v instanceof Date && !isNaN(v)) {
-    return Utilities.formatDate(v, Session.getScriptTimeZone(), "dd/MM/yyyy");
-  }
-  var t = String(v == null ? "" : v).trim();
-  var m = t.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if (m) return m[1] + "/" + m[2] + "/" + m[3];
-  m = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return m[3] + "/" + m[2] + "/" + m[1];
-  return "";
-}
-
-function maisAntiga(a, b) {
-  return a.slice(6) + a.slice(3, 5) + a.slice(0, 2) <
-         b.slice(6) + b.slice(3, 5) + b.slice(0, 2);
 }
 
 function apenasDigitos(v) { return String(v == null ? "" : v).replace(/\D/g, ""); }
@@ -424,11 +393,10 @@ function sincronizacaoAutomatica() {
     var cadastros = {};
     for (var i = 0; i < dados.cadastros.length; i++) cadastros[dados.cadastros[i]] = true;
     var temCadastros = dados.cadastros.length > 0;
-    var datas = dados.datas_cadastro || {};
 
     token = tokenDoRobo();
     var fichas = supabase(token,
-      "formacao?select=id,nome,tipo,cpf,cadastro_bolsista,termo_link,data_entrada");
+      "formacao?select=id,nome,tipo,cpf,cadastro_bolsista,termo_link");
 
     var mudaram = [];
     for (var j = 0; j < fichas.length; j++) {
@@ -441,11 +409,6 @@ function sincronizacaoAutomatica() {
       if (temCadastros && cadastros[cpf] &&
           String(f.cadastro_bolsista || "").toLowerCase() !== "realizado") {
         patch.cadastro_bolsista = "Realizado";
-      }
-      // A data em que preencheu é a entrada no projeto. Só preenche o que está
-      // vazio: uma data já registrada (à mão ou antes) não é sobrescrita.
-      if (datas[cpf] && !f.data_entrada) {
-        patch.data_entrada = datas[cpf];
       }
       // Termo de bolsa emitido? (só acrescenta; nunca remove um link existente)
       var link = (dados.termos[f.tipo] || {})[cpf];
@@ -596,7 +559,7 @@ function avisarAptos(token) {
   }
 
   var fichas = supabase(t,
-    "formacao?select=id,nome,tipo,cpf,email,grupo,regiao,data_entrada,cadastro_bolsista," +
+    "formacao?select=id,nome,tipo,cpf,email,grupo,regiao,cadastro_bolsista," +
     "treinamento_presencial,treinamento_online,antecedentes_em,termo_link,desligado_em,aviso_apto_em") || [];
 
   // Apto = as TRÊS etapas: cadastro de bolsista, treinamento e antecedentes

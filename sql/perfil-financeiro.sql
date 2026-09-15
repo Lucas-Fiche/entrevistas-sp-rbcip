@@ -99,10 +99,14 @@ comment on column public.formacao.aviso_apto_em is
 --  daquele devolve a regra antiga, de duas etapas — se acontecer, é só rodar
 --  sql/antecedentes.sql outra vez.
 -- ------------------------------------------------------------
-create or replace view public.aptos_para_termo as
+-- `drop` antes do `create`: a view já existiu com a coluna `data_entrada`, e
+-- `create or replace view` não sabe REMOVER uma coluna — só acrescentar.
+drop view if exists public.aptos_para_termo;
+
+create view public.aptos_para_termo as
   select
     f.id, f.tipo, f.nome, f.cpf, f.email, f.grupo, f.regiao,
-    f.data_entrada, f.aviso_apto_em
+    f.aviso_apto_em
   from public.formacao f
   where coalesce(f.desligado_em, '') = ''
     and coalesce(f.termo_link, '') = ''

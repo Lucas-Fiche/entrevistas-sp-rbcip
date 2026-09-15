@@ -81,7 +81,8 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── perfil-financeiro.sql # Perfil FINANCEIRO + aviso de "apto, falta o termo"
 │   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
 │   ├── antecedentes.sql  # Data de envio dos antecedentes criminais (admin e financeiro)
-│   ├── historico.sql     # Data de entrada + registro de toda alteração (gatilho)
+│   ├── historico.sql     # Registro de toda alteração em formacao/candidatos (gatilho)
+│   ├── remover-data-entrada.sql # Remove a "data de entrada no projeto" (com backup)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV
 │   ├── cpf-entrevista.sql# Coluna de CPF na entrevista (preenchível em Detalhes)
 │   ├── importacoes.sql   # Histórico das importações de CSV (auditoria)
@@ -247,9 +248,6 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
     **inscrições ao longo do tempo**;
   - **Entrevistas** — indicadores, **mapa de São Paulo**, recomendação,
     entrevistas ao longo do tempo e **nota média por entrevistador**;
-  - **Entradas e saídas** — quantas pessoas entraram, saíram e estavam no
-    projeto **ao fim de cada mês**, por Capital/Interior e região, com
-    exportação em .xlsx;
   - **Formação** — ocupação das metas por região, situação dos bolsistas,
     etapas concluídas, pendências, distribuição por grupo/região e por
     supervisor, e desligamentos por motivo.

@@ -2299,7 +2299,6 @@ input[type="date"].viz-data {
 }
 
 /* Tabela de entradas e saídas por mês */
-.tabela--mov { min-width: 520px; }
 
 /* Perfil financeiro: leitura de tudo + a aba Termos de Bolsa. */
 .selo-perfil--financeiro {

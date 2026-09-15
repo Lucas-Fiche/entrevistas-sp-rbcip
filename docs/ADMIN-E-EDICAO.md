@@ -164,8 +164,8 @@ Mostra, para Capital e Interior:
 
 - **No projeto · Com termo · Sem termo · Aptos · Aguardando etapa** em números;
 - três recortes: **Sem termo**, **Aptos** e **Com termo**;
-- a tabela com cadastro, treinamento, **antecedentes criminais**, situação do
-  termo (com o link do documento, quando existe) e data de entrada no projeto.
+- a tabela com cadastro, treinamento, **antecedentes criminais** e a situação do
+  termo (com o link do documento, quando existe).
 
 As colunas seguem a ordem do caminho real — **cadastro → treinamento →
 antecedentes → termo** —, então dá para ler a linha da esquerda para a direita
@@ -717,73 +717,31 @@ nem nos arquivos exportados.
 
 ---
 
-## 8. Histórico e o quadro de entradas e saídas
+## 8. O histórico de alterações
 
-Rode **`sql/historico.sql`** no SQL Editor do Supabase. Ele faz duas coisas.
+Rode **`sql/historico.sql`** no SQL Editor do Supabase.
 
-### A data de entrada
-
-Cria a coluna **`data_entrada`** em `formacao` — quando a pessoa passou a
-atuar. A saída (`desligado_em`) já existia; faltava a entrada, e sem as duas
-não há como dizer quantos entrevistadores havia num mês passado.
-
-**De onde vem a data: do próprio Cadastro de Bolsista.** É o dia em que a
-pessoa *preencheu* o formulário — não o dia em que você a convocou. Convocar é
-convidar; entre o convite e o preenchimento passam dias ou semanas, e carimbar
-a convocação daria uma data adiantada.
-
-Para isso, a **planilha-ponte ganha a coluna F: "Data do Cadastro de
-Bolsista"** — o carimbo de data/hora do formulário, puxado pelo mesmo
-`IMPORTRANGE` da coluna A (mesma linha = mesma pessoa). Republique o Apps
-Script depois de acrescentá-la (veja `docs/APPS-SCRIPT-CONVOCACAO.md`).
-
-Com a coluna no lugar, **🔄 Sincronizar planilhas** passa a preencher a data
-sozinha, e isso vale também **retroativamente**: quem já está marcado como
-"Cadastro Realizado" mas sem data recebe a data do dia em que preencheu. Na
-prática, a maior parte do preenchimento das fichas antigas acontece sozinha, na
-primeira sincronização depois da mudança.
-
-Três regras de segurança:
-
-- **Data já preenchida nunca é sobrescrita** — nem à mão, nem por outra
-  sincronização. Quem corrigiu tinha um motivo.
-- Se o mesmo CPF aparecer duas vezes na ponte, vale a **data mais antiga**: se
-  a pessoa preencheu o formulário de novo, quem marca a entrada é a primeira
-  vez.
-- Célula vazia ou ilegível vira **nada**, nunca uma data inventada.
-
-**O que a sincronização não alcança** — cadastro feito fora do formulário, CPF
-que não casa, ficha importada de um controle antigo — fica para o botão
-**📅 Datas de entrada (N)** na aba *Formação* (dentro do menu **⚙ Mais**):
-lista quem está sem data, com um
-campo por pessoa e um atalho "preencher todas com", útil quando a turma inteira
-começou no mesmo dia. Datas fora do formato `dd/mm/aaaa` são recusadas antes de
-gravar, porque uma data errada aqui vira número errado no relatório sem ninguém
-perceber.
-
-O resumo da sincronização passa a dizer quantas datas vieram da coluna F e
-quantas entradas foram preenchidas naquela rodada — se o número vier zerado, o
-problema está no `IMPORTRANGE`, e aparece ali em vez de nos dados.
-
-### Entradas e saídas mês a mês
-
-Nova sub-aba em *Visualização de dados* → **Entradas e saídas**. Para cada mês:
-quantas pessoas entraram, quantas saíram, o saldo e **quantas estavam no
-projeto no fim do mês**. Respeita os filtros de **tipo** (Capital/Interior) e
-**região**; o filtro de período não se aplica, porque a tabela já é mês a mês.
-Tem botão de **baixar .xlsx**, para responder pedidos por e-mail sem redigitar
-nada.
-
-A conta é simples e conferível:
-
-```
-no projeto no fim do mês = entrou até o fim do mês
-                           E (não saiu, ou saiu depois do fim do mês)
-```
-
-> **Quem não tem data de entrada fica de fora de todas as contas** — e o
-> relatório diz quantas fichas são, com todas as letras. Um quadro com gente
-> faltando e sem aviso é pior do que quadro nenhum.
+> ### O que saiu: "data de entrada no projeto" e "Entradas e saídas"
+>
+> Este arquivo criava também a coluna **`data_entrada`**, e sobre ela existia a
+> sub-aba **Entradas e saídas** em *Visualização de dados*. **As duas foram
+> removidas.**
+>
+> **Por quê.** A data vinha do dia em que a pessoa *preencheu o Cadastro de
+> Bolsista*, e esse não é o dia em que ela passa a atuar no projeto. O quadro
+> mês a mês parecia preciso e não era — e um número assim é pior do que número
+> nenhum, porque ninguém desconfia dele para conferir.
+>
+> **O que fazer:** rode **`sql/remover-data-entrada.sql`**, e só **depois** de
+> publicar o painel e republicar o Apps Script (a ordem está no cabeçalho do
+> arquivo). Ele copia o conteúdo da coluna para `backup_data_entrada` antes de
+> apagar — se a informação fizer falta um dia, está guardada com o id da ficha,
+> o CPF e o nome.
+>
+> **O que NÃO foi tocado:** os desligamentos (`desligado_em` e
+> `desligado_motivo`), a tabela `historico` inteira, e todos os outros campos da
+> ficha. Na planilha-ponte, a **coluna F** pode continuar onde está: o script
+> simplesmente não a lê mais.
 
 ### O registro de tudo
 
@@ -798,8 +756,7 @@ ficha**). Alterações feitas direto no banco aparecem como *SQL Editor*, porque
 ali não há usuário logado.
 
 > **O histórico começa quando você roda o arquivo.** O que aconteceu antes não
-> existe em lugar nenhum e não pode ser reconstruído; para os meses já
-> passados, o caminho é preencher a data de entrada das fichas à mão.
+> existe em lugar nenhum e não pode ser reconstruído.
 
 ---
 
