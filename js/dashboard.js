@@ -6124,16 +6124,33 @@
       card.appendChild(el("p", { class: "vazio", text: "Sem dados." }));
       return card;
     }
-    var lista = el("div", { class: "medias" });
+    var lista = el("div", { class: "medidas" });
     dados.forEach(function (d) {
-      var valor = el("span", { class: "media-item__valor" }, [
+      var valor = el("span", { class: "medida__valor" }, [
         el("strong", { text: formatarNum(d.valor) }),
-        d.max ? el("span", { class: "media-item__max", text: " / " + formatarNum(d.max) }) : null,
+        d.max ? el("span", { text: " / " + formatarNum(d.max) }) : null,
       ]);
-      lista.appendChild(el("div", { class: "media-item" }, [
-        el("span", { class: "media-item__nome", text: d.label }),
-        valor,
-      ]));
+      var item = el("div", { class: "medida" }, [
+        el("div", { class: "medida__topo" }, [
+          el("span", { class: "medida__nome", text: d.label }),
+          valor,
+        ]),
+      ]);
+      // Com um máximo conhecido, "9,2" vira uma fração cheia de sentido: o
+      // trilho é a nota máxima e o preenchimento é o quanto dela foi tirado.
+      // Sem máximo não há trilho — barra sem escala não compara com nada.
+      if (d.max > 0) {
+        var pct = Math.max(0, Math.min(100, Math.round((d.valor / d.max) * 100)));
+        var trilho = el("div", { class: "medida__trilho" });
+        var preench = el("div", {
+          class: "medida__preench",
+          title: formatarNum(d.valor) + " de " + formatarNum(d.max) + " (" + pct + "%)",
+        });
+        preench.style.width = pct + "%";
+        trilho.appendChild(preench);
+        item.appendChild(trilho);
+      }
+      lista.appendChild(item);
     });
     card.appendChild(lista);
     return card;
@@ -6457,6 +6474,60 @@
 
   // Barras com cor por significado (verde = ativo, âmbar = pendente…) e a
   // porcentagem ao lado do número: "92" sozinho não diz se é muito ou pouco.
+  // Barra empilhada de 100%: uma barra só, cada segmento é uma fatia do total.
+  //
+  // É a forma certa para PARTE DE UM TODO, e é o que barras soltas não mostram:
+  // com quatro barras lado a lado dá para comparar as alturas, mas não dá para
+  // ver que 51 de 90 é mais da metade. Aqui a proporção é a própria largura.
+  //
+  // `dados`: [{ label, valor, cor, titulo }] — `cor` é o sufixo da classe CSS.
+  // A legenda está SEMPRE presente e os segmentos que couberem levam o número
+  // dentro: a cor nunca é o único jeito de identificar uma fatia.
+  function graficoEmpilhado(titulo, dados, opcoes) {
+    var o = opcoes || {};
+    var card = el("div", { class: "grafico" });
+    card.appendChild(el("h3", { class: "grafico__titulo", text: titulo }));
+    var total = dados.reduce(function (s2, d) { return s2 + (d.valor || 0); }, 0);
+    if (!total) {
+      card.appendChild(el("p", { class: "vazio", text: "Sem dados." }));
+      return card;
+    }
+    var comValor = dados.filter(function (d) { return d.valor > 0; });
+
+    var barra = el("div", { class: "empilhada" });
+    comValor.forEach(function (d) {
+      var pct = (d.valor / total) * 100;
+      var seg = el("div", {
+        class: "empilhada__seg" + (d.cor ? " empilhada__seg--" + d.cor : ""),
+        title: (d.titulo || d.label) + ": " + d.valor + " de " + total +
+          " (" + Math.round(pct) + "%)",
+      });
+      seg.style.width = pct + "%";
+      // Número dentro do segmento só quando cabe. Rótulo espremido e cortado é
+      // pior do que rótulo nenhum — quem ficou de fora aparece na legenda.
+      if (pct >= 9) seg.appendChild(el("span", { class: "empilhada__num", text: String(d.valor) }));
+      barra.appendChild(seg);
+    });
+    card.appendChild(barra);
+
+    var legenda = el("ul", { class: "legenda" });
+    comValor.forEach(function (d) {
+      var item = el("li", { class: "legenda__item", title: d.titulo || d.label });
+      item.appendChild(el("span", {
+        class: "legenda__cor" + (d.cor ? " legenda__cor--" + d.cor : ""), "aria-hidden": "true",
+      }));
+      item.appendChild(el("span", { class: "legenda__rot", text: d.label }));
+      item.appendChild(el("span", {
+        class: "legenda__val",
+        text: d.valor + " · " + Math.round((d.valor / total) * 100) + "%",
+      }));
+      legenda.appendChild(item);
+    });
+    card.appendChild(legenda);
+    if (o.nota) card.appendChild(el("p", { class: "grafico__nota", text: o.nota }));
+    return card;
+  }
+
   function graficoBarrasCores(titulo, dados) {
     var total = dados.reduce(function (s2, d) { return s2 + d.valor; }, 0);
     var max = dados.reduce(function (m, d) { return Math.max(m, d.valor); }, 0) || 1;
@@ -6735,23 +6806,39 @@
       grid.appendChild(graficoBarras("Entrevistados por região (interior)", regioesOrdenadas));
     }
 
-    // Recomendações (rótulos curtos e distintos; texto completo no hover)
+    // Recomendações: as quatro são FATIAS DO MESMO TOTAL e estão em ordem
+    // (forte → reprovado). Em barras soltas, a pergunta que se faz aqui — "que
+    // fração foi aprovada?" — só se responde somando de cabeça. Empilhadas, a
+    // resposta é a largura.
+    //
+    // Cores: os três graus de aprovação são uma rampa de um tom só (mais
+    // escuro = mais forte), e o reprovado é vermelho porque é estado, não mais
+    // um grau. Validado para daltonismo: o pior par adjacente fica em ΔE 18.
     var ROTULO_REC = {
-      "Aprovado - Forte Recomendação": "Forte recomendação",
-      "Aprovado - Recomendação": "Recomendação",
-      "Aprovado - Recomendação com Ressalvas": "Com ressalvas",
-      "Reprovado": "Reprovado",
+      "Aprovado - Forte Recomendação": { rot: "Forte recomendação", cor: "aprov3" },
+      "Aprovado - Recomendação": { rot: "Recomendação", cor: "aprov2" },
+      "Aprovado - Recomendação com Ressalvas": { rot: "Com ressalvas", cor: "aprov1" },
+      "Reprovado": { rot: "Reprovado", cor: "reprov" },
     };
     var contRec = contarPor(lista, function (r) { return r.recomendacao; });
-    grid.appendChild(graficoBarras("Recomendação final", Object.keys(ROTULO_REC).map(function (k) {
-      return { label: ROTULO_REC[k], titulo: k, valor: contRec[k] || 0 };
-    })));
+    var totalRec = Object.keys(ROTULO_REC).reduce(function (t, k) { return t + (contRec[k] || 0); }, 0);
+    var aprovados = totalRec - (contRec["Reprovado"] || 0);
+    grid.appendChild(graficoEmpilhado("Recomendação final",
+      Object.keys(ROTULO_REC).map(function (k) {
+        return { label: ROTULO_REC[k].rot, titulo: k, cor: ROTULO_REC[k].cor, valor: contRec[k] || 0 };
+      }),
+      { nota: totalRec
+          ? aprovados + " de " + totalRec + " com recomendação de aprovação (" +
+            Math.round((aprovados / totalRec) * 100) + "%)."
+          : "" }));
 
-    // Por entrevistador (quantidade)
+    // Por entrevistador (quantidade). Do maior para o menor: a lista alfabética
+    // obrigava a comparar as barras uma a uma para achar quem fez mais.
     var contEnt = contarPor(lista, function (r) { return r.entrevistador; });
-    grid.appendChild(graficoBarras("Entrevistas por entrevistador", Object.keys(contEnt).sort().map(function (k) {
-      return { label: k, valor: contEnt[k] };
-    })));
+    grid.appendChild(graficoBarras("Entrevistas por entrevistador",
+      Object.keys(contEnt)
+        .map(function (k) { return { label: k, valor: contEnt[k] }; })
+        .sort(function (a, b) { return b.valor - a.valor || a.label.localeCompare(b.label); })));
 
     // Nota média por entrevistador (só candidatos avaliados, com pontuação)
     var somaEnt = {}, somaMaxEnt = {}, qtdEnt = {};
@@ -6772,11 +6859,15 @@
       grid.appendChild(graficoMedia("Nota média por entrevistador", mediaEnt));
     }
 
-    // Por região (só faz sentido em "Todas")
+    // Capital × Interior (só faz sentido em "Todas"). São duas partes de um
+    // total — duas barras soltas gastavam um cartão inteiro para dizer o que
+    // uma linha diz melhor, e ainda escondiam a proporção entre elas.
     if (vizTipo === "todos" && !vizRegiao) {
-      grid.appendChild(graficoBarras("Capital × Interior", [
-        { label: "Capital", valor: linhas.filter(function (r) { return r.tipo === "capital"; }).length },
-        { label: "Interior", valor: linhas.filter(function (r) { return r.tipo === "interior"; }).length },
+      grid.appendChild(graficoEmpilhado("Capital × Interior", [
+        { label: "Capital", cor: "proj1",
+          valor: linhas.filter(function (r) { return r.tipo === "capital"; }).length },
+        { label: "Interior", cor: "proj2",
+          valor: linhas.filter(function (r) { return r.tipo === "interior"; }).length },
       ]));
     }
 

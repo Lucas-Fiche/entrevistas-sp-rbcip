@@ -545,9 +545,13 @@ input[type="date"].viz-data {
 }
 .filtro-ativo__rot { font-size: 13px; font-weight: 600; color: var(--cor-primaria-escura); }
 
+/* `align-items: start` para o cartão ter a altura do que tem dentro. Sem isso
+   todos esticam até a altura do mais alto da linha, e quem tem pouco conteúdo
+   — a barra empilhada, por exemplo — vira uma caixa quase vazia. */
 .graficos {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  align-items: start;
   gap: 18px;
 }
 @media (max-width: 720px) {
@@ -657,15 +661,18 @@ input[type="date"].viz-data {
 .barra__trilho {
   flex: 1;
   background: #e6eef1;
-  border-radius: 6px;
-  height: 20px;
+  border-radius: 4px;
+  height: 16px;
   overflow: hidden;
 }
+/* Ponta arredondada só do lado que CRESCE. O lado de partida é reto porque
+   está ancorado no zero: arredondar os dois faz a barra parecer uma pílula
+   solta, que começa depois do começo. */
 .barra__preench {
   height: 100%;
   min-width: 2px;
   background: var(--cor-primaria);
-  border-radius: 6px;
+  border-radius: 0 4px 4px 0;
   transition: width 0.3s ease;
 }
 .barra__valor {
@@ -674,25 +681,6 @@ input[type="date"].viz-data {
   font-size: 13px;
   font-weight: 700;
   color: var(--cor-primaria-escura);
-}
-
-/* Lista de médias (sem barra) */
-.medias { display: flex; flex-direction: column; }
-.media-item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid var(--cor-borda);
-}
-.media-item:last-child { border-bottom: none; }
-.media-item__nome { font-size: 14px; color: var(--cor-texto); }
-.media-item__valor { font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
-.media-item__valor strong {
-  font-size: 22px;
-  color: var(--cor-primaria-escura);
-  margin-right: 2px;
 }
 
 /* ---------- Mapa de regiões ---------- */
@@ -1875,7 +1863,7 @@ input[type="date"].viz-data {
 .prog__trilho {
   height: 10px;
   background: #e6eef1;
-  border-radius: 6px;
+  border-radius: 4px;
   overflow: hidden;
   margin-top: 6px;
 }
@@ -1883,7 +1871,7 @@ input[type="date"].viz-data {
   height: 100%;
   min-width: 2px;
   background: var(--cor-primaria);
-  border-radius: 6px;
+  border-radius: 0 4px 4px 0;
   transition: width 0.3s ease;
 }
 .prog__preench--cheia { background: var(--cor-sucesso); }
@@ -1901,6 +1889,134 @@ input[type="date"].viz-data {
   white-space: nowrap;
 }
 .barra__pct { font-size: 12px; font-weight: 600; color: var(--cor-texto-suave); }
+
+/* ---------- Barra empilhada de 100% + legenda ----------
+ * Para PARTE DE UM TODO. A largura de cada pedaço é a própria proporção, então
+ * "mais da metade" se lê sem somar nada de cabeça.
+ *
+ * A separação entre pedaços é uma borda da cor do cartão — um vão, não um
+ * contorno em volta de cada um. Com `box-sizing: border-box` o vão sai de
+ * dentro do pedaço, e as larguras continuam somando exatamente 100%.
+ *
+ * Cada cor é declarada UMA vez, em `--seg`, e serve para o pedaço e para a
+ * bolinha da legenda: assim é impossível a legenda discordar da barra.
+ * `--seg-tinta` é a cor do número POR DENTRO do pedaço — no tom mais claro da
+ * rampa o branco não teria contraste, então lá o número é escuro. */
+.empilhada {
+  display: flex;
+  height: 34px;
+  border-radius: 4px;
+  background: #e6eef1;
+  overflow: visible;
+}
+.empilhada__seg {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3px;
+  background: var(--seg, var(--cor-primaria));
+  border-right: 2px solid var(--cor-branco);
+  transition: width 0.3s ease;
+}
+.empilhada__seg:last-child { border-right: 0; }
+.empilhada__seg:first-child { border-radius: 4px 0 0 4px; }
+.empilhada__seg:last-child { border-radius: 0 4px 4px 0; }
+.empilhada__seg:only-child { border-radius: 4px; }
+.empilhada__num {
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--seg-tinta, var(--cor-branco));
+  padding: 0 4px;
+}
+
+.legenda {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.legenda__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+.legenda__cor {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--seg, var(--cor-primaria));
+  transform: translateY(1px);
+}
+.legenda__rot { color: var(--cor-texto); }
+/* A linha pontilhada liga o nome ao número sem precisar de tabela. */
+.legenda__item::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px dotted var(--cor-borda);
+  transform: translateY(-3px);
+  order: 3;
+}
+.legenda__val {
+  flex: none;
+  order: 4;
+  color: var(--cor-texto-suave);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Recomendação final: três graus de aprovação numa rampa de um tom só
+ * (mais escuro = recomendação mais forte) e o reprovado em vermelho, porque
+ * é estado, e não mais um grau da mesma escala. */
+.empilhada__seg--aprov3, .legenda__cor--aprov3 { --seg: #00415c; }
+.empilhada__seg--aprov2, .legenda__cor--aprov2 { --seg: #2a7fa0; }
+.empilhada__seg--aprov1, .legenda__cor--aprov1 { --seg: #7cb8cf; --seg-tinta: #0d2b38; }
+.empilhada__seg--reprov, .legenda__cor--reprov { --seg: #c0362b; }
+
+/* Capital × Interior: identidade, não intensidade — duas cores diferentes,
+ * não dois tons da mesma. E na MESMA convenção do mapa logo acima, onde a
+ * bolha da Capital é roxa e as do interior são azuis: duas telas da mesma
+ * página não podem trocar as cores uma da outra. (São versões mais claras
+ * das do mapa: as da marca são escuras demais para passar nas medições de
+ * separação por daltonismo lado a lado.) */
+.empilhada__seg--proj1, .legenda__cor--proj1 { --seg: #7048b5; }
+.empilhada__seg--proj2, .legenda__cor--proj2 { --seg: #008ba8; }
+
+/* ---------- Medidor: valor sobre um máximo ---------- */
+.medidas { display: flex; flex-direction: column; gap: 14px; }
+.medida__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.medida__nome { font-size: 14px; color: var(--cor-texto); }
+.medida__valor { font-size: 13px; color: var(--cor-texto-suave); white-space: nowrap; }
+.medida__valor strong {
+  font-size: 20px;
+  color: var(--cor-primaria-escura);
+  margin-right: 1px;
+  font-variant-numeric: tabular-nums;
+}
+.medida__trilho {
+  height: 10px;
+  background: #e6eef1;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.medida__preench {
+  height: 100%;
+  min-width: 2px;
+  background: var(--cor-primaria);
+  border-radius: 0 4px 4px 0;
+  transition: width 0.3s ease;
+}
 
 /* ---------- Abas no celular ----------
  * Empilhadas em três linhas, elas pareciam uma lista de links, não abas.
