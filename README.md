@@ -81,6 +81,7 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── perfil-financeiro.sql # Perfil FINANCEIRO + aviso de "apto, falta o termo"
 │   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
 │   ├── antecedentes.sql  # Data de envio dos antecedentes criminais (admin e financeiro)
+│   ├── editar-contato.sql# Corrigir nome/telefone/e-mail na Formação sem o CSV desfazer
 │   ├── historico.sql     # Registro de toda alteração em formacao/candidatos (gatilho)
 │   ├── remover-data-entrada.sql # Remove a "data de entrada no projeto" (com backup)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV

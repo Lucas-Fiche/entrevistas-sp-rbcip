@@ -3265,6 +3265,9 @@
       if (!mapa[f.chave]) { if (jaExistem[f.chave]) atualizadas++; else criadas++; }
       f.importado_em = agora;
       var ex = porChave[f.chave];
+      // Todas as linhas levam a mesma chave `editado` (as novas, vazia): o
+      // upsert em lote exige que todos os objetos tenham os mesmos campos.
+      f.editado = (ex && ex.editado) || {};
       if (ex) {
         CAMPOS_MANUAIS.forEach(function (campo) { if (ex[campo]) f[campo] = ex[campo]; });
         // Identificação, termo e cadastro: arquivo sem a coluna (ou com ela
@@ -3274,12 +3277,20 @@
         ["nome", "cpf", "telefone", "email", "email_norm", "regiao",
           "termo_link", "termo_bolsa", "cadastro_bolsista"]
           .forEach(function (campo) { if (!f[campo] && ex[campo]) f[campo] = ex[campo]; });
+        // O que foi corrigido à mão no painel PREVALECE sobre a planilha. Sem
+        // isto, quem consertou um telefone errado veria o erro voltar na
+        // importação seguinte — e sem nenhum aviso de que voltou.
+        Object.keys(f.editado).forEach(function (campo) {
+          if (!f.editado[campo] || campo === "chave") return;
+          f[campo] = ex[campo];
+          if (campo === "email") f.email_norm = ex.email_norm || normEmail(ex.email) || null;
+        });
       }
       mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
     });
     var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
     if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
-    return upsertResiliente(formTabela(), rows, ["importado_em", "ordem"])
+    return upsertResiliente(formTabela(), rows, ["importado_em", "ordem", "editado"])
       .then(function () {
         return registrarImportacao({
           aba: "formacao", tipo: tipo, arquivo: arquivo,
@@ -3751,6 +3762,19 @@
     if (d.length !== 11) return v || "—";
     return d.slice(0, 3) + "." + d.slice(3, 6) + "." + d.slice(6, 9) + "-" + d.slice(9);
   }
+  // Telefone corrigido à mão: guarda no MESMO formato de quem veio da
+  // inscrição — "(11) 99999-9999". Sem isto a tabela mistura dois jeitos de
+  // escrever o mesmo número, e procurar por telefone deixa de funcionar.
+  // Número que não tem cara de brasileiro (10 ou 11 dígitos) fica como foi
+  // digitado: remendar um número estrangeiro é pior do que respeitá-lo.
+  function formatarTelefone(v) {
+    var d = soDigitos(v);
+    if (d.length !== 10 && d.length !== 11) return String(v || "").trim();
+    var ddd = d.slice(0, 2), num = d.slice(2);
+    var corte = num.length > 8 ? 5 : 4;
+    return "(" + ddd + ") " + num.slice(0, corte) + "-" + num.slice(corte);
+  }
+
   // Máscara aplicada enquanto se digita o CPF (000.000.000-00).
   function mascaraCPF(v) {
     var d = soDigitos(v).slice(0, 11);
@@ -4243,25 +4267,46 @@
   // ---------- Edição da ficha de formação (só admin) ----------
   var OPCOES_TREINO = ["Realizado", "Não Realizado"];
 
+  // Contato: o que a pessoa pode ter digitado errado na inscrição e corrigido
+  // depois em outro lugar. Corrigir AQUI vale para as duas abas (Formação e
+  // Termos de Bolsa) e fica marcado em `editado`, para a próxima importação de
+  // CSV não desfazer a correção.
+  var CONTATO_FORMACAO = ["nome", "telefone", "email"];
+
   function camposFormacao(f) {
-    var campos = [];
-    if (f.tipo === "capital") {
-      campos.push({ id: "grupo", rot: "Grupo", opcoes: chavesSupervisao("capital"),
-        dica: "Define o supervisor automaticamente." });
-    } else {
-      campos.push({ id: "regiao", rot: "Região", opcoes: chavesSupervisao("interior"),
-        dica: "Define o supervisor automaticamente." });
-    }
+    var chave = f.tipo === "capital"
+      ? { id: "grupo", rot: "Grupo", opcoes: chavesSupervisao("capital"),
+          dica: "Define o supervisor automaticamente." }
+      : { id: "regiao", rot: "Região", opcoes: chavesSupervisao("interior"),
+          dica: "Define o supervisor automaticamente." };
+
     // Supervisor mexe no grupo e nada mais: os outros campos nem aparecem no
     // formulário, para não haver caixa que ele preenche e o banco recusa. E
     // como ele só PREENCHE grupo vazio, some também a opção "— em branco —":
     // deixar em branco seria apagar, o que não é dele.
     if (!ehAdmin()) {
-      campos[0].semBranco = true;
-      campos[0].dica = "Define o supervisor automaticamente. Depois de definido, " +
+      chave.semBranco = true;
+      chave.dica = "Define o supervisor automaticamente. Depois de definido, " +
         "só o administrador troca de grupo.";
-      return campos;
+      return [chave];
     }
+
+    // Identificação primeiro, etapas depois: é a ordem em que se lê a ficha.
+    // O CPF NÃO entra aqui de propósito — ele é a chave que liga inscrição,
+    // entrevista e formação, e trocá-lo por esta tela deixaria a ficha solta
+    // das outras duas. CPF errado se conserta na aba Candidatos.
+    var campos = [
+      { id: "nome", rot: "Nome completo" },
+      { id: "telefone", rot: "Telefone", telefone: true,
+        dica: "Com DDD. Fica guardado como (11) 99999-9999." },
+      { id: "email", rot: "E-mail",
+        dica: "É para cá que vão as convocações. Trocar aqui não avisa ninguém." },
+      // Aviso comum aos três: o que é corrigido aqui passa a valer sobre o CSV.
+      { aviso: "O que você corrigir nos três campos acima passa a valer sobre a " +
+          "planilha: a próxima importação de CSV não desfaz a correção. Para voltar a " +
+          "seguir a planilha num deles, apague o campo e salve." },
+      chave,
+    ];
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
     // Um treinamento só, para os dois projetos: conta qualquer treinamento
     // realizado. Fica no campo que a planilha chama de "Treinamento
@@ -4310,6 +4355,9 @@
     var form = el("form", { class: "edicao" });
     var entradas = {};
     camposFormacao(f).forEach(function (c) {
+      // Recado no meio do formulário, sem campo nenhum: explica uma regra que
+      // vale para o grupo de campos logo acima, junto deles e não num canto.
+      if (c.aviso) { form.appendChild(el("p", { class: "edicao__aviso", text: c.aviso })); return; }
       var atual = c.valor !== undefined ? (c.valor || "") : (f[c.id] || "");
       var linha = el("div", { class: "edicao__campo" });
       linha.appendChild(el("label", { class: "edicao__rot", for: "fm_" + c.id, text: c.rot }));
@@ -4347,10 +4395,49 @@
       e.preventDefault();
       var patch = {};
       camposFormacao(f).forEach(function (c) {
+        if (c.aviso) return;
         var valor = entradas[c.id].value.trim();
+        // O telefone é guardado sempre no mesmo formato, venha da inscrição ou
+        // da mão. Normaliza ANTES de comparar: assim redigitar o mesmo número
+        // com outra pontuação não conta como alteração.
+        if (c.telefone) valor = formatarTelefone(valor);
         if (valor !== (f[c.id] || "")) patch[c.id] = valor || null;
       });
+
+      // E-mail sem "@" quebra a convocação em silêncio: o envio falha lá na
+      // frente, longe daqui, e ninguém liga uma coisa à outra.
+      if (Object.prototype.hasOwnProperty.call(patch, "email") && patch.email &&
+          !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(patch.email)) {
+        msg.className = "edicao__msg edicao__msg--erro";
+        msg.textContent = "E-mail com formato inválido: " + patch.email;
+        return;
+      }
+      // `email_norm` é a coluna por onde a importação reconhece a mesma pessoa.
+      // Trocar o e-mail sem trocá-la faria a próxima importação criar uma ficha
+      // nova em vez de atualizar esta.
+      if (Object.prototype.hasOwnProperty.call(patch, "email")) {
+        patch.email_norm = normEmail(patch.email) || null;
+      }
+
       if (!Object.keys(patch).length) { msg.textContent = "Nada foi alterado."; return; }
+
+      // Marca o que foi corrigido à mão, do mesmo jeito que a aba Candidatos já
+      // faz: a próxima importação de CSV respeita a correção em vez de trazer
+      // de volta o valor velho da planilha.
+      var corrigidos = CONTATO_FORMACAO.filter(function (campo) {
+        return Object.prototype.hasOwnProperty.call(patch, campo);
+      });
+      // Apagar o campo é o jeito de voltar atrás: sem isso a marca seria
+      // definitiva, e um campo esvaziado por engano ficaria vazio para sempre
+      // — nem a planilha poderia repor o valor.
+      if (corrigidos.length) {
+        var marcas = Object.assign({}, f.editado || {});
+        corrigidos.forEach(function (campo) {
+          if (patch[campo]) marcas[campo] = true;
+          else delete marcas[campo];
+        });
+        patch.editado = marcas;
+      }
 
       // Os antecedentes saem do patch e vão pela função própria do banco. Uma
       // porta só para essa coluna, venha da aba Termos de Bolsa ou daqui: assim
@@ -4373,11 +4460,17 @@
       // O supervisor não tem permissão de update na tabela (e não deve ter: o
       // RLS decide por linha, e liberar a linha liberaria a ficha inteira). Ele
       // grava pela função `definir_grupo`, que só sabe mexer no grupo.
+      // `editado` é coluna nova: banco sem ela ainda grava a correção (só não
+      // fica protegida contra a próxima importação). Perder a correção inteira
+      // por causa de um SQL pendente seria pior.
+      var ignorados = [];
       var gravar = !ehAdmin()
         ? client.rpc("definir_grupo", { p_id: f.id, p_grupo: patch.grupo || null })
         : Object.keys(patch).length
-          ? client.from(formTabela()).update(
-              Object.assign({}, patch, { updated_at: new Date().toISOString() })).eq("id", f.id)
+          ? atualizarResiliente(formTabela(), f.id,
+              Object.assign({}, patch, { updated_at: new Date().toISOString() }), ["editado"])
+              .then(function (r) { ignorados = r.ignorados || []; return { error: null }; })
+              .catch(function (e) { return { error: e }; })
           : Promise.resolve({ error: null });
       Promise.resolve(gravar).then(function (resp) {
         if (resp && resp.error) return resp;
@@ -4406,6 +4499,13 @@
         fecharModal();
         // Grupo, treinamento, antecedentes e termo aparecem nas duas abas.
         renderFichas();
+        // Gravou, mas sem a marca de "corrigido à mão": avisa AGORA, e não na
+        // próxima importação, quando a correção já teria sumido em silêncio.
+        if (ignorados.indexOf("editado") !== -1 && corrigidos.length) {
+          mostrarStatus("#form-status",
+            "Correção salva, mas ainda desprotegida: rode sql/editar-contato.sql no Supabase, " +
+            "senão a próxima importação de CSV traz de volta o valor antigo da planilha.");
+        }
       });
     });
 

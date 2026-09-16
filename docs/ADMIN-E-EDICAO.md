@@ -449,6 +449,48 @@ vez de criar uma duplicada.
 > CPF numa só, aproveitando o que estiver preenchido em cada uma, e guarda uma
 > cópia da tabela antes de mexer.
 
+### 3b. Corrigir nome, telefone e e-mail na aba Formação
+
+Rode **`sql/editar-contato.sql`** uma vez.
+
+Nome, telefone e e-mail chegam à ficha da Formação pela **inscrição** — é o que
+a pessoa digitou no formulário de entrevista — ou pelo CSV de formação. Quando
+alguém erra o próprio número ali e corrige depois em outro lugar (no *Cadastro
+de Bolsista*, por exemplo), o sistema fica com o valor errado.
+
+Agora esses três campos estão na edição da ficha, no lápis da aba *Formação*,
+acima do grupo. Só o **administrador** os vê: para o supervisor, a ficha
+continua tendo um campo só, o grupo.
+
+- **Telefone** — digite com DDD, como quiser. Fica guardado no formato da casa,
+  `(11) 99999-9999`, o mesmo de quem veio da inscrição. Redigitar o mesmo número
+  com outra pontuação não conta como alteração.
+- **E-mail** — conferido antes de gravar: endereço sem `@` é recusado ali mesmo,
+  e não lá na frente, quando uma convocação falhar sem explicação. Trocar o
+  e-mail aqui **não avisa ninguém** e não reenvia nada.
+- **Nome** — só o nome da ficha. Não mexe na inscrição nem na entrevista.
+
+**O CPF não está lá, de propósito.** Ele é a chave que liga a inscrição, a
+entrevista e a formação; trocá-lo por esta tela deixaria a ficha solta das
+outras duas. CPF errado se conserta na aba *Candidatos*.
+
+#### A correção prevalece sobre a planilha
+
+É a mesma regra da aba *Candidatos*: o campo corrigido fica marcado, e a
+próxima importação do CSV de formação **não o sobrescreve**. Sem isso a
+correção duraria até a importação seguinte e sumiria sem aviso — o pior tipo de
+perda, porque ninguém fica sabendo.
+
+Para **voltar atrás** num campo e deixar a planilha mandar nele de novo, apague
+o campo e salve. O próprio formulário diz isso, logo abaixo dos três.
+
+> Enquanto `sql/editar-contato.sql` não for rodado, a correção **é salva do
+> mesmo jeito** — só não fica protegida. O painel avisa na hora, na aba
+> *Formação*, dizendo qual arquivo falta. O aviso sai no momento da correção,
+> e não na importação seguinte, quando o valor já teria voltado.
+
+Toda correção entra no **histórico da ficha** (seção 8), com quem fez e quando.
+
 ---
 
 ## 4. Importar os arquivos da plataforma
@@ -843,16 +885,19 @@ nome e a contagem centralizados. No celular ficam duas por linha.
 ### Aba Formação
 
 1. **Projeto** (Capital / Interior), com a contagem de bolsistas.
-2. **Resumo** — Bolsistas, Ativos, Aguardando termo, Cadastro pendente, Sem
-   treinamento, Desligados. No celular os cartões ficam compactos, para a lista
-   não começar longe demais.
+2. **Resumo** — No projeto, Ativos, Aguardando termo, Cadastro pendente, Sem
+   treinamento, Desligados. *Ativos* aparece em verde e *Desligados* em
+   vermelho; os três do meio são **botões**: clicar filtra a tabela para
+   exatamente as pessoas que o cartão conta, e um chip acima da lista diz por
+   que ela encolheu. No celular os cartões ficam compactos, para a lista não
+   começar longe demais.
 3. **Ações** (só administradores) — três controles no lugar de seis botões:
    - **🔄 Sincronizar planilhas**, que é a rotina, continua à vista;
    - **⬇ Baixar**, um menu com a planilha inteira (CSV com desligados, Excel só
      com quem está no projeto) e, embaixo, uma linha por grupo/região;
-   - **⚙ Mais**, com *Supervisores por grupo/região*, *📅 Datas de entrada (N)*,
-     *🧩 Completar pela inscrição (N)* e *📥 Importar planilha (CSV)*. Os dois
-     do meio só aparecem quando há o que fazer, e o número diz quanto.
+   - **⚙ Mais**, com *Supervisores por grupo/região*, *🧩 Completar pela
+     inscrição (N)* e *📥 Importar planilha (CSV)*. O do meio só aparece quando
+     há o que fazer, e o número diz quanto.
 4. **Metas e vagas**, fechado como antes.
 5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados*, a
    busca e a tabela. Esse recorte é um **interruptor de duas posições**: as duas
