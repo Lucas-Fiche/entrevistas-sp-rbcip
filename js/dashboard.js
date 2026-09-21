@@ -2137,7 +2137,7 @@
   function camposEdicao(cand) {
     var campos = [
       { id: "nome", rot: "Nome" },
-      { id: "email", rot: "E-mail",
+      { id: "email", rot: "E-mail", teclado: "email",
         dica: "Ao trocar o e-mail, a ficha continua marcada para reenvio até um envio dar certo." },
       { id: "cpf", rot: "CPF", cpf: true, dica: "Chave que liga a inscrição, a entrevista e a formação." },
       {
@@ -2152,12 +2152,12 @@
     ];
     return campos.concat([
       { id: "convocacao_entrevista", rot: "Convocação entrevista", opcoes: ENVIO_OPCOES },
-      { id: "data_convocacao_entrevista", rot: "Data da convocação", dica: "dd/mm/aaaa" },
+      { id: "data_convocacao_entrevista", rot: "Data da convocação", dica: "dd/mm/aaaa", teclado: "numeric" },
       { id: "resultado_entrevista", rot: "Resultado da entrevista", opcoes: RESULTADOS,
         dica: "Só é usado quando não há entrevista casada no sistema." },
-      { id: "data_entrevista", rot: "Data da entrevista", dica: "dd/mm/aaaa" },
+      { id: "data_entrevista", rot: "Data da entrevista", dica: "dd/mm/aaaa", teclado: "numeric" },
       { id: "convocacao_cadastro", rot: "Convocação cadastro", opcoes: ENVIO_OPCOES },
-      { id: "data_convocacao_cadastro", rot: "Data da convocação de cadastro", dica: "dd/mm/aaaa" },
+      { id: "data_convocacao_cadastro", rot: "Data da convocação de cadastro", dica: "dd/mm/aaaa", teclado: "numeric" },
       { id: "email_bounce", rot: "Falha de entrega", opcoes: ["E-mail não existe", "Falha na entrega"],
         dica: "Deixe em branco para limpar a marcação de e-mail inválido." },
     ]);
@@ -2204,7 +2204,13 @@
         });
         entrada.addEventListener("input", function () { entrada.value = mascaraCPF(entrada.value); });
       } else {
-        entrada = el("input", { class: "edicao__entrada", type: "text", id: "ed_" + c.id, value: cand[c.id] || "" });
+        // Mesmo critério da ficha de formação: o teclado do celular já abre
+        // certo, e o autopreenchimento fica de fora porque a ficha é de outra
+        // pessoa — o navegador ofereceria os dados de quem está logado.
+        var atrsC = { class: "edicao__entrada", type: "text", id: "ed_" + c.id,
+          value: cand[c.id] || "", autocomplete: "off" };
+        if (c.teclado) atrsC.inputmode = c.teclado;
+        entrada = el("input", atrsC);
       }
       linha.appendChild(entrada);
       if (c.dica) linha.appendChild(el("p", { class: "edicao__dica", text: c.dica }));
@@ -4297,9 +4303,9 @@
     // das outras duas. CPF errado se conserta na aba Candidatos.
     var campos = [
       { id: "nome", rot: "Nome completo" },
-      { id: "telefone", rot: "Telefone", telefone: true,
+      { id: "telefone", rot: "Telefone", telefone: true, teclado: "tel",
         dica: "Com DDD. Fica guardado como (11) 99999-9999." },
-      { id: "email", rot: "E-mail",
+      { id: "email", rot: "E-mail", teclado: "email",
         dica: "É para cá que vão as convocações. Trocar aqui não avisa ninguém." },
       // Aviso comum aos três: o que é corrigido aqui passa a valer sobre o CSV.
       { aviso: "O que você corrigir nos três campos acima passa a valer sobre a " +
@@ -4315,7 +4321,7 @@
     campos.push({ id: "treinamento_presencial", rot: "Treinamento", opcoes: OPCOES_TREINO,
       valor: treinamentoDe(f), dica: "Qualquer treinamento realizado (online ou presencial)." });
     campos.push({ id: "data_treinamento_presencial", rot: "Data do treinamento", dica: "dd/mm/aaaa",
-      valor: dataTreinamentoDe(f) });
+      teclado: "numeric", valor: dataTreinamentoDe(f) });
     campos.push({ id: "facilitador", rot: "Facilitador do treinamento", dica: "Quem conduziu." });
     // Terceira etapa antes do termo. O lugar de rotina é a coluna da aba Termos
     // de Bolsa; aqui é para acertar as fichas antigas, de antes de a etapa
@@ -4323,6 +4329,7 @@
     // ficha — uma porta só para a coluna, venha de onde vier.
     if (temColunaAntecedentes()) {
       campos.push({ id: "antecedentes_em", rot: "Antecedentes criminais (data do envio)",
+        teclado: "numeric",
         dica: "dd/mm/aaaa — o dia em que a certidão foi enviada. Em branco = ainda não enviou. " +
           "Também dá para registrar direto na aba Termos de Bolsa." });
     }
@@ -4376,7 +4383,15 @@
         entrada.value = atual;
         if (c.semBranco) entrada.required = true;
       } else {
-        entrada = el("input", { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: atual });
+        // `inputmode` escolhe QUAL teclado o celular abre. Digitar "14/09/2026"
+        // no teclado de letras custa duas trocas de teclado por data. Só entra
+        // quando o campo pede um: `inputmode=""` não é valor válido.
+        var atrs = { class: "edicao__entrada", type: "text", id: "fm_" + c.id, value: atual };
+        // Autopreenchimento desligado: aqui se edita a ficha de OUTRA pessoa, e
+        // o navegador ofereceria o nome e o e-mail de quem está logado.
+        atrs.autocomplete = "off";
+        if (c.teclado) atrs.inputmode = c.teclado;
+        entrada = el("input", atrs);
       }
       linha.appendChild(entrada);
       if (c.dica) linha.appendChild(el("p", { class: "edicao__dica", text: c.dica }));
@@ -4827,6 +4842,7 @@
     var iData = el("input", {
       class: "edicao__entrada", type: "text", id: "dl_data",
       value: f.desligado_em || hojeBR(), placeholder: "dd/mm/aaaa",
+      inputmode: "numeric", autocomplete: "off",
     });
     lData.appendChild(iData);
     lData.appendChild(el("p", { class: "edicao__dica", text: "Já vem com a data de hoje — troque se a saída foi antes." }));

@@ -882,3 +882,41 @@ textarea {
     min-width: 28px;
   }
 }
+
+/* ============================================================
+ *  CELULAR: campo de digitação nunca abaixo de 16px
+ *
+ *  O Safari do iPhone dá zoom na tela sempre que se toca num campo cuja
+ *  letra é MENOR que 16px — e, ao sair do campo, não desfaz o zoom. A tela
+ *  fica presa, deslocada para o lado, e a pessoa precisa fechar com os dedos
+ *  para voltar ao normal. Não é ajuste de preferência: é o comportamento do
+ *  sistema, e a única forma de não acioná-lo é o campo já estar em 16px.
+ *  O Chrome do Android faz o mesmo.
+ *
+ *  Todos os campos do sistema estavam entre 13px e 15px — ou seja, TODOS
+ *  acionavam o zoom: a busca das tabelas, os filtros de período, a edição da
+ *  ficha, o login, o link da pasta de atas e o formulário de entrevista.
+ *
+ *  A saída errada seria `maximum-scale=1` ou `user-scalable=no` na etiqueta
+ *  viewport: isso tira o zoom de PINÇA de todo mundo, inclusive de quem
+ *  precisa dele para enxergar, e o iOS ignora essas duas desde a versão 10 —
+ *  daria trabalho, tiraria acessibilidade e não resolveria.
+ *
+ *  Vale para aparelho de toque de qualquer largura (o iPad retrato tem 768px,
+ *  acima do corte de celular do sistema) OU para janela estreita, caso o
+ *  navegador seja antigo demais para entender `pointer`. Em computador com
+ *  mouse nada muda — as tabelas continuam com as larguras de hoje.
+ * ============================================================ */
+@media (hover: none) and (pointer: coarse), (max-width: 760px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]),
+  select,
+  textarea {
+    /* `!important` porque isto não é um tamanho padrão, e sim um PISO: nenhuma
+       regra do projeto pode empurrar um campo para baixo de 16px no celular,
+       nem uma classe escrita depois. Sem ele, `.viz-select { font-size: 14px }`
+       do dashboard.css ganharia de `select` por ser classe contra elemento — e
+       os filtros de período e o "Ordenar por" continuariam dando zoom, que foi
+       exatamente o que a medição no iPhone mostrou. */
+    font-size: 16px !important;
+  }
+}
