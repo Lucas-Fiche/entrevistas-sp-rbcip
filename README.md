@@ -82,6 +82,8 @@ Feito com **HTML + CSS + JavaScript puro** (sem framework, sem etapa de build) e
 │   ├── avisos-financeiro.sql # Registro de cada aviso enviado ao financeiro
 │   ├── antecedentes.sql  # Data de envio dos antecedentes criminais (admin e financeiro)
 │   ├── editar-contato.sql# Corrigir nome/telefone/e-mail na Formação sem o CSV desfazer
+│   ├── conferir-importacao.sql  # Mostra o que a última importação fez (só leitura)
+│   ├── desfazer-importacao.sql  # Desfaz uma importação enviada na aba errada
 │   ├── historico.sql     # Registro de toda alteração em formacao/candidatos (gatilho)
 │   ├── remover-data-entrada.sql # Remove a "data de entrada no projeto" (com backup)
 │   ├── ordem.sql         # Coluna que guarda a ordem original das linhas do CSV

@@ -564,6 +564,45 @@ já está preenchido na ficha. Convocações registradas pelo sistema, resultado
 casados e correções manuais sobrevivem à reimportação; o mesmo vale para nome,
 e-mail, CPF e região quando o arquivo vier sem eles.
 
+### Enviei o CSV na aba errada — como voltar
+
+Acontece, e tem conserto. O arquivo de inscrições enviado na aba *Formação*
+cria uma ficha de bolsista para cada linha (dezenas de pessoas que nem foram
+entrevistadas), e, nas poucas fichas cujo CPF também está no arquivo, escreve
+por cima de alguns campos.
+
+São dois arquivos, nesta ordem:
+
+1. **`sql/conferir-importacao.sql`** — só leitura, não muda nada. Mostra as
+   últimas importações, quantas fichas a última criou e quais campos ela
+   sobrescreveu. Confira que o nome do arquivo e a hora são mesmo os da
+   importação errada.
+2. **`sql/desfazer-importacao.sql`** — desfaz. Antes de rodar, abra o arquivo e
+   veja a linha `v_alvo` no começo: ela precisa ter o **nome exato do arquivo**
+   que você quer desfazer, copiado da linha *Última importação* do painel.
+
+O que ele faz: copia tudo o que vai tocar para tabelas de backup, confere o que
+encontrou contra o que o registro da importação diz (e **para sem mexer em
+nada** se não bater), devolve ao valor de antes os campos sobrescritos — lendo
+do histórico —, apaga as fichas que a importação criou e tira a linha da
+importação errada do painel.
+
+Duas coisas que ele **não** desfaz: a ordem das linhas (`ordem`) e a cópia da
+linha do CSV (`origem`). As duas ficam fora do histórico de propósito, por
+serem controle e não dado da pessoa. Para acertá-las, reimporte depois o CSV
+certo de formação — ele reescreve as duas. Nada do funil (grupo, treinamento,
+cadastro, termo) depende delas.
+
+> **Por que ele exige o nome do arquivo em vez de desfazer "a última".** Porque
+> depois que ele roda, "a última" passa a ser a importação ANTERIOR — a certa.
+> Uma segunda execução por engano iria mirar nela e apagar as fichas boas
+> achando que estava consertando. Com o nome, a segunda execução recusa e
+> explica; sem ele, a única defesa seria a conferência de números, que é sorte,
+> não segurança.
+
+As cópias ficam em `backup_desfazer_formacao`, `backup_desfazer_historico` e
+`backup_desfazer_importacao`. Apague-as quando estiver tranquilo.
+
 ---
 
 ## 5. Cadastro numa região e entrevista na outra
