@@ -3295,17 +3295,43 @@
     return meta - ocupacaoDe(tipo, regiao).total;
   }
 
-  // Aprovados ainda não convocados para o cadastro: a fila da região.
+  // Aprovados desta região ainda não convocados para o cadastro. Usada tanto
+  // para a fila de reserva quanto para o "N na fila" do quadro de metas.
+  //
+  // `soDaRegiao`: aprovado, sem convocação, e ainda acompanhado por esta ficha.
+  function aprovadoPendente(c, tipo, regiao) {
+    if (c.tipo !== tipo || chaveMeta(tipo, c.regiao) !== chaveMeta(tipo, regiao)) return false;
+    if (jaConvocadoCadastro(c)) return false;
+    // Quem se inscreveu de novo na região certa é acompanhado por lá: a ficha
+    // antiga não é fila de ninguém.
+    if (fichaQueAssumiu(c)) return false;
+    return resultadoDoCandidato(c, casarEntrevista(c)).indexOf("SELECIONADO") === 0;
+  }
+
+  // Inscrição de um lado, entrevista do outro. Não é fila desta região: o
+  // próximo passo dessa pessoa não é ser convocada AQUI, é se inscrever no
+  // projeto certo — é o que a aba Candidatos oferece, com o botão "Solicitar
+  // inscrição em…". Deixá-la na fila punha um "✉ Convocar cadastro" ao lado do
+  // nome, e quem clicasse abriria a ficha de formação na região errada, com o
+  // supervisor e a planilha de controle errados. Além disso ela empurrava para
+  // baixo quem está mesmo esperando vaga aqui.
+  function entrevistaDeOutraRegiao(c) {
+    var ent = casarEntrevista(c);
+    return !!(ent && ent.tipo !== c.tipo);
+  }
+
   function reservaDe(tipo, regiao) {
-    var k = chaveMeta(tipo, regiao);
     return candidatos.filter(function (c) {
-      if (c.tipo !== tipo || chaveMeta(tipo, c.regiao) !== k) return false;
-      if (jaConvocadoCadastro(c)) return false;
-      // Quem se inscreveu de novo na região certa é acompanhado por lá: a
-      // ficha antiga não é fila de ninguém.
-      if (fichaQueAssumiu(c)) return false;
-      var res = resultadoDoCandidato(c, casarEntrevista(c));
-      return res.indexOf("SELECIONADO") === 0;
+      return aprovadoPendente(c, tipo, regiao) && !entrevistaDeOutraRegiao(c);
+    }).sort(function (a, b) { return notaDoCandidato(b) - notaDoCandidato(a); });
+  }
+
+  // Os que saíram da fila pela regra acima. Existem para APARECEREM: sumir da
+  // fila sem explicação faz o número mudar sozinho e some com gente que ainda
+  // precisa de uma ação.
+  function esperandoOutraInscricao(tipo, regiao) {
+    return candidatos.filter(function (c) {
+      return aprovadoPendente(c, tipo, regiao) && entrevistaDeOutraRegiao(c);
     }).sort(function (a, b) { return notaDoCandidato(b) - notaDoCandidato(a); });
   }
   function notaDoCandidato(c) {
@@ -3569,6 +3595,39 @@
     });
     tabela.appendChild(corpo);
     alvo.appendChild(lista.length ? tabela : el("p", { class: "vazio", text: "Ninguém na fila." }));
+
+    // Quem está aprovado nesta região mas fez a entrevista do outro lado. Fora
+    // da fila (não é aqui que se convoca), mas à vista: são pessoas que ainda
+    // dependem de uma ação, e some-las seria trocar um conflito por um
+    // esquecimento.
+    var fora = esperandoOutraInscricao(tipo, regiao);
+    if (fora.length) {
+      var nota = el("div", { class: "reserva-fora" });
+      nota.appendChild(el("p", {
+        class: "reserva-fora__tit",
+        text: fora.length === 1
+          ? "1 pessoa aprovada aqui não entra nesta fila:"
+          : fora.length + " pessoas aprovadas aqui não entram nesta fila:",
+      }));
+      var ul = el("ul", { class: "reserva-fora__lista" });
+      fora.forEach(function (c) {
+        var ent = casarEntrevista(c);
+        ul.appendChild(el("li", {
+          text: (c.nome || "(sem nome)") + " — entrevista " + emRegiao(ent.tipo) +
+            (c.pedido_regiao && c.pedido_regiao.em
+              ? ", inscrição já solicitada em " + c.pedido_regiao.em
+              : ", falta solicitar a inscrição"),
+        }));
+      });
+      nota.appendChild(ul);
+      nota.appendChild(el("p", {
+        class: "reserva-fora__exp",
+        text: "A entrevista foi feita no formulário de outro projeto. Convocar por aqui " +
+          "abriria a ficha de formação na região errada — o caminho é a pessoa se " +
+          "inscrever no projeto certo, pela aba Candidatos.",
+      }));
+      alvo.appendChild(nota);
+    }
     if (!podeConvocar && lista.length) {
       alvo.appendChild(el("p", {
         class: "metas__nota",

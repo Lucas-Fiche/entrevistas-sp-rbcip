@@ -2501,3 +2501,26 @@ input[type="date"].viz-data {
 .zona-risco__campo { max-width: 220px; }
 .zona-risco__acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .btn--perigo:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* Fila de reserva: quem ficou de fora por ter entrevista de outro projeto */
+.reserva-fora {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-left: 3px solid #c77700;
+  background: #fff8ec;
+  border-radius: 0 6px 6px 0;
+}
+.reserva-fora__tit {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cor-texto);
+}
+.reserva-fora__lista {
+  margin: 0 0 8px;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--cor-texto);
+}
+.reserva-fora__lista li { margin-bottom: 3px; }
+.reserva-fora__exp { margin: 0; font-size: 12px; color: var(--cor-texto-suave); line-height: 1.5; }

@@ -833,6 +833,23 @@ aprovados ainda não convocados, **do maior para o menor desempenho na
 entrevista**, cada um com o botão de convocar. Quando alguém é desligado, a
 vaga abre e o próximo nome já está na frente — sem garimpar a tabela.
 
+#### Quem fez a entrevista do outro lado não entra na fila
+
+Inscrição na Capital e entrevista marcada como Interior (ou o contrário): essa
+pessoa **não aparece na fila** da região da inscrição, e não conta no *N na
+fila*. O próximo passo dela não é ser convocada ali — é se inscrever no projeto
+certo, pelo botão **✉ Solicitar inscrição em…** da aba *Candidatos*.
+
+Deixá-la na fila punha um **✉ Convocar cadastro** ao lado do nome, e quem
+clicasse abriria a ficha de formação na região errada, com o supervisor e a
+planilha de controle errados — além de empurrar para baixo quem está mesmo
+esperando vaga ali.
+
+Ela **não some da tela**, porém: abaixo da fila, uma faixa lista quem ficou de
+fora, onde a entrevista foi feita e o que falta (solicitar a inscrição, ou a
+data em que já foi solicitada). Sumir sem explicação faria o número mudar
+sozinho e esconderia gente que ainda depende de uma ação.
+
 ---
 
 ## 7. Ordem das tabelas
