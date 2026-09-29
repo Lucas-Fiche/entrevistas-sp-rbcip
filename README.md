@@ -229,10 +229,11 @@ Ambos os formulários referem-se **apenas ao perfil Avaliador (Entrevistador)**.
 - **Desenho das abas:** *Candidatos*, *Formação*, *Termos de Bolsa* e
   *Visualização de dados* seguem a mesma sequência — **seletor de projeto** no
   topo (com a contagem de cada lado), resumo, ações, blocos de consulta e a
-  lista. Em *Candidatos* e *Formação*, o envio de CSV e os registros de
-  importação ficam recolhidos no fim, em *Importar planilha e registros*. Na
-  *Formação*, as ações são três: **🔄 Sincronizar planilhas**, o menu
-  **⬇ Baixar** e o menu **⚙ Mais**.
+  lista. Em *Candidatos*, o envio de CSV e os registros ficam recolhidos no
+  fim, em *Importar planilha e registros*. A *Formação* **não recebe arquivo**
+  (as fichas nascem ao convocar para o cadastro, e cadastro e termo chegam pela
+  sincronização): lá o bloco do fim é *Sincronização e registros*, e as ações
+  são três — **🔄 Sincronizar planilhas**, o menu **⬇ Baixar** e o **⚙ Mais**.
 - **Menu lateral (☰):** *Formulários*, *Gerenciar usuários* (só admin), *Meu
   perfil* e *Sair*. **Gerenciar usuários** lista as contas com perfil, último
   acesso e o histórico de mudanças de acesso, e permite trocar o perfil de

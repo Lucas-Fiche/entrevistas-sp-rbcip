@@ -1636,6 +1636,8 @@
     var s = $(id);
     if (!s) return;
     s.textContent = texto;
+    // Aviso que nasce escondido só aparece quando tem o que dizer.
+    s.classList.remove("oculto");
     var caixa = s.closest && s.closest("details");
     if (caixa) caixa.setAttribute("open", "open");
   }
@@ -3179,7 +3181,6 @@
   // Quem está sendo listado: "projeto" (ativos + aguardando termo) ou
   // "desligados". Desligar não apaga ninguém — muda de lista.
   var formVer = "projeto";
-  var formMsg = "";
   var formBusca = "";
 
   // Filtro ligado por um cartão do resumo ("" = nenhum). Cada número do topo
@@ -3206,105 +3207,11 @@
 
   function formTabela() { return cfg.FORMACAO_TABELA || "formacao"; }
 
-  // Converte uma linha do CSV de formação numa ficha de bolsista.
-  // Os dois formatos (Capital e Interior) são lidos pelo mesmo mapeamento:
-  // a Capital tem "Grupo" e um treinamento só; o Interior tem "Região" e dois.
-  function linhaParaFormacao(tipo, row, idx) {
-    var nome = pegaCol(row, ["Nome completo", "Nome"]);
-    var cpf = pegaCol(row, ["CPF"]);
-    var email = pegaCol(row, ["Email", "E-mail"]);
-    var emailN = normEmail(email);
-    var cpfD = soDigitos(cpf);
-    var chave = (cpfD.length === 11 ? cpfD : "") || emailN || normStr(nome);
-    if (!chave) return null;
-    return {
-      tipo: tipo,
-      chave: chave,
-      ordem: idx + 1,
-      nome: nome || null,
-      cpf: cpf || null,
-      telefone: pegaCol(row, ["Telefone", "Celular"]) || null,
-      email: email || null,
-      email_norm: emailN || null,
-      grupo: pegaCol(row, ["Grupo"]) || null,
-      regiao: pegaCol(row, COLS_REGIAO) || null,
-      supervisor: pegaCol(row, ["Supervisor"]) || null,
-      status: pegaCol(row, ["Status"]) || null,
-      cadastro_bolsista: pegaCol(row, ["Cadastro de Bolsista"]) || null,
-      // Um treinamento só: qualquer uma das colunas antigas cai no mesmo campo.
-      treinamento_online: null,
-      data_treinamento_online: null,
-      // Na Capital a coluna se chama "Treinamento Presencial/Online" (é o único).
-      treinamento_presencial: pegaCol(row, [
-        "Treinamento", "Treinamento Presencial", "Treinamento Presencial/Online", "Treinamento Online",
-      ]) || null,
-      data_treinamento_presencial: pegaCol(row, [
-        "Data do Treinamento", "Data do Treinamento Presencial", "Data do Treinamento Online",
-      ]) || null,
-      termo_bolsa: pegaCol(row, ["Termo de Bolsa"]) || null,
-      termo_link: pegaCol(row, ["Documento do Termo de Bolsa"]) || null,
-      origem: row,
-      updated_at: new Date().toISOString(),
-    };
-  }
-
-  function importarFormacaoCSV(tipo, text, arquivo) {
-    var parsed = parseCSV(text);
-    var agora = new Date().toISOString();
-    var jaExistem = {};
-    formacao.forEach(function (f) { if (f.tipo === tipo) jaExistem[f.chave] = true; });
-
-    // Campos que a pessoa preenche no painel: uma reimportação não pode
-    // desfazer o que foi definido aqui dentro.
-    var CAMPOS_MANUAIS = [
-      "grupo", "treinamento_online", "data_treinamento_online",
-      "treinamento_presencial", "data_treinamento_presencial",
-    ];
-    var porChave = {};
-    formacao.forEach(function (x) { if (x.tipo === tipo) porChave[x.chave] = x; });
-
-    var mapa = {};
-    var criadas = 0, atualizadas = 0;
-    parsed.rows.forEach(function (row, idx) {
-      var f = linhaParaFormacao(tipo, row, idx);
-      if (!f) return;
-      if (!mapa[f.chave]) { if (jaExistem[f.chave]) atualizadas++; else criadas++; }
-      f.importado_em = agora;
-      var ex = porChave[f.chave];
-      // Todas as linhas levam a mesma chave `editado` (as novas, vazia): o
-      // upsert em lote exige que todos os objetos tenham os mesmos campos.
-      f.editado = (ex && ex.editado) || {};
-      if (ex) {
-        CAMPOS_MANUAIS.forEach(function (campo) { if (ex[campo]) f[campo] = ex[campo]; });
-        // Identificação, termo e cadastro: arquivo sem a coluna (ou com ela
-        // vazia) não apaga o que existe. O "Realizado" do cadastro costuma vir
-        // da sincronização, que lê o formulário de verdade — um CSV antigo não
-        // pode desfazer isso em silêncio.
-        ["nome", "cpf", "telefone", "email", "email_norm", "regiao",
-          "termo_link", "termo_bolsa", "cadastro_bolsista"]
-          .forEach(function (campo) { if (!f[campo] && ex[campo]) f[campo] = ex[campo]; });
-        // O que foi corrigido à mão no painel PREVALECE sobre a planilha. Sem
-        // isto, quem consertou um telefone errado veria o erro voltar na
-        // importação seguinte — e sem nenhum aviso de que voltou.
-        Object.keys(f.editado).forEach(function (campo) {
-          if (!f.editado[campo] || campo === "chave") return;
-          f[campo] = ex[campo];
-          if (campo === "email") f.email_norm = ex.email_norm || normEmail(ex.email) || null;
-        });
-      }
-      mapa[f.chave] = f; // deduplica por CPF/e-mail/nome
-    });
-    var rows = Object.keys(mapa).map(function (k) { return mapa[k]; });
-    if (!rows.length) return Promise.reject(new Error("Nenhuma linha válida encontrada no CSV."));
-    return upsertResiliente(formTabela(), rows, ["importado_em", "ordem", "editado"])
-      .then(function () {
-        return registrarImportacao({
-          aba: "formacao", tipo: tipo, arquivo: arquivo,
-          linhas: rows.length, criadas: criadas, atualizadas: atualizadas,
-        });
-      })
-      .then(function () { return { total: rows.length, criadas: criadas, atualizadas: atualizadas }; });
-  }
+  // O CSV de formação foi embora: a aba não recebe mais arquivo, então
+  // `linhaParaFormacao` e `importarFormacaoCSV` não tinham mais de onde ser
+  // chamadas. Código morto que ainda sabe escrever na tabela é arma
+  // carregada na gaveta — se um dia for preciso migrar de novo, está no
+  // histórico do git.
 
   function carregarFormacao() {
     if (!client) return Promise.resolve();
@@ -4307,10 +4214,10 @@
         dica: "Com DDD. Fica guardado como (11) 99999-9999." },
       { id: "email", rot: "E-mail", teclado: "email",
         dica: "É para cá que vão as convocações. Trocar aqui não avisa ninguém." },
-      // Aviso comum aos três: o que é corrigido aqui passa a valer sobre o CSV.
-      { aviso: "O que você corrigir nos três campos acima passa a valer sobre a " +
-          "planilha: a próxima importação de CSV não desfaz a correção. Para voltar a " +
-          "seguir a planilha num deles, apague o campo e salve." },
+      // Aviso comum aos três.
+      { aviso: "Estes três campos vieram da inscrição ou da planilha de formação. " +
+          "Corrigir aqui vale para a Formação e para os Termos de Bolsa, e fica " +
+          "registrado no histórico da ficha." },
       chave,
     ];
     campos.push({ id: "cadastro_bolsista", rot: "Cadastro de bolsista", opcoes: OPCOES_TREINO });
@@ -4514,13 +4421,11 @@
         fecharModal();
         // Grupo, treinamento, antecedentes e termo aparecem nas duas abas.
         renderFichas();
-        // Gravou, mas sem a marca de "corrigido à mão": avisa AGORA, e não na
-        // próxima importação, quando a correção já teria sumido em silêncio.
-        if (ignorados.indexOf("editado") !== -1 && corrigidos.length) {
-          mostrarStatus("#form-status",
-            "Correção salva, mas ainda desprotegida: rode sql/editar-contato.sql no Supabase, " +
-            "senão a próxima importação de CSV traz de volta o valor antigo da planilha.");
-        }
+        // A marca em `editado` deixou de ter consumidor quando a aba Formação
+        // parou de receber arquivo: não há mais importação para desfazer a
+        // correção. A coluna continua sendo gravada porque registra que o
+        // valor foi posto à mão — mas a falta dela não põe nada em risco, e
+        // avisar sobre um perigo que não existe é ruído.
       });
     });
 
@@ -4864,38 +4769,92 @@
     var b = el("button", {
       class: "btn btn--perigo btn--pequeno", type: "button", text: "🗑 Remover ficha",
     });
-    b.addEventListener("click", function () {
-      var aviso = "Remover a ficha de " + (f.nome || "(sem nome)") +
-        (f.cpf ? " (" + formatarCPF(f.cpf) + ")" : "") + "?\n\n";
-      if (feitas.length) {
-        aviso += "ATENÇÃO — esta ficha tem etapa concluída:\n· " + feitas.join("\n· ") +
-          "\n\nIsso tudo é apagado junto. Se a pessoa esteve no projeto e saiu, " +
-          "o certo é DESLIGAR, não remover.\n\n";
-      }
-      aviso += "A ficha some da Formação e da aba Termos de Bolsa. Não dá para desfazer pelo painel.";
-      if (!confirm(aviso)) return;
-      // A segunda pergunta só para quem tem etapa feita: na ficha vazia ela
-      // seria só mais um clique entre a pessoa e o conserto de um engano.
-      if (feitas.length && !confirm("Confirma apagar " + (f.nome || "esta ficha") + " definitivamente?")) return;
-
-      b.disabled = true;
-      b.textContent = "Removendo…";
-      client.from(formTabela()).delete().eq("id", f.id).then(function (resp) {
-        if (resp && resp.error) {
-          b.disabled = false;
-          b.textContent = "🗑 Remover ficha";
-          alert(/row-level security|permission/i.test(resp.error.message || "")
-            ? "Sem permissão. Só administradores podem remover fichas."
-            : "Não foi possível remover: " + (resp.error.message || resp.error));
-          return;
-        }
-        fecharModal();
-        // Recarrega do banco em vez de tirar da lista em memória: assim a tela
-        // mostra o que o banco tem, e não o que o navegador acha que tem.
-        carregarFormacao();
-      });
-    });
+    b.addEventListener("click", function () { abrirConfirmacao(); });
     caixa.appendChild(b);
+
+    // Confirmação DENTRO da caixa, e não num `confirm()` do navegador: aqui dá
+    // para mostrar a lista do que se perde enquanto a pessoa decide, em vez de
+    // despejar tudo num alerta que se fecha com Enter sem ler.
+    function abrirConfirmacao() {
+      caixa.innerHTML = "";
+      caixa.classList.add("zona-risco--confirmando");
+      caixa.appendChild(el("p", {
+        class: "zona-risco__titulo",
+        text: "Remover " + (f.nome || "(sem nome)") + (f.cpf ? " · " + formatarCPF(f.cpf) : ""),
+      }));
+
+      if (feitas.length) {
+        caixa.appendChild(el("p", {
+          class: "zona-risco__texto",
+          text: "Esta ficha tem etapa concluída. Vai junto:",
+        }));
+        var ul = el("ul", { class: "zona-risco__lista" });
+        feitas.forEach(function (e) { ul.appendChild(el("li", { text: e })); });
+        caixa.appendChild(ul);
+        caixa.appendChild(el("p", {
+          class: "zona-risco__texto",
+          text: "Se a pessoa esteve no projeto e saiu, o certo é DESLIGAR — o desligamento " +
+            "guarda a passagem dela pelo projeto, a remoção apaga.",
+        }));
+      }
+
+      var msg = el("p", { class: "zona-risco__texto" });
+      var acoes = el("div", { class: "zona-risco__acoes" });
+      var confirmar = el("button", {
+        class: "btn btn--perigo btn--pequeno", type: "button", text: "Remover definitivamente",
+      });
+      var cancelar = el("button", {
+        class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar",
+      });
+      cancelar.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+
+      // A digitação só é exigida de quem tem algo a perder. Na ficha vazia —
+      // o caso de desfazer um engano, dezenas de vezes seguidas — ela seria
+      // atrito sem proteção nenhuma, e atrito que não protege ensina a digitar
+      // a palavra sem ler, o que enfraquece a trava justamente onde ela conta.
+      if (feitas.length) {
+        caixa.appendChild(el("label", {
+          class: "zona-risco__rot", for: "rm-conf",
+          text: "Para confirmar, digite REMOVER:",
+        }));
+        var campo = el("input", {
+          class: "edicao__entrada zona-risco__campo", type: "text", id: "rm-conf",
+          autocomplete: "off", placeholder: "REMOVER",
+        });
+        confirmar.disabled = true;
+        campo.addEventListener("input", function () {
+          confirmar.disabled = campo.value.trim().toUpperCase() !== "REMOVER";
+        });
+        caixa.appendChild(campo);
+        setTimeout(function () { campo.focus(); }, 0);
+      }
+
+      acoes.appendChild(confirmar);
+      acoes.appendChild(cancelar);
+      caixa.appendChild(acoes);
+      caixa.appendChild(msg);
+
+      confirmar.addEventListener("click", function () {
+        confirmar.disabled = true;
+        confirmar.textContent = "Removendo…";
+        client.from(formTabela()).delete().eq("id", f.id).then(function (resp) {
+          if (resp && resp.error) {
+            confirmar.disabled = false;
+            confirmar.textContent = "Remover definitivamente";
+            msg.className = "zona-risco__texto edicao__msg--erro";
+            msg.textContent = /row-level security|permission/i.test(resp.error.message || "")
+              ? "Sem permissão. Só administradores podem remover fichas."
+              : "Não foi possível remover: " + (resp.error.message || resp.error);
+            return;
+          }
+          fecharModal();
+          // Recarrega do banco em vez de tirar da lista em memória: assim a
+          // tela mostra o que o banco tem, e não o que o navegador acha.
+          carregarFormacao();
+        });
+      });
+    }
+
     return caixa;
   }
 
@@ -5624,35 +5583,65 @@
     var caixa = el("details", { class: "recolhe recolhe--imp" });
     // Recém-importado, o bloco fica aberto: o "✓ 45 linha(s) importada(s)" é a
     // resposta ao que a pessoa acabou de fazer e não pode nascer escondido.
-    if (aberto || (eForm ? formMsg : candMsg)) caixa.setAttribute("open", "open");
+    if (aberto || (!eForm && candMsg)) caixa.setAttribute("open", "open");
     var resumo = el("summary", { class: "recolhe__resumo" });
     var seta = el("span", { class: "recolhe__seta", "aria-hidden": "true" });
     seta.innerHTML = '<svg viewBox="0 0 16 16" focusable="false">' +
       '<path d="M6 3.5L10.5 8L6 12.5" fill="none" stroke="currentColor" ' +
       'stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     resumo.appendChild(seta);
-    resumo.appendChild(el("span", { class: "recolhe__titulo", text: "Importar planilha e registros" }));
+    resumo.appendChild(el("span", {
+      class: "recolhe__titulo",
+      text: eForm ? "Sincronização e registros" : "Importar planilha e registros",
+    }));
     resumo.appendChild(el("span", {
       class: "recolhe__nota",
-      text: eForm ? "envio de CSV, última importação e última sincronização"
+      text: eForm ? "última importação e última sincronização"
         : "envio de CSV e histórico de importações",
     }));
     caixa.appendChild(resumo);
 
     var tipoAtual = eForm ? formTipo : candTipo;
     var corpo = el("div", { class: "recolhe__corpo" });
+
+    // A aba Formação NÃO recebe mais arquivo.
+    //
+    // O envio de CSV era da migração inicial, quando as planilhas de controle
+    // precisavam entrar no sistema. Hoje a ficha nasce ao convocar alguém para
+    // o cadastro, e cadastro e termo chegam pela sincronização — não sobrou
+    // nenhum caminho em que importar aqui seja o certo.
+    //
+    // E sobrou um jeito de errar: o arquivo de inscrições enviado nesta aba
+    // criava uma ficha de bolsista para cada linha e escrevia por cima das
+    // fichas verdadeiras que coincidissem por CPF. Tirar o botão elimina isso
+    // de uma vez, em vez de remediar depois — a importação continua onde ela
+    // faz sentido, na aba Candidatos.
+    //
+    // O que FICA aqui: o registro das importações antigas (é histórico, não se
+    // apaga) e a última sincronização.
+    if (eForm) {
+      corpo.appendChild(el("p", {
+        class: "imp-info__nota",
+        text: "A Formação não recebe arquivo: as fichas nascem ao convocar alguém para o " +
+          "cadastro de bolsista, e cadastro e termo chegam pela sincronização. " +
+          "Importar planilha é só na aba Candidatos.",
+      }));
+      corpo.appendChild(blocoUltimaImportacao(aba, tipoAtual));
+      corpo.appendChild(blocoUltimaSincronizacao());
+      caixa.appendChild(corpo);
+      return caixa;
+    }
+
     var barra = el("div", { class: "cand-importar" });
-    barra.appendChild(el("span", {
-      class: "cand-imp-rot", text: eForm ? "Importar formação:" : "Importar inscrições:",
-    }));
-    var selTipo = el("select", { class: "viz-select", id: eForm ? "form-imp-tipo" : "cand-imp-tipo" });
+    barra.appendChild(el("span", { class: "cand-imp-rot", text: "Importar inscrições:" }));
+    var selTipo = el("select", { class: "viz-select", id: "cand-imp-tipo" });
     selTipo.appendChild(el("option", { value: "capital", text: "Capital" }));
     selTipo.appendChild(el("option", { value: "interior", text: "Interior" }));
     selTipo.value = tipoAtual;
     var file = el("input", { type: "file", accept: ".csv,text/csv", class: "cand-file" });
     var btn = el("button", { class: "btn btn--pequeno", type: "button", text: "Enviar CSV" });
-    var idStatus = eForm ? "form-status" : "cand-status";
-    var status = el("span", { class: "cand-status", id: idStatus, text: eForm ? formMsg : candMsg });
+    var idStatus = "cand-status";
+    var status = el("span", { class: "cand-status", id: idStatus, text: candMsg });
     btn.addEventListener("click", function () {
       var f = file.files && file.files[0];
       if (!f) { status.textContent = "Escolha um arquivo CSV primeiro."; return; }
@@ -5660,14 +5649,11 @@
       btn.disabled = true; status.textContent = "Lendo arquivo…";
       var reader = new FileReader();
       reader.onload = function () {
-        var envio = eForm
-          ? importarFormacaoCSV(tipo, String(reader.result), f.name)
-          : importarCSV(tipo, String(reader.result), f.name);
-        envio.then(function (r) {
-          var msg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
+        importarCSV(tipo, String(reader.result), f.name).then(function (r) {
+          candMsg = "✓ " + r.total + " linha(s) importada(s) (" + tipo + "): " +
             r.criadas + " nova(s), " + r.atualizadas + " atualizada(s).";
-          if (eForm) { formMsg = msg; formTipo = tipo; carregarFormacao(); }
-          else { candMsg = msg; candTipo = tipo; carregarCandidatos(); }
+          candTipo = tipo;
+          carregarCandidatos();
         }).catch(function (e) {
           btn.disabled = false;
           mostrarStatus("#" + idStatus, "Erro ao importar: " + (e.message || e));
@@ -5682,7 +5668,6 @@
     barra.appendChild(status);
     corpo.appendChild(barra);
     corpo.appendChild(blocoUltimaImportacao(aba, tipoAtual));
-    if (eForm) corpo.appendChild(blocoUltimaSincronizacao());
     caixa.appendChild(corpo);
     return caixa;
   }
@@ -5700,6 +5685,12 @@
       badge.textContent = String(formacao.filter(function (f) { return !f.desligado_em; }).length);
     }
 
+    // Lugar fixo dos avisos da aba (falha ao carregar, SQL pendente, erro ao
+    // abrir ficha). Antes ele morava dentro da barra de importação; com a barra
+    // fora, sem isto as três mensagens sumiriam em silêncio — que é o pior
+    // jeito de uma mensagem de erro falhar.
+    painel.appendChild(el("p", { class: "painel__aviso oculto", id: "form-status" }));
+
     // Conta quem está no projeto, igual à aba Termos de Bolsa. Com o total
     // cheio aqui e os cards logo abaixo sem os desligados, os dois números
     // brigariam na mesma tela.
@@ -5713,8 +5704,8 @@
     if (!doTipo.length) {
       painel.appendChild(el("p", {
         class: "cand-vazio",
-        text: "Nenhum bolsista importado ainda para " + nomeRegiao(formTipo) +
-          (ehAdmin() ? ". Envie o CSV de formação no bloco abaixo." : "."),
+        text: "Nenhuma ficha de bolsista em " + nomeRegiao(formTipo) + " ainda. " +
+          "As fichas nascem ao convocar alguém para o cadastro de bolsista, na aba Candidatos.",
       }));
       if (ehAdmin()) painel.appendChild(blocoImportar("formacao", true));
       return;
@@ -5837,10 +5828,12 @@
           acao: function () { completarPelaInscricao(btnMais.querySelector("button")); },
         });
       }
+      // "Importar planilha (CSV)" saiu junto com o envio de arquivo. O atalho
+      // continuaria abrindo um bloco que não recebe mais nada.
       maisItens.push(null);
       maisItens.push({
-        rotulo: "📥 Importar planilha (CSV)",
-        titulo: "Abre o bloco de importação no fim da página",
+        rotulo: "📋 Registros e sincronização",
+        titulo: "Abre o bloco de registros no fim da página",
         acao: function () {
           var d = painel.querySelector(".recolhe--imp");
           if (!d) return;
@@ -5848,7 +5841,7 @@
           d.scrollIntoView({ block: "center" });
         },
       });
-      var btnMais = menuSuspenso("⚙ Mais", "Supervisores, pendências e importação", maisItens);
+      var btnMais = menuSuspenso("⚙ Mais", "Supervisores, pendências e registros", maisItens);
       acoesForm.appendChild(btnMais);
     } else {
       acoesForm.appendChild(menuBaixar);

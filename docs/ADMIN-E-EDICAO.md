@@ -576,13 +576,23 @@ escolher errado custa caro:
 | **🗑 Remover** | a ficha **não deveria existir**: veio de um arquivo enviado na aba errada, ou está duplicada | a ficha some da Formação e dos Termos de Bolsa |
 
 Usar *remover* onde cabia *desligar* apaga o registro de alguém que trabalhou
-no projeto. Por isso o botão se comporta de dois jeitos:
+no projeto. Por isso a confirmação — que abre dentro da própria caixa, não num
+alerta do navegador — se comporta de dois jeitos:
 
-- **Ficha sem nenhuma etapa concluída** (o caso do arquivo errado) — o texto
-  diz isso, e sai com **uma** confirmação. Não há o que preservar.
-- **Ficha com etapa concluída** — a confirmação **lista o que vai junto**
-  (cadastro, treinamento com a data, antecedentes, termo, desligamento), lembra
-  que o certo seria desligar, e pede uma **segunda** confirmação.
+- **Ficha sem nenhuma etapa concluída** (o caso do arquivo enviado na aba
+  errada) — um clique em *Remover definitivamente* e pronto. Não há o que
+  preservar.
+- **Ficha com etapa concluída** — a caixa **lista o que vai junto** (cadastro,
+  treinamento com a data, antecedentes, termo, desligamento), lembra que o
+  certo seria desligar, e só libera o botão depois que você **digitar
+  REMOVER**.
+
+> **Por que só a ficha com etapa concluída pede a palavra.** O risco está
+> inteiro ali: é onde há o que perder. Na ficha vazia, exigir a digitação
+> dezenas de vezes seguidas seria atrito sem proteção nenhuma — e atrito que
+> não protege ensina a digitar a palavra sem ler, o que enfraquece a trava
+> justamente onde ela conta. (Maiúscula, minúscula e espaços sobrando são
+> aceitos: a trava é deliberação, não datilografia.)
 
 A remoção fica registrada no **histórico** (seção 8) como evento *apagado*, com
 quem fez e quando — some da tela, não some do registro. Não depende de rodar
@@ -598,6 +608,13 @@ Acontece, e tem conserto. O arquivo de inscrições enviado na aba *Formação*
 cria uma ficha de bolsista para cada linha (dezenas de pessoas que nem foram
 entrevistadas), e, nas poucas fichas cujo CPF também está no arquivo, escreve
 por cima de alguns campos.
+
+> **Isto não acontece mais na aba Formação.** Desde 29/09/2026 ela **não
+> recebe arquivo**: o envio de CSV era da migração inicial, e hoje a ficha
+> nasce ao convocar alguém para o cadastro, com cadastro e termo chegando pela
+> sincronização. Importar planilha é só na aba *Candidatos*. O texto abaixo
+> vale para a aba Candidatos e para quem precisar desfazer uma importação
+> antiga da Formação.
 
 **Para poucas fichas**, o caminho mais simples é o botão **🗑 Remover ficha**,
 uma a uma, pelo painel — sem SQL nenhum. Depois, reimporte o CSV certo de
@@ -969,15 +986,18 @@ nome e a contagem centralizados. No celular ficam duas por linha.
    - **⬇ Baixar**, um menu com a planilha inteira (CSV com desligados, Excel só
      com quem está no projeto) e, embaixo, uma linha por grupo/região;
    - **⚙ Mais**, com *Supervisores por grupo/região*, *🧩 Completar pela
-     inscrição (N)* e *📥 Importar planilha (CSV)*. O do meio só aparece quando
-     há o que fazer, e o número diz quanto.
+     inscrição (N)* e *📋 Registros e sincronização*. O do meio só aparece
+     quando há o que fazer, e o número diz quanto.
 4. **Metas e vagas**, fechado como antes.
 5. **Bolsistas — Capital/Interior**, com o recorte *No projeto / Desligados*, a
    busca e a tabela. Esse recorte é um **interruptor de duas posições**: as duas
    metades dividem um trilho só, e quando a posição escolhida é *Desligados* o
    botão fica **vermelho** — dá para ver de longe que a lista na tela não é a de
    quem está trabalhando.
-6. **Importar planilha e registros**, recolhido no fim.
+6. **Sincronização e registros**, recolhido no fim. A Formação **não recebe
+   arquivo**: as fichas nascem ao convocar alguém para o cadastro, e cadastro e
+   termo chegam pela sincronização. O bloco guarda o registro das importações
+   antigas e a última sincronização.
 
 ### Aba Termos de Bolsa
 

@@ -2462,3 +2462,42 @@ input[type="date"].viz-data {
 .automacao { margin-top: 2px; }
 .automacao--ok { color: var(--cor-sucesso); }
 .automacao--off { color: #8a4b08; }
+
+/* Aviso fixo da aba (SQL pendente, falha ao carregar). Nasce escondido e só
+   aparece quando tem o que dizer — ver `mostrarStatus`. */
+.painel__aviso {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid #c77700;
+  background: #fff8ec;
+  border-radius: 0 6px 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cor-texto);
+}
+
+/* Confirmação de remoção, aberta dentro da própria caixa */
+.zona-risco--confirmando { display: block; border-color: #b3261e; background: #fdf3f2; }
+.zona-risco__titulo {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #8f1d17;
+}
+.zona-risco__lista {
+  margin: 6px 0 10px;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--cor-texto);
+}
+.zona-risco__lista li { margin-bottom: 3px; }
+.zona-risco__rot {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cor-texto);
+}
+.zona-risco__campo { max-width: 220px; }
+.zona-risco__acoes { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.btn--perigo:disabled { opacity: 0.45; cursor: not-allowed; }
