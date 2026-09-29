@@ -142,10 +142,23 @@ begin
   --  `if not exists` nas três: se este arquivo rodar uma segunda vez, a cópia
   --  boa (a da primeira vez, de antes do conserto) não pode ser substituída
   --  por uma cópia do estado já consertado.
+  --
+  --  RLS LIGADO E SEM NENHUMA POLÍTICA em todas elas. Estas tabelas guardam
+  --  CPF, telefone e e-mail de gente de verdade — a mesma coisa que a tabela
+  --  `formacao` protege. Com o RLS ligado e nenhuma política escrita, a regra
+  --  que vale é "ninguém": nem a chave `anon`, nem a `authenticated` enxergam
+  --  uma linha sequer. Só o SQL Editor, que roda como dono do banco e passa
+  --  por cima do RLS — que é justamente quem precisa ler isto.
+  --
+  --  Sem estas três linhas o Supabase abre um aviso ("This query creates
+  --  tables without enabling Row Level Security") e deixa a proteção na mão de
+  --  quem clica. Backup de dado pessoal não pode depender de qual botão a
+  --  pessoa apertou às pressas no meio de um conserto.
   -- ----------------------------------------------------------
   if to_regclass('public.backup_desfazer_formacao') is null then
     create table public.backup_desfazer_formacao as
       select f.*, v_em as desfeito_em from public.formacao f where f.importado_em = v_stamp;
+    alter table public.backup_desfazer_formacao enable row level security;
     raise notice 'Backup das fichas tocadas  → public.backup_desfazer_formacao';
   else
     raise notice 'Backup das fichas já existia (execução anterior) — mantido.';
@@ -154,6 +167,7 @@ begin
   if to_regclass('public.backup_desfazer_importacao') is null then
     create table public.backup_desfazer_importacao as
       select * from public.importacoes where id = v_imp.id;
+    alter table public.backup_desfazer_importacao enable row level security;
     raise notice 'Backup do registro         → public.backup_desfazer_importacao';
   end if;
 
@@ -178,6 +192,7 @@ begin
                           'treinamento_online', 'data_treinamento_online',
                           'termo_bolsa', 'termo_link', 'antecedentes_em')
     $f$, v_ini, v_fim, v_stamp);
+    alter table public.backup_desfazer_historico enable row level security;
     raise notice 'Backup das alterações      → public.backup_desfazer_historico';
   end if;
 
