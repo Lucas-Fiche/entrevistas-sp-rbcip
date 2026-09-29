@@ -564,6 +564,34 @@ já está preenchido na ficha. Convocações registradas pelo sistema, resultado
 casados e correções manuais sobrevivem à reimportação; o mesmo vale para nome,
 e-mail, CPF e região quando o arquivo vier sem eles.
 
+### Remover uma ficha da Formação
+
+No lápis da ficha, abaixo de **⛔ Desligar bolsista**, há **🗑 Remover ficha**
+(só administradores). Os dois botões existem porque são coisas diferentes, e
+escolher errado custa caro:
+
+| | Quando usar | O que acontece |
+|---|---|---|
+| **⛔ Desligar** | a pessoa **esteve** no projeto e saiu | a ficha fica no sistema, na lista de desligados, com data e motivo |
+| **🗑 Remover** | a ficha **não deveria existir**: veio de um arquivo enviado na aba errada, ou está duplicada | a ficha some da Formação e dos Termos de Bolsa |
+
+Usar *remover* onde cabia *desligar* apaga o registro de alguém que trabalhou
+no projeto. Por isso o botão se comporta de dois jeitos:
+
+- **Ficha sem nenhuma etapa concluída** (o caso do arquivo errado) — o texto
+  diz isso, e sai com **uma** confirmação. Não há o que preservar.
+- **Ficha com etapa concluída** — a confirmação **lista o que vai junto**
+  (cadastro, treinamento com a data, antecedentes, termo, desligamento), lembra
+  que o certo seria desligar, e pede uma **segunda** confirmação.
+
+A remoção fica registrada no **histórico** (seção 8) como evento *apagado*, com
+quem fez e quando — some da tela, não some do registro. Não depende de rodar
+SQL nenhum: a permissão de apagar já existe desde o `sql/admin.sql`.
+
+> Para achar as fichas que entraram por engano, clique no cartão **Cadastro
+> pendente** no topo da aba *Formação*: quem veio de um arquivo da aba errada
+> não tem cadastro, nem grupo, nem treinamento, e aparece todo junto ali.
+
 ### Enviei o CSV na aba errada — como voltar
 
 Acontece, e tem conserto. O arquivo de inscrições enviado na aba *Formação*
@@ -571,7 +599,13 @@ cria uma ficha de bolsista para cada linha (dezenas de pessoas que nem foram
 entrevistadas), e, nas poucas fichas cujo CPF também está no arquivo, escreve
 por cima de alguns campos.
 
-São dois arquivos, nesta ordem:
+**Para poucas fichas**, o caminho mais simples é o botão **🗑 Remover ficha**,
+uma a uma, pelo painel — sem SQL nenhum. Depois, reimporte o CSV certo de
+formação: ele devolve telefone, supervisor, status, ordem e origem das fichas
+que a importação tinha sobrescrito.
+
+**Para uma importação grande**, há dois arquivos que fazem tudo de uma vez,
+nesta ordem:
 
 1. **`sql/conferir-importacao.sql`** — só leitura, não muda nada. Mostra as
    últimas importações, quantas fichas a última criou e quais campos ela

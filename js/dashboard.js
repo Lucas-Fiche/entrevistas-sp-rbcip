@@ -4528,6 +4528,7 @@
     // Desligar é ação de administrador: o supervisor nem vê a zona de risco.
     if (ehAdmin()) {
       alvo.appendChild(blocoDesligamento(f));
+      alvo.appendChild(blocoRemocao(f));
       alvo.appendChild(blocoHistoricoDaFicha(f));
     }
     mostrar($("#modal"), true);
@@ -4818,6 +4819,83 @@
       salvarDesligamento(f, { desligado_em: null, desligado_motivo: null }, bRev);
     });
     caixa.appendChild(bRev);
+    return caixa;
+  }
+
+  // ---------- Remover a ficha de vez (só admin) ----------
+  //
+  // DESLIGAR e REMOVER não são a mesma coisa, e a diferença é o que decide
+  // qual botão usar:
+  //
+  //   · Desligar — a pessoa ESTEVE no projeto e saiu. A ficha continua no
+  //     sistema, na lista de desligados, com a data e o motivo. É história, e
+  //     história não se apaga.
+  //   · Remover  — a ficha NÃO DEVERIA EXISTIR: veio de um CSV enviado na aba
+  //     errada, ou é uma duplicata. Não há o que preservar, porque nunca houve
+  //     participação nenhuma.
+  //
+  // Usar "remover" onde cabia "desligar" apaga o registro de alguém que
+  // trabalhou no projeto. Por isso a ficha que TEM etapa concluída avisa, uma
+  // a uma, o que vai junto — e a que está vazia (o caso da importação errada)
+  // sai com uma confirmação só, porque não há nada a perder.
+  function etapasFeitasDa(f) {
+    var feitas = [];
+    if (ehRealizado(f.cadastro_bolsista)) feitas.push("cadastro de bolsista");
+    if (fezTreinamento(f)) feitas.push("treinamento" + (dataTreinamentoDe(f) ? " (" + dataTreinamentoDe(f) + ")" : ""));
+    if (f.antecedentes_em) feitas.push("antecedentes criminais (" + f.antecedentes_em + ")");
+    if (f.termo_link) feitas.push("termo de bolsa emitido");
+    if (f.desligado_em) feitas.push("desligamento em " + f.desligado_em);
+    return feitas;
+  }
+
+  function blocoRemocao(f) {
+    var caixa = el("div", { class: "zona-risco zona-risco--remover" });
+    var feitas = etapasFeitasDa(f);
+    caixa.appendChild(el("p", {
+      class: "zona-risco__texto",
+      text: feitas.length
+        ? "Apagar a ficha do sistema. Use só quando ela não deveria existir — " +
+          "veio de um arquivo enviado na aba errada, ou está duplicada. Quem " +
+          "esteve no projeto e saiu se DESLIGA, não se remove."
+        : "Ficha sem nenhuma etapa concluída. Se ela entrou por engano (arquivo " +
+          "enviado na aba errada, duplicata), pode apagar sem perder nada.",
+    }));
+
+    var b = el("button", {
+      class: "btn btn--perigo btn--pequeno", type: "button", text: "🗑 Remover ficha",
+    });
+    b.addEventListener("click", function () {
+      var aviso = "Remover a ficha de " + (f.nome || "(sem nome)") +
+        (f.cpf ? " (" + formatarCPF(f.cpf) + ")" : "") + "?\n\n";
+      if (feitas.length) {
+        aviso += "ATENÇÃO — esta ficha tem etapa concluída:\n· " + feitas.join("\n· ") +
+          "\n\nIsso tudo é apagado junto. Se a pessoa esteve no projeto e saiu, " +
+          "o certo é DESLIGAR, não remover.\n\n";
+      }
+      aviso += "A ficha some da Formação e da aba Termos de Bolsa. Não dá para desfazer pelo painel.";
+      if (!confirm(aviso)) return;
+      // A segunda pergunta só para quem tem etapa feita: na ficha vazia ela
+      // seria só mais um clique entre a pessoa e o conserto de um engano.
+      if (feitas.length && !confirm("Confirma apagar " + (f.nome || "esta ficha") + " definitivamente?")) return;
+
+      b.disabled = true;
+      b.textContent = "Removendo…";
+      client.from(formTabela()).delete().eq("id", f.id).then(function (resp) {
+        if (resp && resp.error) {
+          b.disabled = false;
+          b.textContent = "🗑 Remover ficha";
+          alert(/row-level security|permission/i.test(resp.error.message || "")
+            ? "Sem permissão. Só administradores podem remover fichas."
+            : "Não foi possível remover: " + (resp.error.message || resp.error));
+          return;
+        }
+        fecharModal();
+        // Recarrega do banco em vez de tirar da lista em memória: assim a tela
+        // mostra o que o banco tem, e não o que o navegador acha que tem.
+        carregarFormacao();
+      });
+    });
+    caixa.appendChild(b);
     return caixa;
   }
 

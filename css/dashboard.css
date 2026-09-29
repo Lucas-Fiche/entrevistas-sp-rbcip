@@ -1856,6 +1856,15 @@ input[type="date"].viz-data {
   gap: 10px;
 }
 .zona-risco--desligado { border-color: var(--cor-borda); background: #f5f7f8; }
+/* Remover é mais grave que desligar: a caixa vem logo abaixo, mais discreta no
+   fundo mas com a borda em vermelho cheio — para não competir com o botão de
+   desligar, que é o certo na maioria das vezes, e ainda assim não passar por
+   uma opção qualquer. */
+.zona-risco--remover {
+  margin-top: 10px;
+  border-color: #e4b4af;
+  background: #fff;
+}
 .zona-risco__texto { margin: 0; flex: 1 1 240px; font-size: 13px; color: var(--cor-texto-suave); }
 
 /* Progresso em relação à meta: nome e números em cima, barra embaixo — cabe o
