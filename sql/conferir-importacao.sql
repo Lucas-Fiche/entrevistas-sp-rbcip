@@ -84,6 +84,35 @@ where f.importado_em = (select max(importado_em) from public.formacao)
 order by f.nome;
 
 -- ------------------------------------------------------------
+--  0) De onde vem cada ficha da Formação
+--
+--  Este bloco existe porque a conta "devia sobrar o tanto que a importação
+--  certa trouxe" está ERRADA, e é fácil cair nela. O registro de importações
+--  só conta ficha que nasceu de CSV — mas ficha também nasce de CONVOCAÇÃO:
+--  quando você chama alguém para o Cadastro de Bolsista pela aba Candidatos, o
+--  sistema abre a ficha na hora, sem importação nenhuma. Essas ficam com
+--  `importado_em` vazio e não aparecem em registro de importação algum.
+--
+--  Então a conta certa depois de desfazer não é "sobrou o número do CSV", e
+--  sim:   total de antes  −  fichas que a importação errada criou.
+--
+--  O arquivo de desfazer não toca em nada fora do carimbo da importação: quem
+--  nasceu de convocação passa longe.
+-- ------------------------------------------------------------
+select
+  case
+    when importado_em is null then 'nasceu de convocação (sem importação)'
+    else 'veio de alguma importação de CSV'
+  end                                                                    as "de onde veio",
+  tipo                                                                   as "projeto",
+  count(*)                                                               as "fichas",
+  count(*) filter (where termo_link is not null and desligado_em is null) as "ativos",
+  count(*) filter (where desligado_em is not null)                       as "desligados"
+from public.formacao
+group by 1, 2
+order by 2, 1;
+
+-- ------------------------------------------------------------
 --  4) O que ela MUDOU em fichas que já existiam
 --
 --  Cada linha é um campo que foi por cima de um valor que havia antes. É
