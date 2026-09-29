@@ -39,6 +39,15 @@
 --       hora). Se não for, PARE: este arquivo desfaz a última, e desfazer a
 --       importação certa seria trocar um problema por outro.
 --    2. Cole este arquivo no SQL Editor do Supabase e clique em Run.
+--
+--       SE APARECER o aviso "This query creates tables without enabling Row
+--       Level Security", escolha **"Run without RLS"** (o botão amarelo).
+--       Parece a opção insegura, e não é: este arquivo LIGA o RLS nas três
+--       tabelas de backup por conta própria, logo depois de criar cada uma —
+--       procure por `enable row level security` mais abaixo. O botão verde faz
+--       o editor REESCREVER o comando para enfiar o RLS por fora, e a
+--       reescrita quebra o bloco no meio ("syntax error at or near if"). Ou
+--       seja: o amarelo roda e protege; o verde não chega a rodar.
 --    3. Leia a aba "Messages": ele diz quantas fichas apagou e quantos campos
 --       devolveu.
 --    4. Recarregue o painel (Ctrl+F5) e confira os números.
@@ -174,24 +183,29 @@ begin
   -- As alterações a desfazer, congeladas numa tabela: o próprio conserto grava
   -- histórico novo, e sem congelar a lista o laço passaria a ler o que ele
   -- mesmo acabou de escrever.
+  --
+  -- `create table ... as select` direto, com as variáveis no meio: dentro de
+  -- PL/pgSQL isso funciona sem `execute`. A primeira versão montava o comando
+  -- com `execute format`, e a aspa-cifrão aninhada que isso exigia fazia o
+  -- editor do Supabase picar o arquivo no lugar errado e reclamar de
+  -- "syntax error at or near if". Nenhuma aspa-cifrão aninhada aqui, nem
+  -- sequer escrita por extenso num comentário, para não repetir a dose.
   if v_tem_hist and to_regclass('public.backup_desfazer_historico') is null then
-    execute format($f$
-      create table public.backup_desfazer_historico as
-        select h.*
-        from public.historico h
-        where h.tabela = 'formacao'
-          and h.evento = 'alterado'
-          and h.em between %L and %L
-          and h.registro_id in (select id from public.formacao where importado_em = %L)
-          -- Campos que o painel de fato usa. `ordem` e `origem` nem chegam ao
-          -- histórico; os demais ficam de fora porque restaurá-los às cegas
-          -- poderia desfazer uma correção feita à mão DEPOIS da importação.
-          and h.campo in ('nome', 'cpf', 'telefone', 'email', 'supervisor', 'status',
-                          'grupo', 'regiao', 'cadastro_bolsista',
-                          'treinamento_presencial', 'data_treinamento_presencial',
-                          'treinamento_online', 'data_treinamento_online',
-                          'termo_bolsa', 'termo_link', 'antecedentes_em')
-    $f$, v_ini, v_fim, v_stamp);
+    create table public.backup_desfazer_historico as
+      select h.*
+      from public.historico h
+      where h.tabela = 'formacao'
+        and h.evento = 'alterado'
+        and h.em between v_ini and v_fim
+        and h.registro_id in (select id from public.formacao where importado_em = v_stamp)
+        -- Campos que o painel de fato usa. `ordem` e `origem` nem chegam ao
+        -- histórico; os demais ficam de fora porque restaurá-los às cegas
+        -- poderia desfazer uma correção feita à mão DEPOIS da importação.
+        and h.campo in ('nome', 'cpf', 'telefone', 'email', 'supervisor', 'status',
+                        'grupo', 'regiao', 'cadastro_bolsista',
+                        'treinamento_presencial', 'data_treinamento_presencial',
+                        'treinamento_online', 'data_treinamento_online',
+                        'termo_bolsa', 'termo_link', 'antecedentes_em');
     alter table public.backup_desfazer_historico enable row level security;
     raise notice 'Backup das alterações      → public.backup_desfazer_historico';
   end if;
