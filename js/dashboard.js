@@ -377,7 +377,22 @@
   // Existe coluna de ação nesta aba? (Ela pode existir com linhas sem botão:
   // o supervisor vê o botão só em quem está sem grupo.)
   function temColunaDeGrupo(tipo) {
-    return ehAdmin() || (ehSupervisor() && tipo === "capital");
+    return ehAdmin() || ehFinanceiro() || (ehSupervisor() && tipo === "capital");
+  }
+
+  // Desligar é do administrador E do financeiro (o RH é quem sabe primeiro de
+  // desistência e abandono, e bolsista desligado continua ocupando vaga até
+  // alguém registrar). A regra que vale está na função `desligar_bolsista` do
+  // banco; aqui é só a tela.
+  function podeDesligar() { return ehAdmin() || ehFinanceiro(); }
+
+  // ... mas o financeiro não desfaz nem reescreve o que a coordenação decidiu.
+  // Corrigir o próprio engano, sim. Mesma regra do banco.
+  function podeMexerNesteDesligamento(f) {
+    if (ehAdmin()) return true;
+    if (!ehFinanceiro()) return false;
+    if (!f || !f.desligado_em) return true;
+    return (f.desligado_origem || "admin") === "financeiro";
   }
 
   function nomeDoPerfil() {
@@ -3995,7 +4010,10 @@
     cabecalho.push("Treinamento", "Data do Treinamento");
     cabecalho.push("Antecedentes Criminais");
     cabecalho.push("Termo de Bolsa", "Documento do Termo de Bolsa",
-      "Facilitador", "Desligado em", "Motivo do desligamento");
+      "Facilitador", "Desligado em", "Motivo do desligamento",
+      // A assinatura vai junto: conferência fora do painel é o motivo de ela
+      // existir, e planilha sem ela obrigaria a voltar ao sistema para saber.
+      "Desligado por", "Origem do desligamento");
 
     var aoa = [cabecalho];
     lista.forEach(function (f) {
@@ -4009,7 +4027,10 @@
       linha.push(treinamentoDe(f), dataTreinamentoDe(f));
       linha.push(f.antecedentes_em || "");
       linha.push(f.termo_link ? "Emitido" : (f.termo_bolsa || "Não Emitido"), f.termo_link || "",
-        f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "");
+        f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "",
+        f.desligado_por || "",
+        f.desligado_origem === "financeiro" ? "RH"
+          : f.desligado_origem === "admin" ? "Coordenação" : "");
       aoa.push(linha);
     });
     return aoa;
@@ -4642,6 +4663,7 @@
     // alterações antigas, e sem isto elas apareceriam como "data_entrada" cru.
     data_entrada: "Entrada no projeto (campo removido)",
     desligado_em: "Desligado em", desligado_motivo: "Motivo do desligamento",
+    desligado_por: "Desligado por", desligado_origem: "Origem do desligamento",
     candidato_id: "Vínculo com a inscrição",
   };
 
@@ -4770,8 +4792,19 @@
     caixa.classList.add("zona-risco--desligado");
     caixa.appendChild(el("p", {
       class: "zona-risco__texto",
-      text: "Desligado em " + f.desligado_em + (f.desligado_motivo ? " — " + f.desligado_motivo : "") + ".",
+      text: "Desligado em " + f.desligado_em + (f.desligado_motivo ? " — " + f.desligado_motivo : "") +
+        " · " + assinaturaDoDesligamento(f) + ".",
     }));
+    // O financeiro corrige o que ele mesmo registrou; o que veio da
+    // coordenação é da coordenação. A mesma regra está na função do banco —
+    // aqui é só não oferecer o botão que de qualquer jeito seria recusado.
+    if (!podeMexerNesteDesligamento(f)) {
+      caixa.appendChild(el("p", {
+        class: "zona-risco__texto",
+        text: "Este desligamento foi feito pela coordenação. Para alterá-lo, fale com o administrador.",
+      }));
+      return caixa;
+    }
     var bEd = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Corrigir desligamento" });
     bEd.addEventListener("click", function () { abrirDesligamento(f); });
     caixa.appendChild(bEd);
@@ -4784,6 +4817,17 @@
     });
     caixa.appendChild(bRev);
     return caixa;
+  }
+
+  // Quem assinou o desligamento, em uma linha. Ficha desligada antes de a
+  // assinatura existir mostra que não se sabe, em vez de atribuir a alguém.
+  function assinaturaDoDesligamento(f) {
+    if (!f || !f.desligado_em) return "";
+    var quem = String(f.desligado_por || "").trim();
+    var origem = f.desligado_origem === "financeiro" ? "pelo RH"
+      : f.desligado_origem === "admin" ? "pela coordenação" : "";
+    if (!quem && !origem) return "sem registro de quem fez (desligamento anterior a este controle)";
+    return ("registrado " + origem).trim() + (quem ? " · " + quem : "");
   }
 
   // ---------- Remover a ficha de vez (só admin) ----------
@@ -4865,7 +4909,7 @@
       var cancelar = el("button", {
         class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar",
       });
-      cancelar.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+      cancelar.addEventListener("click", function () { voltarParaFicha(f); });
 
       // A digitação só é exigida de quem tem algo a perder. Na ficha vazia —
       // o caso de desfazer um engano, dezenas de vezes seguidas — ela seria
@@ -4917,8 +4961,16 @@
     return caixa;
   }
 
+  // Cancelar volta para a ficha de quem pode abri-la. O financeiro não pode:
+  // para ele, `abrirEdicaoFormacao` sairia pela porta dos fundos e o modal
+  // ficaria congelado na tela anterior, como se o botão não funcionasse.
+  function voltarParaFicha(f) {
+    if (podeEditarGrupo(f)) abrirEdicaoFormacao(f);
+    else fecharModal();
+  }
+
   function abrirDesligamento(f) {
-    if (!ehAdmin()) return;
+    if (!podeDesligar() || !podeMexerNesteDesligamento(f)) return;
     var alvo = $("#modal-conteudo");
     alvo.innerHTML = "";
     alvo.appendChild(el("h2", { class: "modal__titulo", text: "Desligar — " + (f.nome || "(sem nome)") }));
@@ -4971,7 +5023,7 @@
     var msg = el("p", { class: "edicao__msg" });
     var salvar = el("button", { class: "btn btn--perigo btn--pequeno", type: "submit", text: "⛔ Confirmar desligamento" });
     var cancelar = el("button", { class: "btn btn--secundario btn--pequeno", type: "button", text: "Cancelar" });
-    cancelar.addEventListener("click", function () { abrirEdicaoFormacao(f); });
+    cancelar.addEventListener("click", function () { voltarParaFicha(f); });
     form.appendChild(el("div", { class: "edicao__acoes" }, [salvar, cancelar]));
     form.appendChild(msg);
 
@@ -5002,24 +5054,79 @@
     mostrar($("#modal"), true);
   }
 
+  // Toda gravação de desligamento passa pela função do banco: é ela que assina
+  // quem fez e de que lado veio. O admin usa a mesma porta — um caminho só,
+  // uma regra só, e assim todo desligamento tem assinatura, não só os do RH.
+  //
+  // Banco sem o SQL ainda rodado: o admin volta pelo caminho antigo (update
+  // direto), para não ficar sem desligar ninguém por causa de um SQL pendente.
+  // O financeiro não tem esse plano B — ele nunca teve permissão de update na
+  // tabela, e inventar uma agora seria abrir a ficha inteira para ele.
   function salvarDesligamento(f, patch, botao, msg) {
-    var envio = Object.assign({}, patch, { updated_at: new Date().toISOString() });
-    return client.from(formTabela()).update(envio).eq("id", f.id).then(function (resp) {
+    function erro(txt) {
       if (botao) botao.disabled = false;
-      if (resp.error) {
-        var txt = /row-level security|permission/i.test(resp.error.message || "")
-          ? "Sem permissão. Só administradores podem desligar."
-          : "Não foi possível salvar: " + (resp.error.message || resp.error);
-        if (msg) { msg.className = "edicao__msg edicao__msg--erro"; msg.textContent = txt; }
-        else alert(txt);
-        return;
-      }
+      if (msg) { msg.className = "edicao__msg edicao__msg--erro"; msg.textContent = txt; }
+      else alert(txt);
+    }
+    // `releer`: só depois de a função do banco gravar é que existe assinatura
+    // nova para buscar. No caminho de emergência (banco sem o SQL) não há o
+    // que reler — e reler ali apagaria, no meio do caminho, o aviso de qual
+    // arquivo falta: `carregarFormacao` é assíncrona e redesenha o painel
+    // inteiro quando volta, levando a mensagem junto.
+    function aplicar(releer) {
       Object.keys(patch).forEach(function (k) { f[k] = patch[k]; });
+      if (botao) botao.disabled = false;
       // Desligado sai da lista de quem está no projeto; revertido, volta para ela.
       formVer = patch.desligado_em ? "desligados" : "projeto";
       fecharModal();
       // Inclui a aba Termos de Bolsa: quem é desligado sai de lá também.
       renderFichas();
+      // Relê do banco para trazer a assinatura como ela ficou gravada, em vez
+      // de a tela adivinhar quem assinou.
+      if (releer) carregarFormacao();
+    }
+
+    return Promise.resolve(client.rpc("desligar_bolsista", {
+      p_id: f.id,
+      p_data: patch.desligado_em || null,
+      p_motivo: patch.desligado_motivo || null,
+    })).then(function (resp) {
+      if (!resp || !resp.error) { aplicar(true); return; }
+      var texto = String((resp.error.message || resp.error.hint || "") + (resp.error.code || ""));
+      var faltaFuncao = /desligar_bolsista|PGRST202|schema cache/i.test(texto);
+      if (faltaFuncao && ehAdmin()) {
+        // Plano B do admin: o caminho de antes, sem assinatura.
+        return client.from(formTabela())
+          .update(Object.assign({}, patch, { updated_at: new Date().toISOString() }))
+          .eq("id", f.id).then(function (r2) {
+            if (r2.error) {
+              erro("Não foi possível salvar: " + (r2.error.message || r2.error));
+              return;
+            }
+            aplicar(false);
+            mostrarStatus("#form-status",
+              "Desligamento salvo, mas SEM a assinatura de quem fez: rode " +
+              "sql/desligamento-financeiro.sql no Supabase para registrar isso e para " +
+              "liberar o botão ao financeiro.");
+          });
+      }
+      if (faltaFuncao) {
+        erro("A função desligar_bolsista ainda não existe no banco. Peça ao administrador " +
+          "para rodar sql/desligamento-financeiro.sql no SQL Editor do Supabase.");
+        return;
+      }
+      // A função do banco devolve o motivo já redigido ("não existe no
+      // calendário", "feito pela coordenação"): repetir a frase dela é melhor
+      // do que trocar por um texto genérico.
+      if (/Data inválida|no futuro|Ficha não encontrada|Sem permiss|pela coordenação/i.test(texto)) {
+        erro(resp.error.message || texto);
+        return;
+      }
+      erro(/row-level security|permission|42501/i.test(texto)
+        ? "Sem permissão: só o administrador e o financeiro desligam um bolsista."
+        : "Não foi possível salvar: " + (resp.error.message || resp.error));
+    }).catch(function (e) {
+      erro("Não foi possível salvar: " + (e.message || e));
     });
   }
 
@@ -6115,7 +6222,20 @@
       tr.appendChild(tdTermo);
 
       if (formVer === "desligados") {
-        tr.appendChild(el("td", { class: "tabela__td col-firme", "data-label": "Desligado em", text: f.desligado_em || "—" }));
+        var tdDesl = el("td", { class: "tabela__td col-firme", "data-label": "Desligado em" });
+        tdDesl.appendChild(el("span", { text: f.desligado_em || "—" }));
+        // Quem assinou, embaixo da data. É a conferência que o RH pediu: dá
+        // para varrer a coluna e ver de onde veio cada decisão.
+        if (f.desligado_origem) {
+          tdDesl.appendChild(el("span", {
+            class: "desl-origem desl-origem--" + f.desligado_origem,
+            title: f.desligado_por
+              ? "Registrado por " + f.desligado_por
+              : "Registrado pelo perfil " + f.desligado_origem,
+            text: f.desligado_origem === "financeiro" ? "Desligado pelo RH" : "pela coordenação",
+          }));
+        }
+        tr.appendChild(tdDesl);
         tr.appendChild(el("td", { class: "tabela__td", "data-label": "Motivo", text: f.desligado_motivo || "—" }));
       }
 
@@ -6124,7 +6244,29 @@
           class: "tabela__td cand-td-editar",
           "data-label": ehAdmin() ? "Editar" : "Ação",
         });
-        if (podeEditarGrupo(f)) {
+        // O financeiro não edita a ficha — ele desliga, e só. Por isso o botão
+        // é o da ação, e não o lápis: lápis promete uma tela de edição que ele
+        // não tem permissão de usar.
+        if (ehFinanceiro()) {
+          if (podeMexerNesteDesligamento(f)) {
+            var btnDesl = el("button", {
+              class: f.desligado_em ? "btn btn--secundario btn--pequeno" : "btn btn--perigo btn--pequeno",
+              type: "button",
+              text: f.desligado_em ? "Corrigir" : "⛔ Desligar",
+              title: f.desligado_em
+                ? "Corrigir o desligamento de " + (f.nome || "este bolsista")
+                : "Desligar " + (f.nome || "este bolsista"),
+            });
+            btnDesl.addEventListener("click", function () { abrirDesligamento(f); });
+            tdEd.appendChild(btnDesl);
+          } else {
+            tdEd.appendChild(el("span", {
+              class: "cand-pendente",
+              title: "Desligamento feito pela coordenação. Só o administrador pode alterá-lo.",
+              text: "—",
+            }));
+          }
+        } else if (podeEditarGrupo(f)) {
           // Só o lápis: a coluna inteira dizia "Editar" em cada linha e era o
           // que empurrava a tabela para fora da tela. O cabeçalho e o
           // aria-label continuam nomeando a ação.
