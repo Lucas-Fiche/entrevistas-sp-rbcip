@@ -4030,7 +4030,7 @@
         f.facilitador || "", f.desligado_em || "", f.desligado_motivo || "",
         f.desligado_por || "",
         f.desligado_origem === "financeiro" ? "RH"
-          : f.desligado_origem === "admin" ? "Coordenação" : "");
+          : f.desligado_origem === "admin" ? "Admin" : "");
       aoa.push(linha);
     });
     return aoa;
@@ -4801,7 +4801,7 @@
     if (!podeMexerNesteDesligamento(f)) {
       caixa.appendChild(el("p", {
         class: "zona-risco__texto",
-        text: "Este desligamento foi feito pela coordenação. Para alterá-lo, fale com o administrador.",
+        text: "Este desligamento foi feito pelo admin. Para alterá-lo, fale com o administrador.",
       }));
       return caixa;
     }
@@ -4825,7 +4825,7 @@
     if (!f || !f.desligado_em) return "";
     var quem = String(f.desligado_por || "").trim();
     var origem = f.desligado_origem === "financeiro" ? "pelo RH"
-      : f.desligado_origem === "admin" ? "pela coordenação" : "";
+      : f.desligado_origem === "admin" ? "pelo admin" : "";
     if (!quem && !origem) return "sem registro de quem fez (desligamento anterior a este controle)";
     return ("registrado " + origem).trim() + (quem ? " · " + quem : "");
   }
@@ -5116,9 +5116,9 @@
         return;
       }
       // A função do banco devolve o motivo já redigido ("não existe no
-      // calendário", "feito pela coordenação"): repetir a frase dela é melhor
+      // calendário", "feito pelo admin"): repetir a frase dela é melhor
       // do que trocar por um texto genérico.
-      if (/Data inválida|no futuro|Ficha não encontrada|Sem permiss|pela coordenação/i.test(texto)) {
+      if (/Data inválida|no futuro|Ficha não encontrada|Sem permiss|pel[ao] (coordenação|admin)/i.test(texto)) {
         erro(resp.error.message || texto);
         return;
       }
@@ -6232,7 +6232,7 @@
             title: f.desligado_por
               ? "Registrado por " + f.desligado_por
               : "Registrado pelo perfil " + f.desligado_origem,
-            text: f.desligado_origem === "financeiro" ? "Desligado pelo RH" : "pela coordenação",
+            text: f.desligado_origem === "financeiro" ? "Desligado pelo RH" : "pelo admin",
           }));
         }
         tr.appendChild(tdDesl);
@@ -6262,7 +6262,7 @@
           } else {
             tdEd.appendChild(el("span", {
               class: "cand-pendente",
-              title: "Desligamento feito pela coordenação. Só o administrador pode alterá-lo.",
+              title: "Desligamento feito pelo admin. Só o administrador pode alterá-lo.",
               text: "—",
             }));
           }

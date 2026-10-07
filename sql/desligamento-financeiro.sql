@@ -72,7 +72,7 @@ alter table public.formacao
 comment on column public.formacao.desligado_por is
   'E-mail de quem desligou. Preenchido pela função desligar_bolsista, a partir do token de quem chamou — nunca de um parâmetro.';
 comment on column public.formacao.desligado_origem is
-  'De que lado veio o desligamento: financeiro (RH) ou admin (coordenação). Gravado no momento da ação, para o rótulo não mudar se a pessoa trocar de perfil depois.';
+  'De que lado veio o desligamento: financeiro (RH) ou admin. Gravado no momento da ação, para o rótulo não mudar se a pessoa trocar de perfil depois.';
 
 -- ------------------------------------------------------------
 --  2) A função
@@ -120,7 +120,7 @@ begin
   if v_fin and not v_admin
      and v_atual.desligado_em is not null
      and coalesce(v_atual.desligado_origem, 'admin') <> 'financeiro' then
-    raise exception 'Este desligamento foi feito pela coordenação. Só o administrador pode alterá-lo.'
+    raise exception 'Este desligamento foi feito pelo admin. Só o administrador pode alterá-lo.'
       using errcode = '42501';
   end if;
 
@@ -173,7 +173,7 @@ $$;
 grant execute on function public.desligar_bolsista(uuid, text, text) to authenticated;
 
 comment on function public.desligar_bolsista(uuid, text, text) is
-  'Desliga (ou reverte o desligamento de) um bolsista, assinando quem fez e de que lado. Única porta dessas quatro colunas: admin e financeiro, e só nelas. O financeiro não altera desligamento feito pela coordenação.';
+  'Desliga (ou reverte o desligamento de) um bolsista, assinando quem fez e de que lado. Única porta dessas quatro colunas: admin e financeiro, e só nelas. O financeiro não altera desligamento feito pelo admin.';
 
 -- ------------------------------------------------------------
 --  3) Conferência

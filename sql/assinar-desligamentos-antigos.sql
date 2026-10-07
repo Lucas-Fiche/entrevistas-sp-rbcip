@@ -98,7 +98,7 @@ begin
 
   raise notice '----------------------------------------';
   raise notice 'Pronto. Recarregue o painel com Ctrl+F5: a lista de desligados';
-  raise notice 'passa a mostrar "pela coordenação" nesses, com o e-mail no';
+  raise notice 'passa a mostrar "pelo admin" nesses, com o e-mail no';
   raise notice 'passe-o-mouse.';
 end $$;
 

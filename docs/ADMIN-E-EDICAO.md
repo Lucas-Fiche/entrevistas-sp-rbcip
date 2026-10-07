@@ -174,14 +174,14 @@ financeiro. O fluxo é o mesmo do administrador: data, motivo da lista, e a
 pessoa passa para *Desligados*.
 
 **A marcação.** Na lista de desligados, embaixo da data, aparece **Desligado
-pelo RH** (ou *pela coordenação*, quando foi o administrador). Passando o mouse
+pelo RH** (ou *pelo admin*, quando foi o administrador). Passando o mouse
 você vê **a conta que fez** — é a conferência. O mesmo sai nas planilhas
 exportadas, nas colunas *Desligado por* e *Origem do desligamento*, e a ficha
 mostra a linha inteira: `Desligado em 01/10/2026 — Desistência · registrado
 pelo RH · joao@rbcip.org`.
 
-**O que o financeiro não faz:** alterar ou reverter um desligamento feito pela
-**coordenação**. Corrigir o próprio engano, sim. Desfazer a decisão de outro
+**O que o financeiro não faz:** alterar ou reverter um desligamento feito pelo
+**admin**. Corrigir o próprio engano, sim. Desfazer a decisão de outro
 setor não é dele, e o botão nem aparece nesses casos — a regra está na função
 do banco, não só na tela.
 
