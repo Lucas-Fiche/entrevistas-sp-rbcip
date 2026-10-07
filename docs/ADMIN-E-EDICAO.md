@@ -193,6 +193,16 @@ do banco, não só na tela.
 
 **Desligamentos antigos**, feitos antes deste arquivo, ficam **sem assinatura**
 — e a tela diz isso ("sem registro de quem fez"), em vez de atribuir a alguém.
+Para assiná-los de uma vez, rode **`sql/assinar-desligamentos-antigos.sql`**.
+
+Ele não atribui tudo à mesma pessoa no chute: onde o **histórico** registrou
+quem fez a alteração, é esse o e-mail que entra — o autor de verdade, mesmo que
+não seja você. Só o que é mais antigo que o próprio histórico recebe o e-mail
+declarado no começo do arquivo, e ele diz no fim quantos foram de cada tipo. A
+origem fica `admin` em todos, porque antes disto desligar era ação exclusiva do
+administrador: isso não é suposição, é como a permissão funcionava.
+
+Não toca em ficha que já tenha assinatura, e rodar duas vezes não faz nada.
 
 > O e-mail de quem assina sai do **token da sessão**, dentro da função do
 > banco, e nunca de um parâmetro: quem chama não escolhe de quem é a
